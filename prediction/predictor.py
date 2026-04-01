@@ -21,22 +21,6 @@ MODEL_REGISTRY = {
         "file": "balanced_random_forest_model.pkl",
         "class_path": ("models.balanced_random_forest", "BalancedRandomForestModel"),
     },
-    "xgboost": {
-        "file": "xgboost_model.pkl",
-        "class_path": ("models.xgboost_model", "XGBoostModel"),
-    },
-    "lightgbm": {
-        "file": "lightgbm_model.pkl",
-        "class_path": ("models.lightgbm_model", "LightGBMModel"),
-    },
-    "mlp": {
-        "file": "mlp_neural_network_model.pkl",
-        "class_path": ("models.mlp_model", "MLPModel"),
-    },
-    "kan": {
-        "file": "kan_model.pkl",
-        "class_path": ("models.kan_model", "KANModel"),
-    },
 }
 
 
