@@ -1,0 +1,30 @@
+{
+  "name": "heatwave-ai-backend-elysia",
+  "version": "1.0.50",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "bun run --watch src/index.ts"
+  },
+  "dependencies": {
+    "@elysiajs/cors": "^1.4.1",
+    "elysia": "latest"
+  },
+  "devDependencies": {
+    "bun-types": "latest"
+  },
+  "module": "src/index.js",
+  "description": "Fast backend service built with Elysia and Bun to retrieve prediction results from Heatwave AI.",
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MCTEEKUNG/Heatwave_Backend_Elysia.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/MCTEEKUNG/Heatwave_Backend_Elysia/issues"
+  },
+  "homepage": "https://github.com/MCTEEKUNG/Heatwave_Backend_Elysia#readme"
+}
