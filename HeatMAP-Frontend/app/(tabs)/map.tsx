@@ -7,6 +7,7 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { MapGrid, MOCK_GRID_DATA, generateThailandGrid, type GridCell } from '@/components/map';
 import useLocation from '@/hooks/useLocation';
 import { ScaledText } from '@/components/ui/ScaledText';
+import { useWeather } from '@/hooks/useWeather';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 
@@ -29,22 +30,37 @@ const findUserGridCell = (
   return null;
 };
 
-// Hourly forecast data
-const getHourlyForecast = (t: (key: any) => string) => [
-  { time: t('now'), icon: 'sunny', temp: 42 },
-  { time: '+2h', icon: 'sunny', temp: 40 },
-  { time: '+4h', icon: 'cloud', temp: 38 },
-  { time: '+6h', icon: 'partly_cloudy_day', temp: 35 },
-  { time: '+8h', icon: 'bedtime', temp: 32 },
-];
-
 export default function MapScreen() {
   const { isDarkMode, t } = useSettings();
   const theme = Colors[isDarkMode ? 'dark' : 'light'];
   const [gridData, setGridData] = useState<GridCell[]>(MOCK_GRID_DATA);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const { isDesktop, isTablet, width } = useResponsive();
-  const HOURLY_FORECAST = getHourlyForecast(t);
+
+  // Location hook — declared early so lat/lng are available for useWeather
+  const {
+    location: userLocation,
+    status: locationStatus,
+    getCurrentLocation,
+    requestPermission,
+    isLoading: isLocationLoading,
+  } = useLocation();
+
+  // Real-time weather data (current conditions + hourly) from Open-Meteo
+  const {
+    temperature: liveTemp,
+    hourly: liveHourly,
+  } = useWeather(
+    userLocation?.latitude  ?? null,
+    userLocation?.longitude ?? null,
+  );
+
+  // Build hourly timeline from real data (fallback to empty list while loading)
+  const HOURLY_FORECAST = liveHourly.length > 0
+    ? liveHourly.slice(0, 5)
+    : [
+        { label: t('now'), icon: 'sunny', temp: Math.round(liveTemp), time: '' },
+      ];
 
   // Fetch real prediction data from Backend
   useEffect(() => {
@@ -105,15 +121,6 @@ export default function MapScreen() {
     fetchPredictions();
   }, []);
   
-  // Location hook
-  const { 
-    location: userLocation, 
-    status: locationStatus,
-    getCurrentLocation,
-    requestPermission,
-    isLoading: isLocationLoading,
-  } = useLocation();
-
   // Calculate user's current grid cell based on location
   const userGridCell = useMemo(() => {
     if (!userLocation) return null;
@@ -191,7 +198,7 @@ export default function MapScreen() {
         ]}>
           <ScaledText variant="labelSmall" style={{ color: theme.primary, textTransform: 'uppercase', letterSpacing: 1 }}>{t('currentlyTemp')}</ScaledText>
           <ScaledText variant="displaySmall" style={{ color: theme.text, fontWeight: '700' }}>
-            {userGridCell ? `${userGridCell.temperature}°C` : '--°C'}
+            {userGridCell ? `${userGridCell.temperature}°C` : `${Math.round(liveTemp)}°C`}
           </ScaledText>
           <View style={styles.tempStatus}>
             <View style={[
@@ -261,8 +268,8 @@ export default function MapScreen() {
       ]}>
         <View style={styles.timelineContent}>
           {HOURLY_FORECAST.map((item, index) => (
-            <View 
-              key={index} 
+            <View
+              key={index}
               style={[
                 styles.timelineItem,
                 index === 0 && styles.timelineItemActive
@@ -272,12 +279,12 @@ export default function MapScreen() {
                 styles.timelineTime,
                 { color: index === 0 ? theme.primary : theme.textSecondary }
               ]}>
-                {item.time}
+                {item.label}
               </ScaledText>
-              <IconSymbol 
-                size={22} 
-                name={item.icon} 
-                color={index === 0 ? theme.text : theme.textSecondary} 
+              <IconSymbol
+                size={22}
+                name={item.icon}
+                color={index === 0 ? theme.text : theme.textSecondary}
               />
               <ScaledText variant="labelMedium" style={[
                 styles.timelineTemp,
