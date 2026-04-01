@@ -1,15 +1,21 @@
 import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 
-const API_URL = 'http://localhost:3001/api';
+const API_URL = (process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000') + '/api';
+
+interface PredictionData {
+  success: boolean;
+  model: string;
+  predictions: { predicted_heatwave: string; heatwave_probability?: string }[];
+  log?: string;
+}
 
 export default function PredictionResults() {
-  const [predictions, setPredictions] = useState(null);
+  const [predictions, setPredictions] = useState<PredictionData | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [selectedModel, setSelectedModel] = useState('xgboost');
-
-  const models = ['xgboost', 'lightgbm', 'balanced_rf', 'mlp', 'kan'];
+  const [error, setError] = useState<string | null>(null);
+  const [selectedModel, setSelectedModel] = useState('balanced_rf');
+  const models = ['balanced_rf'];
 
   const fetchPrediction = async () => {
     setLoading(true);
@@ -33,18 +39,18 @@ export default function PredictionResults() {
       } else {
         setError(data.error || 'Prediction failed');
       }
-    } catch (err) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
       setLoading(false);
     }
   };
 
-  const getStatusColor = (prediction) => {
+  const getStatusColor = (prediction: { predicted_heatwave: string }) => {
     return prediction?.predicted_heatwave === '1' ? '#e74c3c' : '#27ae60';
   };
 
-  const getStatusText = (prediction) => {
+  const getStatusText = (prediction: { predicted_heatwave: string }) => {
     return prediction?.predicted_heatwave === '1' ? 'Heatwave Detected' : 'No Heatwave';
   };
 

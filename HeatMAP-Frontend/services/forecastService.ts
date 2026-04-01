@@ -1,17 +1,5 @@
-import { Platform } from 'react-native';
-
-const getApiUrl = () => {
-  if (Platform.OS === 'android') {
-    return 'http://10.0.2.2:3000';
-  }
-  if (Platform.OS === 'web') {
-    return 'http://localhost:3000';
-  }
-  return 'http://localhost:3000';
-};
-
-const API_URL = getApiUrl();
-console.log('[ForecastService] API URL:', API_URL, 'Platform:', Platform.OS);
+const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+console.log('[ForecastService] API URL:', API_URL);
 
 export interface ForecastDay {
   date: string;

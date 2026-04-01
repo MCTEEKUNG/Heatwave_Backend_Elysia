@@ -4,9 +4,11 @@ import { router } from 'expo-router';
 import { Colors, DesignTokens, GlassStyle, BottomNavStyle, useResponsive } from '@/constants/theme';
 import { useSettings } from '@/hooks/useSettings';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { MapGrid, MOCK_GRID_DATA, type GridCell } from '@/components/map';
+import { MapGrid, MOCK_GRID_DATA, generateThailandGrid, type GridCell } from '@/components/map';
 import useLocation from '@/hooks/useLocation';
 import { ScaledText } from '@/components/ui/ScaledText';
+
+const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 
 // Helper function to find grid cell containing user's location
 const findUserGridCell = (
@@ -39,9 +41,69 @@ const getHourlyForecast = (t: (key: any) => string) => [
 export default function MapScreen() {
   const { isDarkMode, t } = useSettings();
   const theme = Colors[isDarkMode ? 'dark' : 'light'];
-  const [gridData] = useState<GridCell[]>(MOCK_GRID_DATA);
+  const [gridData, setGridData] = useState<GridCell[]>(MOCK_GRID_DATA);
+  const [isLoadingData, setIsLoadingData] = useState(true);
   const { isDesktop, isTablet, width } = useResponsive();
   const HOURLY_FORECAST = getHourlyForecast(t);
+
+  // Fetch real prediction data from Backend
+  useEffect(() => {
+    const fetchPredictions = async () => {
+      try {
+        setIsLoadingData(true);
+        // Generate base grid cells for Thailand
+        const baseGrid = generateThailandGrid();
+
+        // Build CSV input from grid center points
+        const header = 't2m,d2m,sp,u10,v10,ndvi,ndvi_lag1,ndvi_lag2';
+        const rows = baseGrid.map(cell => {
+          const lat = (cell.north + cell.south) / 2;
+          // Approximate feature values based on latitude (Thailand)
+          const t2m = 308 - (lat - 5) * 0.5;  // ~35°C in Kelvin
+          const d2m = 295;
+          const sp = 101325;
+          const u10 = 2.0;
+          const v10 = 1.5;
+          const ndvi = 0.35;
+          return `${t2m},${d2m},${sp},${u10},${v10},${ndvi},${ndvi},${ndvi}`;
+        });
+        const inputData = [header, ...rows].join('\n');
+
+        const response = await fetch(`${API_URL}/api/predict`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: 'balanced_rf',
+            inputData,
+            includeProba: true
+          })
+        });
+
+        if (!response.ok) throw new Error('API error');
+        const result = await response.json();
+
+        if (result.success && result.predictions?.length > 0) {
+          const updatedGrid = baseGrid.map((cell, i) => {
+            const pred = result.predictions[i];
+            const prob = pred ? parseFloat(pred.heatwave_probability ?? '0') : 0;
+            const isHeatwave = pred ? pred.predicted_heatwave === '1' : false;
+            const severity = prob >= 0.8 ? 'extreme' : prob >= 0.5 ? 'medium' : 'low';
+            const temperature = Math.round(30 + prob * 12); // estimate °C from probability
+            return { ...cell, severity, temperature, probability: prob } as GridCell;
+          });
+          setGridData(updatedGrid);
+        }
+      } catch (error) {
+        console.warn('[MapScreen] Failed to fetch predictions, using mock data:', error);
+        // Fallback to mock data on error
+        setGridData(MOCK_GRID_DATA);
+      } finally {
+        setIsLoadingData(false);
+      }
+    };
+
+    fetchPredictions();
+  }, []);
   
   // Location hook
   const { 
