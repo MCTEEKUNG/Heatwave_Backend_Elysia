@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./Heatwave-AI-Backend-Elysia
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./Heatwave-AI-TRAIN:/app/Heatwave-AI-TRAIN
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+    restart: unless-stopped

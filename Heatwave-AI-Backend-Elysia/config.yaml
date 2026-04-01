@@ -1,0 +1,141 @@
+project:
+  name: HEATWAVE-AI-Prediction
+  version: 1.0.0
+  description: Modular AI Experimentation Framework for Heatwave Prediction
+training:
+  use_gpu: true
+  mixed_precision: true
+  batch_size: 512
+data:
+  raw_dir: C:\Users\ASUS\OneDrive\Desktop\Heatwave-AI\Era5-data-2000-2026
+  processed_dir: data/processed
+  years:
+    - 2000
+    - 2001
+    - 2002
+    - 2003
+    - 2004
+    - 2005
+    - 2006
+    - 2007
+    - 2008
+    - 2009
+    - 2010
+    - 2011
+    - 2012
+    - 2013
+    - 2014
+    - 2015
+    - 2016
+    - 2017
+    - 2018
+    - 2019
+    - 2020
+    - 2021
+    - 2022
+    - 2023
+    - 2024
+    - 2025
+  surface_prefix: era5_surface_
+  upper_prefix: era5_upper_
+  heatwave_threshold_celsius: 35.0
+  labeling_method: heat_index
+  heat_index_thresholds:
+    caution: 27.0
+    extreme_caution: 32.0
+    danger: 41.0
+    extreme_danger: 54.0
+  heatwave_heat_index_threshold: 41.0
+  features:
+    - t2m
+    - d2m
+    - sp
+    - u10
+    - v10
+    - ndvi
+    - ndvi_lag1
+    - ndvi_lag2
+  label_col: heatwave
+ndvi:
+  enabled: true
+  source: MODIS
+  product: MOD13A3
+  version: "061"
+  gee_project: gen-lang-client-0381821743
+  temporal_resolution: monthly
+  start_year: 2000
+  end_year: 2025
+  tile_ids:
+    - h27v07
+    - h27v08
+    - h28v07
+    - h28v08
+  output_dir: C:\Users\ASUS\OneDrive\Desktop\Heatwave-AI\ndvi
+  processed_file: C:\Users\ASUS\OneDrive\Desktop\Heatwave-AI\ndvi\ndvi_aligned_era5.nc
+  fill_nodata_method: linear
+  lag_months:
+    - 0
+    - 1
+    - 2
+split:
+  train: 0.7
+  val: 0.15
+  test: 0.15
+  random_state: 42
+  stratify: true
+experiments:
+  results_dir: experiments/results
+  models_dir: experiments/models
+  logs_dir: experiments/logs
+  leaderboard_file: experiments/results/leaderboard.json
+models:
+  balanced_rf:
+    n_estimators: 200
+    max_depth: 15
+    random_state: 42
+    n_jobs: -1
+  xgboost:
+    n_estimators: 300
+    max_depth: 6
+    learning_rate: 0.1
+    subsample: 0.8
+    colsample_bytree: 0.8
+    random_state: 42
+    n_jobs: -1
+    eval_metric: logloss
+  lightgbm:
+    n_estimators: 300
+    max_depth: 6
+    learning_rate: 0.1
+    num_leaves: 63
+    subsample: 0.8
+    colsample_bytree: 0.8
+    random_state: 42
+    n_jobs: -1
+    verbose: -1
+  mlp:
+    hidden_layers:
+      - 256
+      - 128
+      - 64
+    dropout: 0.3
+    learning_rate: 0.001
+    batch_size: 512
+    max_epochs: 100
+    patience: 10
+    random_state: 42
+  kan:
+    hidden_layers:
+      - 64
+      - 32
+    grid_size: 5
+    spline_order: 3
+    learning_rate: 0.001
+    batch_size: 512
+    max_epochs: 50
+    patience: 8
+    random_state: 42
+dashboard:
+  host: 0.0.0.0
+  port: 5000
+  debug: false

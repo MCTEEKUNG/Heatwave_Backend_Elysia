@@ -1,0 +1,45 @@
+# Model files (too large for GitHub - 100MB limit)
+experiments/models/*.pkl
+experiments/models/*.joblib
+experiments/models/*.h5
+experiments/models/*.pt
+experiments/models/*.pth
+
+# Python
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*.pyo
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+venv/
+env/
+.env/
+.venv/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Data files (often large)
+*.csv
+*.parquet
+*.feather
+data/raw/
+data/processed/
+data/ndvi/
+Era5-data-2000-2026/
+*.nc
+*.tif
+
+# Logs
+logs/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db

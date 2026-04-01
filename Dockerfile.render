@@ -1,0 +1,22 @@
+FROM oven/bun:1-slim
+
+WORKDIR /app
+
+# Install Python and dependencies
+RUN apt-get update && apt-get install -y \
+    python3 \
+    python3-pip \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy ML training code first
+COPY Heatwave-AI-TRAIN/ ./Heatwave-AI-TRAIN/
+RUN pip3 install --no-cache-dir -r Heatwave-AI-TRAIN/requirements.txt
+
+# Copy backend
+COPY Heatwave-AI-Backend-Elysia/package.json Heatwave-AI-Backend-Elysia/bun.lock ./
+RUN bun install --frozen-lockfile
+COPY Heatwave-AI-Backend-Elysia/src/ ./src/
+
+EXPOSE 10000
+
+CMD ["bun", "run", "src/index.ts"]
