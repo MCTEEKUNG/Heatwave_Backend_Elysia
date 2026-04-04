@@ -40,3 +40,16 @@ yarn-error.log*
 **/*.log
 package-lock.json
 **/*.bun
+# Python bytecode
+__pycache__/
+*.pyc
+*.pyo
+
+# Data
+Era5-data-2000-2026/
+ndvi/
+experiments/logs/
+temp_*.csv
+
+# Local Models
+models/*.pkl

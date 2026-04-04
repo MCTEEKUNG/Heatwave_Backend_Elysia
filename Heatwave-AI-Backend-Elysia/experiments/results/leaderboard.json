@@ -1,0 +1,57 @@
+[
+  {
+    "Rank": 1,
+    "model": "Balanced Random Forest",
+    "accuracy": 1.0,
+    "precision": 0.9998,
+    "recall": 1.0,
+    "f1_score": 0.9999,
+    "roc_auc": 1.0,
+    "timestamp": "2026-04-01 17:16:22",
+    "train_time_seconds": 424.22
+  },
+  {
+    "Rank": 2,
+    "model": "LightGBM",
+    "accuracy": 0.9981,
+    "precision": 0.4815,
+    "recall": 1.0,
+    "f1_score": 0.65,
+    "roc_auc": 0.999,
+    "timestamp": "2026-03-05 21:26:21",
+    "train_time_seconds": 7.3
+  },
+  {
+    "Rank": 3,
+    "model": "KAN",
+    "accuracy": 0.9982,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1_score": 0.0,
+    "roc_auc": null,
+    "timestamp": "2026-03-05 22:41:23",
+    "train_time_seconds": 1398.09
+  },
+  {
+    "Rank": 4,
+    "model": "MLP Neural Network",
+    "accuracy": 0.9982,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1_score": 0.0,
+    "roc_auc": null,
+    "timestamp": "2026-03-05 21:51:49",
+    "train_time_seconds": 1527.3
+  },
+  {
+    "Rank": 5,
+    "model": "XGBoost",
+    "accuracy": 0.9982,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1_score": 0.0,
+    "roc_auc": 0.8777,
+    "timestamp": "2026-03-05 21:26:13",
+    "train_time_seconds": 7.21
+  }
+]

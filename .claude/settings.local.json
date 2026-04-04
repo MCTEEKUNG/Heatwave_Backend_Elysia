@@ -1,0 +1,39 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls -la /c/Users/ASUS/OneDrive/Desktop/Heatwave-AI/HeatMAP-Frontend/app/\\\\\\(tabs\\\\\\)/)",
+      "Bash(ls -d \"C:\\\\Users\\\\ASUS\\\\OneDrive\\\\Desktop\\\\Heatwave-AI\"/*/)",
+      "Bash(python -c \"import sklearn, joblib, yaml, pandas, numpy; print\\('core deps OK'\\)\")",
+      "Bash(python -c \"from imblearn.ensemble import BalancedRandomForestClassifier; print\\('imblearn OK'\\)\")",
+      "Bash(python -c ':*)",
+      "Bash(python prediction/forecast.py --model balanced_rf --days 7 --cycles 1 --config config.yaml)",
+      "Bash(bun --version)",
+      "Bash(bun install:*)",
+      "Bash(bun run:*)",
+      "Bash(curl -s http://localhost:3000/api/health)",
+      "Bash(python -m json.tool)",
+      "Bash(curl -s http://localhost:3000/api/predict/status)",
+      "Bash(curl -s http://localhost:3000/api/forecast/latest)",
+      "Bash(curl -s -X POST http://localhost:3000/api/forecast -H 'Content-Type: application/json' -d '{\"model\":\"balanced_rf\",\"days\":14,\"cycles\":1}')",
+      "Bash(where python:*)",
+      "Bash(python:*)",
+      "Bash(pkill -f \"bun run src/index.ts\")",
+      "Bash(pkill -f \"src/index.ts\")",
+      "Bash(bun -e \"const { \\\\$ } = await import\\('bun'\\); const r = await \\\\$\\\\`python --version\\\\`.text\\(\\); console.log\\(r\\)\")",
+      "Read(//c/Users/ASUS/AppData/Local/Microsoft/WindowsApps/PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0/**)",
+      "Bash(C:/Users/ASUS/AppData/Local/Microsoft/WindowsApps/PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0/python.exe --version)",
+      "Bash(bun -e \"console.log\\(process.env.PATH?.split\\(':'\\).join\\('\\\\n'\\)\\)\")",
+      "Bash(bun -e ':*)",
+      "Bash(taskkill /F /IM bun.exe)",
+      "Bash(rm -rf \"C:/Users/ASUS/AppData/Local/bun/bin/../cache\")",
+      "Bash(bun pm:*)",
+      "Bash(taskkill /F /IM bun.exe ls ~/.bun/ find ~/.bun -name \"*.blob\")",
+      "Bash(curl -s -X POST http://localhost:3000/api/forecast -H 'Content-Type: application/json' -d '{\"model\":\"balanced_rf\",\"days\":7,\"cycles\":1}')",
+      "Read(//tmp/**)",
+      "Bash(taskkill /F /IM bun.exe /T taskkill /F /IM node.exe /T sleep 2 netstat -ano)",
+      "Bash(netstat -ano)",
+      "Bash(xargs -I{} sh -c 'ps aux 2>/dev/null | grep {} | head -2')",
+      "Bash(xargs kill:*)"
+    ]
+  }
+}

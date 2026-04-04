@@ -1,5 +1,4 @@
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-console.log('[ForecastService] API URL:', API_URL);
+import { api } from './apiService';
 
 export interface ForecastDay {
   date: string;
@@ -27,45 +26,17 @@ export interface LatestForecastResponse {
   error?: string;
 }
 
-export async function runForecast(
+export function runForecast(
   model: string,
   days: number = 30,
   cycles: number = 1,
   startDate?: string
 ): Promise<ForecastResponse> {
-  console.log('[Forecast] Running:', { model, days, cycles, startDate, url: `${API_URL}/api/forecast` });
-  
-  const response = await fetch(`${API_URL}/api/forecast`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model, days, cycles, startDate })
-  });
-
-  const data = await response.json();
-  console.log('[Forecast] Response:', JSON.stringify(data).slice(0, 200));
-  return data;
+  return api.post<ForecastResponse>('/api/forecast', { model, days, cycles, startDate });
 }
 
-export async function getLatestForecast(): Promise<LatestForecastResponse> {
-  const url = `${API_URL}/api/forecast/latest`;
-  console.log('[Forecast] Fetching from:', url);
-  
-  try {
-    const response = await fetch(url);
-    console.log('[Forecast] Response status:', response.status);
-    
-    const data = await response.json();
-    console.log('[Forecast] Received:', {
-      filename: data.filename,
-      totalDays: data.totalDays,
-      forecastLength: data.forecast?.length,
-      firstDay: data.forecast?.[0]
-    });
-    return data;
-  } catch (error: any) {
-    console.error('[Forecast] Error:', error.message);
-    throw error;
-  }
+export function getLatestForecast(): Promise<LatestForecastResponse> {
+  return api.get<LatestForecastResponse>('/api/forecast/latest');
 }
 
 export function getHeatwaveRiskLevel(probability: number): 'low' | 'moderate' | 'high' | 'extreme' {

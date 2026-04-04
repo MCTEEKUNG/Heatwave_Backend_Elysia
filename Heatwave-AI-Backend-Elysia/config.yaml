@@ -3,11 +3,11 @@ project:
   version: 1.0.0
   description: Modular AI Experimentation Framework for Heatwave Prediction
 training:
-  use_gpu: true
-  mixed_precision: true
+  use_gpu: false
+  mixed_precision: false
   batch_size: 512
 data:
-  raw_dir: C:\Users\ASUS\OneDrive\Desktop\Heatwave-AI\Era5-data-2000-2026
+  raw_dir: Era5-data-2000-2026/
   processed_dir: data/processed
   years:
     - 2000
@@ -70,8 +70,8 @@ ndvi:
     - h27v08
     - h28v07
     - h28v08
-  output_dir: C:\Users\ASUS\OneDrive\Desktop\Heatwave-AI\ndvi
-  processed_file: C:\Users\ASUS\OneDrive\Desktop\Heatwave-AI\ndvi\ndvi_aligned_era5.nc
+  output_dir: ndvi/
+  processed_file: ndvi/ndvi_aligned_era5.nc
   fill_nodata_method: linear
   lag_months:
     - 0
@@ -85,7 +85,7 @@ split:
   stratify: true
 experiments:
   results_dir: experiments/results
-  models_dir: experiments/models
+  models_dir: models
   logs_dir: experiments/logs
   leaderboard_file: experiments/results/leaderboard.json
 models:

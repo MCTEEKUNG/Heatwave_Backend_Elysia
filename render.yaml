@@ -2,8 +2,8 @@ services:
   - type: web
     name: heatwave-ai-backend
     env: docker
-    dockerfilePath: ./Dockerfile.render
-    dockerContext: .
+    dockerfilePath: ./Heatwave-AI-Backend-Elysia/Dockerfile.render
+    dockerContext: ./Heatwave-AI-Backend-Elysia
     envVars:
       - key: NODE_ENV
         value: production

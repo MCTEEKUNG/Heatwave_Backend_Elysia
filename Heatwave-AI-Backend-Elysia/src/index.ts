@@ -1,12 +1,14 @@
 import { Elysia, t } from "elysia";
 import { cors } from "@elysiajs/cors";
-import { spawn } from "child_process";
+import { exec } from "child_process";
 import { readFileSync, writeFileSync, existsSync, unlinkSync, readdirSync, mkdirSync } from "fs";
 import { join, dirname } from "path";
 
-const BACKEND_DIR = __dirname;
-const MODELS_DIR = join(BACKEND_DIR, "..", "models");
-const CONFIG_PATH = join(BACKEND_DIR, "..", "config.yaml");
+const BACKEND_ROOT = join(__dirname, "..");
+const TRAIN_DIR = BACKEND_ROOT;
+const MODELS_DIR = join(BACKEND_ROOT, "models");
+const RESULTS_DIR = join(BACKEND_ROOT, "experiments", "results");
+const FORECASTS_DIR = join(BACKEND_ROOT, "experiments", "forecasts");
 
 interface PredictionRequest {
   model: string;
@@ -24,31 +26,17 @@ interface PredictionResult {
 
 function runPythonScript(script: string, args: string[]): Promise<{ stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
-    const python = spawn("python", [script, ...args], {
-      cwd: TRAIN_DIR
-    });
+    const pythonCmd = process.platform === "win32" ? "python" : "python3";
+    const quotedArgs = args.map(a => `"${a.replace(/"/g, '\\"')}"`).join(" ");
+    const scriptCmd = `${pythonCmd} "${script}" ${quotedArgs}`;
+    const cmd = process.platform === "win32" ? `cmd /c ${scriptCmd}` : scriptCmd;
 
-    let stdout = "";
-    let stderr = "";
-
-    python.stdout.on("data", (data) => {
-      stdout += data.toString();
-    });
-
-    python.stderr.on("data", (data) => {
-      stderr += data.toString();
-    });
-
-    python.on("close", (code) => {
-      if (code === 0) {
-        resolve({ stdout, stderr });
+    exec(cmd, { cwd: TRAIN_DIR }, (error, stdout, stderr) => {
+      if (error) {
+        reject(new Error(`Python script failed: ${stderr || error.message}`));
       } else {
-        reject(new Error(`Python script exited with code ${code}: ${stderr}`));
+        resolve({ stdout, stderr });
       }
-    });
-
-    python.on("error", (err) => {
-      reject(err);
     });
   });
 }
@@ -128,22 +116,21 @@ const app = new Elysia()
   })
 
   .get("/api/predict/models", () => ({
-    availableModels: ["xgboost", "lightgbm", "balanced_rf", "mlp", "kan"]
+    availableModels: ["balanced_rf"]
   }))
 
   .get("/api/predict/status", async () => {
     try {
-      const configPath = join(TRAIN_DIR, "config", "config.yaml");
+      const configPath = join(TRAIN_DIR, "config.yaml");
       if (!existsSync(configPath)) {
         return { available: false, message: "Configuration not found" };
       }
 
-      const modelsDir = join(TRAIN_DIR, "experiments", "models");
-      if (!existsSync(modelsDir)) {
+      if (!existsSync(MODELS_DIR)) {
         return { available: false, message: "Models directory not found" };
       }
 
-      const models = readdirSync(modelsDir).filter(f => f.endsWith(".pkl"));
+      const models = readdirSync(MODELS_DIR).filter(f => f.endsWith(".pkl"));
       return {
         available: true,
         trainedModels: models
@@ -154,7 +141,7 @@ const app = new Elysia()
   })
 
   .post("/api/predict", async ({ body }) => {
-    const { model, inputData, includeProba = false } = body as PredictionRequest;
+    const { model = "balanced_rf", inputData, includeProba = false } = body as PredictionRequest;
     const inputPath = join(TRAIN_DIR, "temp_input.csv");
     const outputPath = join(TRAIN_DIR, "temp_output.csv");
 
@@ -165,7 +152,7 @@ const app = new Elysia()
         "--model", model,
         "--input", inputPath,
         "--output", outputPath,
-        "--config", join(TRAIN_DIR, "config", "config.yaml")
+        "--config", join(TRAIN_DIR, "config.yaml")
       ];
 
       if (includeProba) {
@@ -247,7 +234,7 @@ const app = new Elysia()
       "--model", model,
       "--days", String(days),
       "--cycles", String(cycles),
-      "--config", join(TRAIN_DIR, "config", "config.yaml")
+      "--config", join(TRAIN_DIR, "config.yaml")
     ];
 
     if (startDate) {
@@ -292,7 +279,7 @@ const app = new Elysia()
     })
   })
 
-  .listen(3000);
+  .listen(process.env.PORT || 3000);
 
 console.log(
   `🦊 Heatwave AI Backend running at ${app.server?.hostname}:${app.server?.port}`
