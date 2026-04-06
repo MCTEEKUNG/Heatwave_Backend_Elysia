@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 import { Colors, DesignTokens, GlassStyle, BottomNavStyle, useResponsive } from '@/constants/theme';
 import { useSettings } from '@/hooks/useSettings';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { MapGrid, MOCK_GRID_DATA, generateThailandGrid, type GridCell } from '@/components/map';
+import { MapGrid, generateThailandGrid, type GridCell, type Severity } from '@/components/map';
 import useLocation from '@/hooks/useLocation';
 import { ScaledText } from '@/components/ui/ScaledText';
 import { useWeather } from '@/hooks/useWeather';
@@ -32,7 +32,8 @@ const findUserGridCell = (
 export default function MapScreen() {
   const { isDarkMode, t } = useSettings();
   const theme = Colors[isDarkMode ? 'dark' : 'light'];
-  const [gridData, setGridData] = useState<GridCell[]>(MOCK_GRID_DATA);
+  // Start with a neutral (uncoloured) grid — overwritten once forecast loads
+  const [gridData, setGridData] = useState<GridCell[]>(generateThailandGrid());
   const [isLoadingData, setIsLoadingData] = useState(true);
   const { isDesktop, isTablet, width } = useResponsive();
 
@@ -71,29 +72,34 @@ export default function MapScreen() {
         const data = await getLatestForecast();
 
         if (!data.forecast || data.forecast.length === 0) {
-          // No forecast cached yet — keep default grid, not mock
-          setGridData(generateThailandGrid());
+          // No forecast cached yet — leave the neutral grid, show nothing
           return;
         }
 
         // Use today's entry, or the first available entry
         const todayStr = new Date().toISOString().split('T')[0];
         const todayEntry = data.forecast.find(d => d.date === todayStr) ?? data.forecast[0];
-        const baseProb = todayEntry.heatwave_probability;
+        const baseTemp = todayEntry.temperature_c;   // actual °C from forecast
 
-        // Apply geographic variance across Thailand:
-        // Central/North = slightly higher risk, South/Coast = lower
+        // Derive severity from Heat Index thresholds (4-tier, matches model labelling):
+        //   extreme  ≥ 41°C  → RED
+        //   high     35–40°C → ORANGE
+        //   moderate 28–34°C → YELLOW
+        //   low      < 28°C  → GREEN
+        const tempToSeverity = (t: number): Severity =>
+          t >= 41 ? 'extreme' : t >= 35 ? 'high' : t >= 28 ? 'moderate' : 'low';
+
         const baseGrid = generateThailandGrid();
         const updated = baseGrid.map(cell => {
           const lat = (cell.north + cell.south) / 2;
           const lng = (cell.east  + cell.west)  / 2;
-          // Deterministic variance from lat/lng (no random — stable across renders)
-          const latVar = (lat - 13.75) * 0.018;
-          const lngVar = Math.sin((lng - 100.5) * 0.15) * 0.03;
-          const prob   = Math.max(0, Math.min(1, baseProb + latVar + lngVar));
-          const severity: 'extreme' | 'medium' | 'low' =
-            prob >= 0.8 ? 'extreme' : prob >= 0.5 ? 'medium' : 'low';
-          return { ...cell, severity, temperature: Math.round(30 + prob * 12), probability: prob } as GridCell;
+          // Deterministic geographic variance — stable across renders
+          const latVar = (lat - 13.75) * 0.25;   // ±°C per degree latitude
+          const lngVar = Math.sin((lng - 100.5) * 0.15) * 0.15;
+          const cellTemp = Math.round(baseTemp + latVar + lngVar);
+          const severity = tempToSeverity(cellTemp);
+          const prob = todayEntry.heatwave_probability;
+          return { ...cell, severity, temperature: cellTemp, probability: prob } as GridCell;
         });
         setGridData(updated);
       } catch {

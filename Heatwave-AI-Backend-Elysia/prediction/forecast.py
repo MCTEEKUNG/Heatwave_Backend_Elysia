@@ -14,6 +14,12 @@ import numpy as np
 import pandas as pd
 import yaml
 from datetime import datetime, timedelta
+try:
+    from zoneinfo import ZoneInfo          # Python 3.9+
+except ImportError:
+    from backports.zoneinfo import ZoneInfo  # Python 3.8 fallback
+
+ICT = ZoneInfo("Asia/Bangkok")  # UTC+7, no DST
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from prediction.predictor import Predictor
@@ -174,7 +180,7 @@ class ForecastPredictor:
                     "humidity_est": (
                         forecast_input["t2m"].values - forecast_input["d2m"].values
                     ).clip(0, 100),
-                    "forecast_generated": datetime.now().isoformat(),
+                    "forecast_generated": datetime.now(tz=ICT).isoformat(),
                 }
             )
 
@@ -236,7 +242,7 @@ def main():
             logger.error("Invalid start date '%s'. Expected format: YYYY-MM-DD", args.start_date)
             sys.exit(1)
     else:
-        start_date = datetime.now()
+        start_date = datetime.now(tz=ICT)
 
     print(f"\n{'=' * 60}")
     print(f"  HEATWAVE-AI | {args.days}-Day Forecast Prediction")

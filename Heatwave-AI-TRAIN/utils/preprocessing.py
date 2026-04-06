@@ -200,8 +200,10 @@ class HeatwavePreprocessor:
             # HI in Celsius
             HI_c = (HI_f - 32) * 5 / 9
             
-            # Apply condition T >= 26.7 vectorized
-            df["heat_index"] = np.where(T >= 26.7, HI_c, T)
+            # Rothfusz is only valid for T >= 26.7°C AND RH >= 40%.
+            # Outside that domain, return raw temperature (NWS specification).
+            valid = (T >= 26.7) & (RH >= 40.0)
+            df["heat_index"] = np.where(valid, HI_c, T)
             
         elif "t2m_c" in df.columns and "d2m_c" in df.columns:
             # Fallback: compute RH inline using Steadman approximation if rh col missing
@@ -230,8 +232,8 @@ class HeatwavePreprocessor:
         ⚠️  Valid only when T >= 26.7°C (80°F) and RH >= 40%.
             Below this range the simple T value is returned directly.
         """
-        if T < 26.7:
-            return T  # Rothfusz not accurate at low temperatures
+        if T < 26.7 or RH < 40.0:
+            return T  # Rothfusz only valid for T >= 26.7°C AND RH >= 40%
 
         T_f = T * 9 / 5 + 32  # convert to Fahrenheit (formula uses °F)
 
@@ -339,10 +341,41 @@ class HeatwavePreprocessor:
                     "Ensure _compute_derived_features() runs before _generate_labels()."
                 )
             threshold = self.cfg["data"].get("heatwave_heat_index_threshold", 41.0)
-            df[self.label_col] = (df["heat_index"] >= threshold).astype(int)
+            min_days  = self.cfg["data"].get("heatwave_min_consecutive_days", 3)
+
+            # Step 1: flag individual hot days
+            hot = (df["heat_index"] >= threshold).astype(int)
+
+            # Step 2: require min_days consecutive hot days at each location.
+            # A single-day spike must NOT trigger a heatwave label.
+            sort_cols  = [c for c in ["latitude", "longitude", "time"] if c in df.columns]
+            group_cols = [c for c in ["latitude", "longitude"] if c in df.columns]
+
+            if sort_cols:
+                df = df.sort_values(sort_cols).reset_index(drop=True)
+                hot = hot.reindex(df.index)
+
+            def _mark_runs(s: pd.Series, min_len: int) -> pd.Series:
+                """Label every day that belongs to a run of ≥ min_len consecutive 1s."""
+                # Consecutive-run groups (value changes flip the group id)
+                groups   = (s != s.shift()).cumsum()
+                run_lens = s.groupby(groups).transform("sum")
+                return ((s == 1) & (run_lens >= min_len)).astype(int)
+
+            if group_cols:
+                df["_hot"] = hot
+                df[self.label_col] = (
+                    df.groupby(group_cols)["_hot"]
+                    .transform(lambda s: _mark_runs(s, min_days))
+                )
+                df = df.drop(columns=["_hot"])
+            else:
+                df[self.label_col] = _mark_runs(hot, min_days)
+
             logger.info(
-                "_generate_labels: mode=heat_index, threshold=%.1f°C, heatwave_rate=%.2f%%",
-                threshold, 100 * df[self.label_col].mean()
+                "_generate_labels: mode=heat_index, threshold=%.1f°C, "
+                "min_consecutive_days=%d, heatwave_rate=%.2f%%",
+                threshold, min_days, 100 * df[self.label_col].mean()
             )
 
         else:  # "temperature" — legacy / backward compat

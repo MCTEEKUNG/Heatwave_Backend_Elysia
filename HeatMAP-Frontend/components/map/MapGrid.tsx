@@ -36,7 +36,12 @@ const GRID_CONFIG = {
 };
 
 // Types for grid cell data
-export type Severity = 'extreme' | 'medium' | 'low';
+// Four tiers matching Heat Index thresholds:
+//   extreme  = HI ≥ 41°C  → RED
+//   high     = HI 35–40°C → ORANGE
+//   moderate = HI 28–34°C → YELLOW
+//   low      = HI < 28°C  → GREEN
+export type Severity = 'extreme' | 'high' | 'moderate' | 'low';
 
 export interface GridCell {
   id: string;
@@ -132,69 +137,80 @@ function generateMockProbability(severity: Severity, seed: number): number {
  * @param cellSize - Size of each grid cell in degrees
  * @returns Array of GridCell objects
  */
-export function generateThailandGrid(cellSize: number = GRID_CONFIG.cellSize): GridCell[] {
+/**
+ * Generate the base Thailand grid cells.
+ * When `mockData` is false (default) cells are neutral (low severity, no colour)
+ * and are meant to be overwritten by real AI forecast data from the backend.
+ * Pass `mockData = true` only for Storybook / development previews.
+ */
+export function generateThailandGrid(
+  cellSize: number = GRID_CONFIG.cellSize,
+  mockData = false,
+): GridCell[] {
   const cells: GridCell[] = [];
   const { north, south, east, west } = THAILAND_BOUNDS;
-  
+
   const latSteps = Math.ceil((north - south) / cellSize);
   const lngSteps = Math.ceil((east - west) / cellSize);
-  
+
   let cellId = 0;
-  
+
   for (let row = 0; row < latSteps; row++) {
     for (let col = 0; col < lngSteps; col++) {
-      const cellNorth = north - (row * cellSize);
+      const cellNorth = north - row * cellSize;
       const cellSouth = cellNorth - cellSize;
-      const cellWest = west + (col * cellSize);
-      const cellEast = cellWest + cellSize;
-      
+      const cellWest  = west  + col * cellSize;
+      const cellEast  = cellWest + cellSize;
+
       const centerLat = (cellNorth + cellSouth) / 2;
-      const centerLng = (cellWest + cellEast) / 2;
-      
-      // Generate unique seed for this cell
-      const seed = Math.floor(centerLat * 1000) + Math.floor(centerLng * 1000) + cellId;
-      
-      const severity = generateMockSeverity(centerLat, centerLng, seed);
-      const temperature = generateMockTemperature(severity, centerLat, seed);
-      const probability = generateMockProbability(severity, seed);
-      
+      const centerLng = (cellWest  + cellEast)  / 2;
+
+      let severity: Severity = 'low';
+      let temperature = 28;
+      let probability = 0;
+
+      if (mockData) {
+        const seed = Math.floor(centerLat * 1000) + Math.floor(centerLng * 1000) + cellId;
+        severity    = generateMockSeverity(centerLat, centerLng, seed) as Severity;
+        temperature = generateMockTemperature(severity as any, centerLat, seed);
+        probability = generateMockProbability(severity as any, seed);
+      }
+
       cells.push({
         id: `cell-${row}-${col}`,
         north: cellNorth,
         south: cellSouth,
-        east: cellEast,
-        west: cellWest,
+        east:  cellEast,
+        west:  cellWest,
         centerLat,
         centerLng,
         severity,
         temperature,
         probability,
-        timestamp: new Date().toISOString(),
+        timestamp:  new Date().toISOString(),
         gridRow: row,
         gridCol: col,
       });
-      
+
       cellId++;
     }
   }
-  
+
   return cells;
 }
 
 // Generate mock grid data for entire Thailand
 export const MOCK_GRID_DATA: GridCell[] = generateThailandGrid();
 
-// Get color for severity level
+// Hard-stop zone colours — NO gradient/blur (no alpha except low for visibility).
+// Thresholds match Rothfusz Heat Index breakpoints used in the model.
 export const getSeverityColor = (severity: Severity): string => {
   switch (severity) {
-    case 'extreme':
-      return 'rgba(239, 68, 68, 0.7)';
-    case 'medium':
-      return 'rgba(255, 165, 0, 0.7)';
-    case 'low':
-      return 'rgba(52, 197, 89, 0.5)';
-    default:
-      return 'transparent';
+    case 'extreme':  return 'rgba(239, 68, 68, 0.85)';   // RED    — HI ≥ 41°C
+    case 'high':     return 'rgba(249, 115, 22, 0.80)';  // ORANGE — HI 35–40°C
+    case 'moderate': return 'rgba(234, 179, 8, 0.75)';   // YELLOW — HI 28–34°C
+    case 'low':      return 'rgba(34, 197, 94, 0.55)';   // GREEN  — HI < 28°C
+    default:         return 'transparent';
   }
 };
 

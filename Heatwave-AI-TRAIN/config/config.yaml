@@ -46,6 +46,7 @@ data:
     danger: 41.0
     extreme_danger: 54.0
   heatwave_heat_index_threshold: 41.0
+  heatwave_min_consecutive_days: 3   # single-day spikes must NOT trigger heatwave label
   features:
     - t2m
     - d2m
