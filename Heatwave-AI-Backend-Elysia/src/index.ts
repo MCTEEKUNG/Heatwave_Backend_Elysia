@@ -298,11 +298,9 @@ const app = new Elysia()
       return { success: false, error: "Too many requests. Please wait before trying again." };
     }
 
-    const { model, days = 30, cycles = 1, startDate } = body as {
+    const { model, days = 7 } = body as {
       model: string;
       days?: number;
-      cycles?: number;
-      startDate?: string;
     };
 
     // Validate model against whitelist
@@ -310,18 +308,8 @@ const app = new Elysia()
       return { success: false, error: "Invalid model selection" };
     }
 
-    // Validate numeric bounds
-    if (days < 1 || days > 365) {
-      return { success: false, error: "days must be between 1 and 365" };
-    }
-    if (cycles < 1 || cycles > 12) {
-      return { success: false, error: "cycles must be between 1 and 12" };
-    }
-
-    // Validate date format if provided
-    if (startDate && !/^\d{4}-\d{2}-\d{2}$/.test(startDate)) {
-      return { success: false, error: "startDate must be in YYYY-MM-DD format" };
-    }
+    // Cap at Open-Meteo's 16-day limit
+    const forecastDays = Math.min(Math.max(1, days), 16);
 
     if (!existsSync(FORECASTS_DIR)) {
       mkdirSync(FORECASTS_DIR, { recursive: true });
@@ -329,11 +317,9 @@ const app = new Elysia()
 
     const args = [
       "--model", model,
-      "--days", String(days),
-      "--cycles", String(cycles),
+      "--days", String(forecastDays),
       "--config", join(TRAIN_DIR, "config.yaml"),
     ];
-    if (startDate) args.push("--start-date", startDate);
 
     try {
       const result = await runPythonScript(join(TRAIN_DIR, "prediction", "forecast.py"), args);
@@ -352,7 +338,7 @@ const app = new Elysia()
       // Clean up old forecasts in the background
       cleanupOldForecasts(FORECASTS_DIR, MAX_FORECAST_FILES);
 
-      log("INFO", "Forecast completed", { model, days, cycles, file: files[0] });
+      log("INFO", "Forecast completed", { model, days: forecastDays, file: files[0] });
       return {
         success: true,
         filename: files[0],
@@ -367,9 +353,7 @@ const app = new Elysia()
   }, {
     body: t.Object({
       model: t.String(),
-      days: t.Optional(t.Number()),
-      cycles: t.Optional(t.Number()),
-      startDate: t.Optional(t.String()),
+      days: t.Optional(t.Number()),  // 1–16, defaults to 7 (Open-Meteo limit)
     }),
   })
 

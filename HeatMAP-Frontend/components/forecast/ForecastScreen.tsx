@@ -96,8 +96,7 @@ export default function ForecastScreen() {
   const [error, setError] = useState<string | null>(null);
   const [selectedModel, setSelectedModel] = useState('balanced_rf');
   const [selectedCycle, setSelectedCycle] = useState(1);
-  const [forecastDays, setForecastDays] = useState(30);
-  const [cycles, setCycles] = useState(1);
+  const [forecastDays, setForecastDays] = useState(7);
 
   const models = [
     { key: 'balanced_rf', label: 'Balanced RF' },
@@ -130,7 +129,7 @@ export default function ForecastScreen() {
     setLoading(true);
     setError(null);
     try {
-      const result = await runForecast(selectedModel, forecastDays, cycles);
+      const result = await runForecast(selectedModel, forecastDays);
       if (result.success && result.forecast) {
         setForecast(result.forecast);
       } else {
@@ -208,9 +207,9 @@ export default function ForecastScreen() {
 
         <View style={styles.optionRow}>
           <View style={styles.optionGroup}>
-            <Text style={[styles.label, { color: t.textMuted }]}>DAYS</Text>
+            <Text style={[styles.label, { color: t.textMuted }]}>DAYS (REAL FORECAST)</Text>
             <View style={styles.chipRow}>
-              {[7, 14, 30, 60, 90].map(d => (
+              {[3, 7, 10, 14, 16].map(d => (
                 <TouchableOpacity
                   key={d}
                   style={[styles.chip, { backgroundColor: t.chipBg },
@@ -219,22 +218,6 @@ export default function ForecastScreen() {
                 >
                   <Text style={[styles.chipText, { color: t.textMuted },
                     forecastDays === d && styles.chipTextActive]}>{d}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-          <View style={styles.optionGroup}>
-            <Text style={[styles.label, { color: t.textMuted }]}>CYCLES</Text>
-            <View style={styles.chipRow}>
-              {[1, 2, 3].map(n => (
-                <TouchableOpacity
-                  key={n}
-                  style={[styles.chip, { backgroundColor: t.chipBg },
-                    cycles === n && styles.chipActive]}
-                  onPress={() => setCycles(n)}
-                >
-                  <Text style={[styles.chipText, { color: t.textMuted },
-                    cycles === n && styles.chipTextActive]}>{n}</Text>
                 </TouchableOpacity>
               ))}
             </View>

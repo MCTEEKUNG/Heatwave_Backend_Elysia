@@ -28,11 +28,9 @@ export interface LatestForecastResponse {
 
 export function runForecast(
   model: string,
-  days: number = 30,
-  cycles: number = 1,
-  startDate?: string
+  days: number = 7,   // max 16 (Open-Meteo real-data limit)
 ): Promise<ForecastResponse> {
-  return api.post<ForecastResponse>('/api/forecast', { model, days, cycles, startDate });
+  return api.post<ForecastResponse>('/api/forecast', { model, days });
 }
 
 export function getLatestForecast(): Promise<LatestForecastResponse> {
