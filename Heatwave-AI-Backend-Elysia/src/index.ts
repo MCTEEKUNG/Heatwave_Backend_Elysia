@@ -6,7 +6,10 @@ import { join } from "path";
 import { tmpdir } from "os";
 import { randomUUID } from "crypto";
 
-const BACKEND_ROOT = join(__dirname, "..");
+// process.cwd() is /app in Docker (WORKDIR /app in Dockerfile.render),
+// which is where config.yaml, prediction/, models/ etc. all live.
+// Using process.cwd() is more reliable than __dirname manipulation in Bun.
+const BACKEND_ROOT = process.cwd();
 const TRAIN_DIR = BACKEND_ROOT;
 const MODELS_DIR = join(BACKEND_ROOT, "models");
 const RESULTS_DIR = join(BACKEND_ROOT, "experiments", "results");

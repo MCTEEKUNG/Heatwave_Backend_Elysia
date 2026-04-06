@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 class ForecastPredictor:
     """Generates rolling 30-day heatwave forecasts."""
 
-    def __init__(self, config_path: str = "config/config.yaml"):
+    def __init__(self, config_path: str = "config.yaml"):
         with open(config_path, "r", encoding="utf-8") as f:
             self.cfg = yaml.safe_load(f)
         self.predictor = Predictor(config_path)

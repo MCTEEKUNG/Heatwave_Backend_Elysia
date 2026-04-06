@@ -31,8 +31,8 @@ def parse_args():
                         help="Path to input CSV file")
     parser.add_argument("--output", default=None,
                         help="Optional path to save prediction CSV")
-    parser.add_argument("--config", default="config/config.yaml",
-                        help="Config file path (default: config/config.yaml)")
+    parser.add_argument("--config", default="config.yaml",
+                        help="Config file path (default: config.yaml)")
     parser.add_argument("--proba", action="store_true",
                         help="Also output class probabilities")
     return parser.parse_args()
