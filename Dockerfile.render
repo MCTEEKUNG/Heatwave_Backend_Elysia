@@ -2,20 +2,39 @@ FROM oven/bun:1-slim
 
 WORKDIR /app
 
-# Install Python and dependencies
+# Install Python, pip, venv, and wget
 RUN apt-get update && apt-get install -y \
     python3 \
     python3-pip \
+    python3-venv \
+    wget \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy ML training code first
-COPY Heatwave-AI-TRAIN/ ./Heatwave-AI-TRAIN/
-RUN pip3 install --no-cache-dir -r Heatwave-AI-TRAIN/requirements.txt
+# Create virtual environment and install prediction dependencies only
+# (NOT the full training requirements — those include torch, xarray, etc.)
+RUN python3 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
 
-# Copy backend
+COPY Heatwave-AI-Backend-Elysia/requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Install Bun dependencies
 COPY Heatwave-AI-Backend-Elysia/package.json Heatwave-AI-Backend-Elysia/bun.lock ./
 RUN bun install --frozen-lockfile
+
+# Copy backend application code
 COPY Heatwave-AI-Backend-Elysia/src/ ./src/
+COPY Heatwave-AI-Backend-Elysia/prediction/ ./prediction/
+COPY Heatwave-AI-Backend-Elysia/utils/ ./utils/
+COPY Heatwave-AI-Backend-Elysia/models/ ./models/
+COPY Heatwave-AI-Backend-Elysia/experiments/ ./experiments/
+COPY Heatwave-AI-Backend-Elysia/config.yaml ./
+
+# Download pre-trained model binaries from Hugging Face
+RUN mkdir -p models && \
+    wget -O models/balanced_random_forest_model.pkl https://huggingface.co/MCTEEKUNG123/Heatwave-AI/resolve/main/models/balanced_random_forest_model.pkl && \
+    wget -O models/scaler.pkl https://huggingface.co/MCTEEKUNG123/Heatwave-AI/resolve/main/models/scaler.pkl && \
+    wget -O models/feature_names.pkl https://huggingface.co/MCTEEKUNG123/Heatwave-AI/resolve/main/models/feature_names.pkl
 
 EXPOSE 10000
 
