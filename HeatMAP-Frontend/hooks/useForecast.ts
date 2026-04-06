@@ -12,13 +12,17 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   getLatestForecast,
-  getHeatwaveRiskLevel,
   type ForecastDay,
 } from '../services/forecastService';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type RiskLevel = 'low' | 'moderate' | 'high' | 'extreme';
+/** 3-tier risk:
+ *  safe    — predicted_heatwave = 0
+ *  caution — predicted_heatwave = 1, probability < 0.70
+ *  danger  — predicted_heatwave = 1, probability ≥ 0.70
+ */
+export type RiskLevel = 'safe' | 'caution' | 'danger';
 
 export interface CalendarDay {
   date: Date;
@@ -75,7 +79,9 @@ function buildCalendar(days: ForecastDay[]): CalendarDay[] {
     return {
       date,
       dayOfMonth:  date.getDate(),
-      riskLevel:   getHeatwaveRiskLevel(d.heatwave_probability),
+      riskLevel:   d.predicted_heatwave !== 1
+        ? 'safe'
+        : d.heatwave_probability >= 0.70 ? 'danger' : 'caution',
       probability: d.heatwave_probability,
       temperature_c: d.temperature_c,
       isHeatwave:  d.predicted_heatwave === 1,

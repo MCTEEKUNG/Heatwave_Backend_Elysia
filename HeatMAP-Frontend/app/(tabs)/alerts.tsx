@@ -8,33 +8,27 @@ import { ScaledText } from '@/components/ui/ScaledText';
 import { useForecast, type CalendarDay, type RiskLevel } from '@/hooks/useForecast';
 import { useWeather } from '@/hooks/useWeather';
 
-// ─── Risk colour helpers ───────────────────────────────────────────────────────
+// ─── 3-tier risk colour helpers ───────────────────────────────────────────────
+// safe    = 🟢 Green  — no heatwave predicted
+// caution = 🟡 Yellow — heatwave predicted, probability < 70%
+// danger  = 🔴 Red    — heatwave predicted, probability ≥ 70%
 
-function riskBg(risk: RiskLevel, theme: any): string {
-  switch (risk) {
-    case 'extreme': return `${theme.extreme}18`;
-    case 'high':    return `${theme.medium}20`;
-    case 'moderate':return `${theme.low}15`;
-    default:        return 'transparent';
-  }
+const RISK_COLORS = {
+  safe:    { bg: 'rgba(34,197,94,0.18)',  border: '#22C55E', text: { dark: '#4ADE80', light: '#16A34A' } },
+  caution: { bg: 'rgba(234,179,8,0.20)',  border: '#EAB308', text: { dark: '#FDE047', light: '#CA8A04' } },
+  danger:  { bg: 'rgba(239,68,68,0.22)',  border: '#EF4444', text: { dark: '#F87171', light: '#DC2626' } },
+};
+
+function riskBg(risk: RiskLevel): string {
+  return RISK_COLORS[risk]?.bg ?? 'transparent';
 }
 
-function riskBorder(risk: RiskLevel, theme: any): string {
-  switch (risk) {
-    case 'extreme': return theme.extreme;
-    case 'high':    return theme.medium;
-    case 'moderate':return theme.low;
-    default:        return 'transparent';
-  }
+function riskBorder(risk: RiskLevel): string {
+  return RISK_COLORS[risk]?.border ?? 'transparent';
 }
 
-function riskTextColor(risk: RiskLevel, isDark: boolean, theme: any): string {
-  switch (risk) {
-    case 'extreme': return isDark ? '#F87171' : '#EF4444';
-    case 'high':    return isDark ? '#FBBF24' : '#D97706';
-    case 'moderate':return isDark ? '#60A5FA' : '#2563EB';
-    default:        return isDark ? '#4ADE80' : '#16A34A';
-  }
+function riskTextColor(risk: RiskLevel, isDark: boolean): string {
+  return RISK_COLORS[risk]?.text[isDark ? 'dark' : 'light'] ?? (isDark ? '#A1A1AA' : '#6B7280');
 }
 
 // ─── Calendar builder ─────────────────────────────────────────────────────────
@@ -93,17 +87,16 @@ export default function AlertsScreen() {
   // Derive today's forecast headline
   const todayForecast = summary.today;
   const todayTemp     = todayForecast ? Math.round(todayForecast.temperature_c) : Math.round(temperature);
-  const todayRisk     = todayForecast
-    ? (todayForecast.predicted_heatwave === 1
-        ? (todayForecast.heatwave_probability >= 0.8 ? 'extreme' : 'high')
-        : 'moderate')
-    : 'moderate';
+  const todayRisk: RiskLevel = todayForecast
+    ? (todayForecast.predicted_heatwave !== 1
+        ? 'safe'
+        : todayForecast.heatwave_probability >= 0.70 ? 'danger' : 'caution')
+    : 'safe';
 
-  const todayLabel = todayRisk === 'extreme'
-    ? t('extremeHeat')
-    : todayRisk === 'high'
-      ? 'High Heat Risk'
-      : 'Moderate Heat';
+  const todayLabel =
+    todayRisk === 'danger'  ? '🔴 DANGER — Check Safety Guide Now' :
+    todayRisk === 'caution' ? '🟡 Caution — Prepare Yourself' :
+                              '🟢 Safe — No Heatwave';
 
   // Survival metrics derived from real data
   const METRICS = [
@@ -191,7 +184,7 @@ export default function AlertsScreen() {
           <View style={styles.weatherIcon}>
             <View style={styles.sunGlow} />
             <ScaledText variant="displayLarge" style={styles.sunIcon}>
-              {todayRisk === 'extreme' ? '🔥' : todayRisk === 'high' ? '☀️' : '⛅'}
+              {todayRisk === 'danger' ? '🔥' : todayRisk === 'caution' ? '☀️' : '🌤️'}
             </ScaledText>
           </View>
 
@@ -201,9 +194,9 @@ export default function AlertsScreen() {
 
           <ScaledText
             variant="h4"
-            style={[styles.heatStatus, { color: todayRisk === 'extreme' ? theme.extreme : todayRisk === 'high' ? theme.medium : theme.primary }]}
+            style={[styles.heatStatus, { color: riskTextColor(todayRisk, isDarkMode) }]}
           >
-            {todayLabel.toUpperCase()}
+            {todayLabel}
           </ScaledText>
 
           {todayForecast && (
@@ -239,7 +232,7 @@ export default function AlertsScreen() {
               {/* Day cells */}
               {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
                 const cell    = riskMap.get(day);
-                const risk    = cell?.riskLevel ?? 'low';
+                const risk    = cell?.riskLevel ?? 'safe';
                 const isToday = cell?.isToday ?? (day === new Date().getDate());
 
                 return (
@@ -250,9 +243,9 @@ export default function AlertsScreen() {
                       {
                         backgroundColor: isToday
                           ? (isDarkMode ? '#3B82F6' : '#007AFF')
-                          : riskBg(risk, theme),
-                        borderColor:     isToday ? 'transparent' : riskBorder(risk, theme),
-                        borderWidth:     risk !== 'low' && !isToday ? 1 : 0,
+                          : riskBg(risk),
+                        borderColor:     isToday ? 'transparent' : riskBorder(risk),
+                        borderWidth:     risk !== 'safe' && !isToday ? 1 : 0,
                       },
                     ]}
                   >
@@ -262,7 +255,7 @@ export default function AlertsScreen() {
                         styles.calendarDay,
                         isToday
                           ? { color: '#fff', fontWeight: '900' }
-                          : { color: riskTextColor(risk, isDarkMode, theme), fontWeight: risk !== 'low' ? '700' : '400' },
+                          : { color: riskTextColor(risk, isDarkMode), fontWeight: risk !== 'safe' ? '700' : '400' },
                       ]}
                     >
                       {day}
@@ -275,10 +268,9 @@ export default function AlertsScreen() {
             {/* Legend */}
             <View style={styles.calendarLegend}>
               {([
-                { label: 'Low',      color: isDarkMode ? '#4ADE80' : '#16A34A' },
-                { label: 'Moderate', color: isDarkMode ? '#60A5FA' : '#2563EB' },
-                { label: 'High',     color: isDarkMode ? '#FBBF24' : '#D97706' },
-                { label: 'Extreme',  color: isDarkMode ? '#F87171' : '#EF4444' },
+                { label: '🟢 Safe',    color: isDarkMode ? '#4ADE80' : '#16A34A' },
+                { label: '🟡 Caution', color: isDarkMode ? '#FDE047' : '#CA8A04' },
+                { label: '🔴 Danger',  color: isDarkMode ? '#F87171' : '#DC2626' },
               ] as const).map((item) => (
                 <View key={item.label} style={styles.legendItem}>
                   <View style={[styles.legendDot, { backgroundColor: item.color }]} />
