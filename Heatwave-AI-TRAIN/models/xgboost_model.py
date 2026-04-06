@@ -48,6 +48,14 @@ class XGBoostModel(BaseModel):
 
     def train(self, X_train, y_train, X_val=None, y_val=None):
         logger.info("Training %s ...", self.get_model_name())
+
+        # Set scale_pos_weight from actual label distribution (handles imbalance)
+        neg = int((y_train == 0).sum())
+        pos = int((y_train == 1).sum())
+        spw = neg / max(pos, 1)
+        self.model.set_params(scale_pos_weight=spw)
+        logger.info("scale_pos_weight=%.1f  (neg=%d pos=%d)", spw, neg, pos)
+
         eval_set = [(X_val, y_val)] if X_val is not None else None
         try:
             self.model.fit(X_train, y_train, eval_set=eval_set, verbose=False)

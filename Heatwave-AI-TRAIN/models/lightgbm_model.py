@@ -39,6 +39,7 @@ class LightGBMModel(BaseModel):
             random_state=params.get("random_state", 42),
             n_jobs=params.get("n_jobs", -1),
             verbose=params.get("verbose", -1),
+            is_unbalance=True,   # handle class imbalance natively
             **device_params,
         )
         self._is_fitted = False

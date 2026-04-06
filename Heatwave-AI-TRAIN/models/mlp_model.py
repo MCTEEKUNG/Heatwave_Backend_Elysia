@@ -76,7 +76,13 @@ class MLPModel(BaseModel):
         self.net = _MLPNet(self.input_dim, self.hidden_layers, self.dropout).to(self.device)
 
         optimizer = torch.optim.Adam(self.net.parameters(), lr=self.lr)
-        criterion = nn.BCEWithLogitsLoss()
+
+        # Weight positive class inversely to its frequency (handles imbalance)
+        neg = int((y_train == 0).sum())
+        pos = int((y_train == 1).sum())
+        pw  = torch.tensor([neg / max(pos, 1)], dtype=torch.float32).to(self.device)
+        logger.info("pos_weight=%.1f  (neg=%d pos=%d)", pw.item(), neg, pos)
+        criterion = nn.BCEWithLogitsLoss(pos_weight=pw)
         scaler = GradScaler(device=self._amp_device, enabled=self.use_amp)
 
         # Build DataLoader — pin_memory speeds up CPU→GPU transfers

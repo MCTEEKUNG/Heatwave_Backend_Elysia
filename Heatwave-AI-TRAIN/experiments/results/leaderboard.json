@@ -1,17 +1,6 @@
 [
   {
     "Rank": 1,
-    "model": "Balanced Random Forest",
-    "accuracy": 1.0,
-    "precision": 0.9998,
-    "recall": 1.0,
-    "f1_score": 0.9999,
-    "roc_auc": 1.0,
-    "timestamp": "2026-04-01 17:16:22",
-    "train_time_seconds": 424.22
-  },
-  {
-    "Rank": 2,
     "model": "LightGBM",
     "accuracy": 0.9981,
     "precision": 0.4815,
@@ -20,6 +9,17 @@
     "roc_auc": 0.999,
     "timestamp": "2026-03-05 21:26:21",
     "train_time_seconds": 7.3
+  },
+  {
+    "Rank": 2,
+    "model": "Balanced Random Forest",
+    "accuracy": 0.5407,
+    "precision": 0.0128,
+    "recall": 0.6752,
+    "f1_score": 0.025,
+    "roc_auc": 0.6512,
+    "timestamp": "2026-04-06 14:30:26",
+    "train_time_seconds": 332.88
   },
   {
     "Rank": 3,

@@ -45,8 +45,8 @@ data:
     extreme_caution: 32.0
     danger: 41.0
     extreme_danger: 54.0
-  heatwave_heat_index_threshold: 41.0
-  heatwave_min_consecutive_days: 3   # single-day spikes must NOT trigger heatwave label
+  heatwave_heat_index_threshold: 35.0  # lowered from 41.0 — 41°C is too rare in ERA5 grid data (was <1%)
+  heatwave_min_consecutive_days: 2   # lowered from 3 — 35°C/3days gives 1.4%, 35°C/2days gives 5% (target rate)
   features:
     - t2m
     - d2m
