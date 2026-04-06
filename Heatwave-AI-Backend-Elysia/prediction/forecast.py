@@ -154,6 +154,16 @@ class ForecastPredictor:
             predictions = self.predictor.predict(model, forecast_input)
             probas = self.predictor.predict_proba(model, forecast_input)
 
+            if predictions is None or probas is None:
+                raise ValueError(
+                    f"Predictor returned None for model '{model}' on cycle {cycle + 1}"
+                )
+            if len(predictions) != len(forecast_input) or len(probas) != len(forecast_input):
+                raise ValueError(
+                    f"Predictor output length mismatch: expected {len(forecast_input)}, "
+                    f"got predictions={len(predictions)}, probas={len(probas)}"
+                )
+
             cycle_df = pd.DataFrame(
                 {
                     "date": forecast_input["time"].dt.strftime("%Y-%m-%d"),
@@ -188,6 +198,9 @@ class ForecastPredictor:
         logger.info(f"Forecast saved to {output_path} and {json_path}")
 
 
+VALID_MODELS = {"balanced_rf", "xgboost", "lightgbm", "mlp", "kan"}
+
+
 def main():
     import argparse
 
@@ -210,11 +223,20 @@ def main():
 
     args = parser.parse_args()
 
-    start_date = (
-        datetime.strptime(args.start_date, "%Y-%m-%d")
-        if args.start_date
-        else datetime.now()
-    )
+    # Validate model against whitelist
+    if args.model not in VALID_MODELS:
+        logger.error("Invalid model '%s'. Valid options: %s", args.model, sorted(VALID_MODELS))
+        sys.exit(1)
+
+    # Parse start date with clear error on bad format
+    if args.start_date:
+        try:
+            start_date = datetime.strptime(args.start_date, "%Y-%m-%d")
+        except ValueError:
+            logger.error("Invalid start date '%s'. Expected format: YYYY-MM-DD", args.start_date)
+            sys.exit(1)
+    else:
+        start_date = datetime.now()
 
     print(f"\n{'=' * 60}")
     print(f"  HEATWAVE-AI | {args.days}-Day Forecast Prediction")

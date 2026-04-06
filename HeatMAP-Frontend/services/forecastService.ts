@@ -56,10 +56,15 @@ export function getRiskColor(risk: string): string {
 }
 
 export function formatForecastDate(dateStr: string): string {
-  const date = new Date(dateStr);
+  // Parse as UTC to avoid the date shifting by one day in negative-offset timezones.
+  // Dates from the server are plain YYYY-MM-DD strings (no time component), so we
+  // append T00:00:00Z to force UTC interpretation before formatting.
+  const normalized = /^\d{4}-\d{2}-\d{2}$/.test(dateStr) ? `${dateStr}T00:00:00Z` : dateStr;
+  const date = new Date(normalized);
   return date.toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
-    year: 'numeric'
+    year: 'numeric',
+    timeZone: 'UTC',
   });
 }

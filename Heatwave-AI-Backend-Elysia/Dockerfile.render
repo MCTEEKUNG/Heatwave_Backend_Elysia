@@ -29,11 +29,25 @@ COPY utils/ ./utils/
 COPY experiments/ ./experiments/
 COPY config.yaml ./
 
-# Download large model binaries from Hugging Face
+# Download large model binaries from Hugging Face and verify SHA-256 checksums.
+# To update checksums after uploading new model files, run:
+#   sha256sum balanced_random_forest_model.pkl scaler.pkl feature_names.pkl
+# then replace the placeholder values below.
+ARG RF_MODEL_SHA256="PLACEHOLDER_UPDATE_WITH_REAL_CHECKSUM"
+ARG SCALER_SHA256="PLACEHOLDER_UPDATE_WITH_REAL_CHECKSUM"
+ARG FEATURE_NAMES_SHA256="PLACEHOLDER_UPDATE_WITH_REAL_CHECKSUM"
+
 RUN mkdir -p models && \
-    wget -q -O models/balanced_random_forest_model.pkl https://huggingface.co/MCTEEKUNG123/Heatwave-AI/resolve/main/models/balanced_random_forest_model.pkl && \
-    wget -q -O models/scaler.pkl https://huggingface.co/MCTEEKUNG123/Heatwave-AI/resolve/main/models/scaler.pkl && \
-    wget -q -O models/feature_names.pkl https://huggingface.co/MCTEEKUNG123/Heatwave-AI/resolve/main/models/feature_names.pkl
+    wget -O models/balanced_random_forest_model.pkl https://huggingface.co/MCTEEKUNG123/Heatwave-AI/resolve/main/models/balanced_random_forest_model.pkl && \
+    wget -O models/scaler.pkl https://huggingface.co/MCTEEKUNG123/Heatwave-AI/resolve/main/models/scaler.pkl && \
+    wget -O models/feature_names.pkl https://huggingface.co/MCTEEKUNG123/Heatwave-AI/resolve/main/models/feature_names.pkl && \
+    if [ "$RF_MODEL_SHA256" != "PLACEHOLDER_UPDATE_WITH_REAL_CHECKSUM" ]; then \
+        echo "${RF_MODEL_SHA256}  models/balanced_random_forest_model.pkl" | sha256sum -c - && \
+        echo "${SCALER_SHA256}  models/scaler.pkl" | sha256sum -c - && \
+        echo "${FEATURE_NAMES_SHA256}  models/feature_names.pkl" | sha256sum -c -; \
+    else \
+        echo "WARNING: Model checksums are not set. Update ARG values in Dockerfile.render after verifying downloads."; \
+    fi
 
 EXPOSE 10000
 

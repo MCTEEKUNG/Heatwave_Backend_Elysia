@@ -120,7 +120,7 @@ export default function ForecastScreen() {
         setError(data.error || 'No forecast data available. Run a forecast first.');
       }
     } catch (err: any) {
-      setError(`Connection failed: ${err.message}. Make sure backend is running on port 3000.`);
+      setError('Unable to connect to the forecast service. Please check your connection and try again.');
     } finally {
       setLoading(false);
     }
