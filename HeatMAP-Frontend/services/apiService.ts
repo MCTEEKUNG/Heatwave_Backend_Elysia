@@ -65,17 +65,18 @@ async function fetchWithTimeout(
 
 async function request<T>(
   path: string,
-  options: RequestInit = {},
+  options: RequestInit & { timeoutMs?: number } = {},
   retries = MAX_RETRIES,
 ): Promise<T> {
+  const { timeoutMs, ...fetchOptions } = options;
   const url = `${API_BASE_URL}${path}`;
 
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       const response = await fetchWithTimeout(url, {
-        headers: { 'Content-Type': 'application/json', ...options.headers },
-        ...options,
-      });
+        headers: { 'Content-Type': 'application/json', ...fetchOptions.headers },
+        ...fetchOptions,
+      }, timeoutMs);
 
       if (!response.ok) {
         // Don't retry on 4xx client errors
@@ -105,14 +106,15 @@ async function request<T>(
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 export const api = {
-  get<T>(path: string) {
-    return request<T>(path, { method: 'GET' });
+  get<T>(path: string, opts: { timeoutMs?: number } = {}) {
+    return request<T>(path, { method: 'GET', ...opts });
   },
 
-  post<T>(path: string, body: unknown) {
+  post<T>(path: string, body: unknown, opts: { timeoutMs?: number } = {}) {
     return request<T>(path, {
       method: 'POST',
       body: JSON.stringify(body),
+      ...opts,
     });
   },
 

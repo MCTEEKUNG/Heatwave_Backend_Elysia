@@ -143,54 +143,6 @@ export default function AlertsScreen() {
     },
   ];
 
-  // ── Loading state ──
-  if (loading && calendar.length === 0) {
-    return (
-      <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
-        <View style={[styles.header, { backgroundColor: isDarkMode ? 'rgba(26,21,18,0.85)' : 'rgba(255,255,255,0.85)' }]}>
-          <TouchableOpacity style={[styles.backButton, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]} onPress={() => router.back()}>
-            <IconSymbol size={20} name="arrow_back_ios_new" color={theme.icon} />
-          </TouchableOpacity>
-          <ScaledText variant="h3" style={[styles.headerTitle, { color: theme.text }]}>{t('forecastDetails')}</ScaledText>
-          <View style={styles.headerSpacer} />
-        </View>
-        <View style={styles.centeredContent}>
-          <ActivityIndicator size="large" color={theme.primary} />
-          <ScaledText variant="bodyMedium" style={{ color: theme.textSecondary, marginTop: 16 }}>
-            Loading AI forecast…
-          </ScaledText>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  // ── Error state ──
-  if (forecastError && calendar.length === 0) {
-    return (
-      <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
-        <View style={[styles.header, { backgroundColor: isDarkMode ? 'rgba(26,21,18,0.85)' : 'rgba(255,255,255,0.85)' }]}>
-          <TouchableOpacity style={[styles.backButton, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]} onPress={() => router.back()}>
-            <IconSymbol size={20} name="arrow_back_ios_new" color={theme.icon} />
-          </TouchableOpacity>
-          <ScaledText variant="h3" style={[styles.headerTitle, { color: theme.text }]}>{t('forecastDetails')}</ScaledText>
-          <View style={styles.headerSpacer} />
-        </View>
-        <View style={styles.centeredContent}>
-          <IconSymbol size={48} name="error_outline" color={theme.error ?? '#EF4444'} />
-          <ScaledText variant="bodyMedium" style={{ color: theme.textSecondary, marginTop: 16, textAlign: 'center', paddingHorizontal: 32 }}>
-            {forecastError}
-          </ScaledText>
-          <TouchableOpacity
-            style={[styles.retryButton, { backgroundColor: theme.primary, marginTop: 24 }]}
-            onPress={refresh}
-          >
-            <ScaledText variant="labelLarge" style={{ color: '#fff' }}>Retry</ScaledText>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
   // ── Normal render ──
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
@@ -215,6 +167,21 @@ export default function AlertsScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        {/* ── Forecast unavailable banner (non-blocking) ── */}
+        {forecastError && calendar.length === 0 && (
+          <View style={[styles.forecastBanner, { backgroundColor: isDarkMode ? 'rgba(239,68,68,0.12)' : 'rgba(239,68,68,0.08)', borderColor: isDarkMode ? '#F87171' : '#EF4444' }]}>
+            <IconSymbol size={16} name="error_outline" color={isDarkMode ? '#F87171' : '#EF4444'} />
+            <ScaledText variant="bodySmall" style={{ color: isDarkMode ? '#F87171' : '#EF4444', flex: 1, marginLeft: 8 }}>
+              AI forecast unavailable — backend is waking up. Weather data below is live.
+            </ScaledText>
+            <TouchableOpacity onPress={refresh} disabled={forecastLoading}>
+              {forecastLoading
+                ? <ActivityIndicator size="small" color={isDarkMode ? '#F87171' : '#EF4444'} />
+                : <ScaledText variant="labelSmall" style={{ color: isDarkMode ? '#F87171' : '#EF4444', fontWeight: '700' }}>Retry</ScaledText>}
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* ── Hero Forecast Card ── */}
         <View style={[styles.heroCard, GlassStyle[isDarkMode ? 'dark' : 'light']]}>
           <ScaledText variant="labelMedium" style={[styles.forecastLabel, { color: theme.primary }]}>
@@ -457,6 +424,16 @@ const styles = StyleSheet.create({
   },
   scrollView:   { flex: 1 },
   scrollContent:{ padding: DesignTokens.spacing.lg, paddingBottom: 120 },
+
+  // Forecast banner
+  forecastBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: DesignTokens.spacing.md,
+    borderRadius: DesignTokens.borderRadius.lg,
+    borderWidth: 1,
+    marginBottom: DesignTokens.spacing.md,
+  },
 
   // Hero
   heroCard: {

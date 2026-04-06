@@ -36,7 +36,8 @@ export function runForecast(
 }
 
 export function getLatestForecast(): Promise<LatestForecastResponse> {
-  return api.get<LatestForecastResponse>('/api/forecast/latest');
+  // 45s timeout — Render free tier can take 30s+ to wake from sleep
+  return api.get<LatestForecastResponse>('/api/forecast/latest', { timeoutMs: 45_000 });
 }
 
 export function getHeatwaveRiskLevel(probability: number): 'low' | 'moderate' | 'high' | 'extreme' {
