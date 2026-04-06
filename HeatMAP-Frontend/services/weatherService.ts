@@ -33,9 +33,18 @@ export interface AirQuality {
   label: string;
 }
 
+export interface DailyForecastPoint {
+  date:   string;   // YYYY-MM-DD
+  temp_max_c:  number;
+  temp_min_c:  number;
+  precipitation_probability: number; // 0-100
+  weather_code: number;
+}
+
 export interface WeatherData {
   current: CurrentConditions;
   hourly: HourlyForecastPoint[];
+  daily: DailyForecastPoint[];
   airQuality: AirQuality;
   location: { latitude: number; longitude: number };
   fetchedAt: string;
@@ -145,6 +154,37 @@ export async function getHourlyForecast(
 }
 
 /**
+ * Fetch 7-day daily forecast from Open-Meteo.
+ * Returns max/min temp, precipitation probability, and weather code per day.
+ */
+export async function getDailyForecast(
+  latitude  = DEFAULT_LAT,
+  longitude = DEFAULT_LNG,
+): Promise<DailyForecastPoint[]> {
+  const url =
+    `https://api.open-meteo.com/v1/forecast` +
+    `?latitude=${latitude}&longitude=${longitude}` +
+    `&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code` +
+    `&timezone=Asia%2FBangkok` +
+    `&forecast_days=7`;
+
+  const data  = await fetchWithTimeout(url);
+  const dates = (data.daily?.time                          ?? []) as string[];
+  const maxT  = (data.daily?.temperature_2m_max            ?? []) as number[];
+  const minT  = (data.daily?.temperature_2m_min            ?? []) as number[];
+  const precip= (data.daily?.precipitation_probability_max ?? []) as number[];
+  const codes = (data.daily?.weather_code                  ?? []) as number[];
+
+  return dates.map((date, i) => ({
+    date,
+    temp_max_c:  maxT[i]   ?? 0,
+    temp_min_c:  minT[i]   ?? 0,
+    precipitation_probability: precip[i] ?? 0,
+    weather_code: codes[i] ?? 0,
+  }));
+}
+
+/**
  * Fetch European AQI from Open-Meteo Air Quality API.
  */
 export async function getAirQuality(
@@ -171,7 +211,7 @@ export async function getAllWeatherData(
   latitude = DEFAULT_LAT,
   longitude = DEFAULT_LNG,
 ): Promise<WeatherData> {
-  const [current, hourly, airQuality] = await Promise.all([
+  const [current, hourly, daily, airQuality] = await Promise.all([
     getCurrentWeather(latitude, longitude).catch(() => ({
       temperature_c: 34,
       apparent_temperature_c: 36,
@@ -183,6 +223,8 @@ export async function getAllWeatherData(
 
     getHourlyForecast(latitude, longitude).catch(() => [] as HourlyForecastPoint[]),
 
+    getDailyForecast(latitude, longitude).catch(() => [] as DailyForecastPoint[]),
+
     getAirQuality(latitude, longitude).catch(() => ({
       european_aqi: 0,
       label: 'Unknown',
@@ -192,6 +234,7 @@ export async function getAllWeatherData(
   return {
     current,
     hourly,
+    daily,
     airQuality,
     location: { latitude, longitude },
     fetchedAt: new Date().toISOString(),

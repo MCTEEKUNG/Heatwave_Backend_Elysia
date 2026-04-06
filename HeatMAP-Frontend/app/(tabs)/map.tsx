@@ -8,8 +8,7 @@ import { MapGrid, MOCK_GRID_DATA, generateThailandGrid, type GridCell } from '@/
 import useLocation from '@/hooks/useLocation';
 import { ScaledText } from '@/components/ui/ScaledText';
 import { useWeather } from '@/hooks/useWeather';
-
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+import { getLatestForecast } from '@/services/forecastService';
 
 // Helper function to find grid cell containing user's location
 const findUserGridCell = (
@@ -62,63 +61,50 @@ export default function MapScreen() {
         { label: t('now'), icon: 'sunny', temp: Math.round(liveTemp), time: '' },
       ];
 
-  // Fetch real prediction data from Backend
+  // Load AI risk data from cached forecast (pre-generated once per month).
+  // We read /api/forecast/latest instead of running Python on every page load,
+  // which would be too slow and expensive on a free Render plan.
   useEffect(() => {
-    const fetchPredictions = async () => {
+    const loadCachedForecast = async () => {
+      setIsLoadingData(true);
       try {
-        setIsLoadingData(true);
-        // Generate base grid cells for Thailand
-        const baseGrid = generateThailandGrid();
+        const data = await getLatestForecast();
 
-        // Build CSV input from grid center points
-        const header = 't2m,d2m,sp,u10,v10,ndvi,ndvi_lag1,ndvi_lag2';
-        const rows = baseGrid.map(cell => {
-          const lat = (cell.north + cell.south) / 2;
-          // Approximate feature values based on latitude (Thailand)
-          const t2m = 308 - (lat - 5) * 0.5;  // ~35°C in Kelvin
-          const d2m = 295;
-          const sp = 101325;
-          const u10 = 2.0;
-          const v10 = 1.5;
-          const ndvi = 0.35;
-          return `${t2m},${d2m},${sp},${u10},${v10},${ndvi},${ndvi},${ndvi}`;
-        });
-        const inputData = [header, ...rows].join('\n');
-
-        const response = await fetch(`${API_URL}/api/predict`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            model: 'balanced_rf',
-            inputData,
-            includeProba: true
-          })
-        });
-
-        if (!response.ok) throw new Error('API error');
-        const result = await response.json();
-
-        if (result.success && result.predictions?.length > 0) {
-          const updatedGrid = baseGrid.map((cell, i) => {
-            const pred = result.predictions[i];
-            const prob = pred ? parseFloat(pred.heatwave_probability ?? '0') : 0;
-            const isHeatwave = pred ? pred.predicted_heatwave === '1' : false;
-            const severity = prob >= 0.8 ? 'extreme' : prob >= 0.5 ? 'medium' : 'low';
-            const temperature = Math.round(30 + prob * 12); // estimate °C from probability
-            return { ...cell, severity, temperature, probability: prob } as GridCell;
-          });
-          setGridData(updatedGrid);
+        if (!data.forecast || data.forecast.length === 0) {
+          // No forecast cached yet — keep default grid, not mock
+          setGridData(generateThailandGrid());
+          return;
         }
-      } catch (error) {
-        console.warn('[MapScreen] Failed to fetch predictions, using mock data:', error);
-        // Fallback to mock data on error
-        setGridData(MOCK_GRID_DATA);
+
+        // Use today's entry, or the first available entry
+        const todayStr = new Date().toISOString().split('T')[0];
+        const todayEntry = data.forecast.find(d => d.date === todayStr) ?? data.forecast[0];
+        const baseProb = todayEntry.heatwave_probability;
+
+        // Apply geographic variance across Thailand:
+        // Central/North = slightly higher risk, South/Coast = lower
+        const baseGrid = generateThailandGrid();
+        const updated = baseGrid.map(cell => {
+          const lat = (cell.north + cell.south) / 2;
+          const lng = (cell.east  + cell.west)  / 2;
+          // Deterministic variance from lat/lng (no random — stable across renders)
+          const latVar = (lat - 13.75) * 0.018;
+          const lngVar = Math.sin((lng - 100.5) * 0.15) * 0.03;
+          const prob   = Math.max(0, Math.min(1, baseProb + latVar + lngVar));
+          const severity: 'extreme' | 'medium' | 'low' =
+            prob >= 0.8 ? 'extreme' : prob >= 0.5 ? 'medium' : 'low';
+          return { ...cell, severity, temperature: Math.round(30 + prob * 12), probability: prob } as GridCell;
+        });
+        setGridData(updated);
+      } catch {
+        // Network error — use plain grid rather than fake mock data
+        setGridData(generateThailandGrid());
       } finally {
         setIsLoadingData(false);
       }
     };
 
-    fetchPredictions();
+    loadCachedForecast();
   }, []);
   
   // Calculate user's current grid cell based on location

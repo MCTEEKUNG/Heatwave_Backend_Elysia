@@ -83,7 +83,7 @@ export default function AlertsScreen() {
   const { calendar, summary, loading: forecastLoading, error: forecastError, refresh } = useForecast(1);
 
   // Real weather data from Open-Meteo (Bangkok default, no GPS needed)
-  const { temperature, wetBulb, uvIndex, humidity, aqi, aqiLabel, loading: weatherLoading } = useWeather();
+  const { temperature, wetBulb, uvIndex, humidity, aqi, aqiLabel, daily, loading: weatherLoading } = useWeather();
 
   const loading = forecastLoading || weatherLoading;
 
@@ -346,6 +346,53 @@ export default function AlertsScreen() {
           </View>
         </View>
 
+        {/* ── 7-Day Weather Forecast (Open-Meteo) ── */}
+        {daily.length > 0 && (
+          <View style={styles.dailySection}>
+            <ScaledText variant="labelMedium" style={[styles.sectionTitle, { color: theme.textSecondary }]}>
+              7-DAY WEATHER FORECAST
+            </ScaledText>
+            <View style={[styles.dailyCard, GlassStyle[isDarkMode ? 'dark' : 'light']]}>
+              {daily.map((day, i) => (
+                <View
+                  key={day.date}
+                  style={[
+                    styles.dailyRow,
+                    i < daily.length - 1 && { borderBottomWidth: 1, borderBottomColor: isDarkMode ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)' }
+                  ]}
+                >
+                  <ScaledText variant="labelMedium" style={[styles.dailyDay, { color: theme.text }]}>
+                    {day.dayLabel}
+                  </ScaledText>
+                  <View style={styles.dailyMiddle}>
+                    <ScaledText style={{ fontSize: 20 }}>{
+                      day.icon === 'sunny' ? '☀️' :
+                      day.icon === 'partly_cloudy_day' ? '⛅' :
+                      day.icon === 'cloud' ? '☁️' :
+                      day.icon === 'rainy' ? '🌧️' :
+                      day.icon === 'thunderstorm' ? '⛈️' :
+                      day.icon === 'foggy' ? '🌫️' : '🌤️'
+                    }</ScaledText>
+                    {day.precipProb > 20 && (
+                      <ScaledText variant="labelSmall" style={{ color: '#60A5FA', marginLeft: 6 }}>
+                        {day.precipProb}%
+                      </ScaledText>
+                    )}
+                  </View>
+                  <View style={styles.dailyTemps}>
+                    <ScaledText variant="labelMedium" style={{ color: theme.text, fontWeight: '700', minWidth: 36, textAlign: 'right' }}>
+                      {day.tempMax}°
+                    </ScaledText>
+                    <ScaledText variant="labelSmall" style={{ color: theme.textSecondary, minWidth: 32, textAlign: 'right' }}>
+                      {day.tempMin}°
+                    </ScaledText>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
         {/* ── Safety Button ── */}
         <TouchableOpacity
           style={[styles.safetyButton, { backgroundColor: theme.primary }]}
@@ -483,6 +530,22 @@ const styles = StyleSheet.create({
   metricLabel:  { fontSize: 10, fontWeight: '700', textTransform: 'uppercase' },
   metricValue:  { fontSize: 24, fontWeight: '700' },
   metricStatus: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase', marginTop: 4 },
+
+  // 7-day weather
+  dailySection: { marginBottom: DesignTokens.spacing.lg },
+  dailyCard: {
+    borderRadius: DesignTokens.borderRadius.xl,
+    overflow: 'hidden',
+  },
+  dailyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: DesignTokens.spacing.md,
+    paddingHorizontal: DesignTokens.spacing.lg,
+  },
+  dailyDay: { width: 52, fontWeight: '600' },
+  dailyMiddle: { flex: 1, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8 },
+  dailyTemps: { flexDirection: 'row', alignItems: 'center', gap: 8 },
 
   // Safety button
   safetyButton: {

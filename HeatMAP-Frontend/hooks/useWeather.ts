@@ -15,36 +15,38 @@ import {
   weatherCodeToIcon,
   type WeatherData,
   type HourlyForecastPoint,
+  type DailyForecastPoint,
 } from '../services/weatherService';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface HourlyItem {
-  label:   string;   // "Now", "+1h", "+2h", …
-  icon:    string;   // icon name for <IconSymbol>
-  temp:    number;   // °C
-  time:    string;   // ISO timestamp
+  label:   string;
+  icon:    string;
+  temp:    number;
+  time:    string;
+}
+
+export interface DailyItem {
+  date:        string;   // YYYY-MM-DD
+  dayLabel:    string;   // "Today", "Mon", "Tue", …
+  icon:        string;
+  tempMax:     number;
+  tempMin:     number;
+  precipProb:  number;   // 0-100
 }
 
 export interface UseWeatherReturn {
-  /** Current temperature (°C) */
   temperature:    number;
-  /** Feels-like temperature (°C) */
   feelsLike:      number;
-  /** Relative humidity (%) */
   humidity:       number;
-  /** UV index */
   uvIndex:        number;
-  /** Wet-bulb temperature (°C, computed) */
   wetBulb:        number;
-  /** Wind speed (km/h) */
   windSpeed:      number;
-  /** European AQI value */
   aqi:            number;
-  /** AQI label ("Good", "Moderate", …) */
   aqiLabel:       string;
-  /** Hourly forecast items ready to render */
   hourly:         HourlyItem[];
+  daily:          DailyItem[];
   loading:        boolean;
   error:          string | null;
   lastFetched:    Date | null;
@@ -73,6 +75,23 @@ function buildHourly(points: HourlyForecastPoint[]): HourlyItem[] {
     temp:  Math.round(p.temperature_c),
     time:  p.time,
   }));
+}
+
+const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+function buildDaily(points: DailyForecastPoint[]): DailyItem[] {
+  const todayStr = new Date().toISOString().split('T')[0];
+  return points.map((p) => {
+    const d = new Date(`${p.date}T00:00:00Z`);
+    return {
+      date:       p.date,
+      dayLabel:   p.date === todayStr ? 'Today' : DAY_NAMES[d.getUTCDay()],
+      icon:       weatherCodeToIcon(p.weather_code),
+      tempMax:    Math.round(p.temp_max_c),
+      tempMin:    Math.round(p.temp_min_c),
+      precipProb: p.precipitation_probability,
+    };
+  });
 }
 
 // ─── Hook ────────────────────────────────────────────────────────────────────
@@ -129,6 +148,7 @@ export function useWeather(
   const aqi         = data?.airQuality.european_aqi        ?? 0;
   const aqiLabel    = data?.airQuality.label               ?? 'Unknown';
   const hourly      = buildHourly(data?.hourly ?? []);
+  const daily       = buildDaily(data?.daily ?? []);
 
   return {
     temperature,
@@ -140,6 +160,7 @@ export function useWeather(
     aqi,
     aqiLabel,
     hourly,
+    daily,
     loading,
     error,
     lastFetched,
