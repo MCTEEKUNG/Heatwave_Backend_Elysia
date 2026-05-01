@@ -7,7 +7,17 @@ export interface ForecastDay {
   forecast_cycle: number;
   temperature_c: number;
   humidity_est: number;
+  humidity_pct?: number;
+  heat_index_c?: number;
+  latitude?: number;
+  longitude?: number;
+  data_source?: string;
   forecast_generated: string;
+}
+
+export interface ForecastLocation {
+  latitude: number | null;
+  longitude: number | null;
 }
 
 export interface ForecastResponse {
@@ -15,6 +25,7 @@ export interface ForecastResponse {
   filename?: string;
   forecast?: ForecastDay[];
   totalDays?: number;
+  location?: ForecastLocation;
   error?: string;
   log?: string;
 }
@@ -23,14 +34,25 @@ export interface LatestForecastResponse {
   filename?: string;
   forecast?: ForecastDay[];
   totalDays?: number;
+  location?: ForecastLocation;
   error?: string;
 }
 
 export function runForecast(
   model: string,
   days: number = 7,   // max 16 (Open-Meteo real-data limit)
+  latitude?: number,
+  longitude?: number,
 ): Promise<ForecastResponse> {
-  return api.post<ForecastResponse>('/api/forecast', { model, days });
+  return api.post<ForecastResponse>('/api/forecast', { model, days, latitude, longitude });
+}
+
+export interface AvailableModelsResponse {
+  availableModels: string[];
+}
+
+export function getAvailableModels(): Promise<AvailableModelsResponse> {
+  return api.get<AvailableModelsResponse>('/api/predict/models');
 }
 
 export function getLatestForecast(): Promise<LatestForecastResponse> {
