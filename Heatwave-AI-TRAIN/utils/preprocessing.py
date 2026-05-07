@@ -4,12 +4,15 @@ utils/preprocessing.py
 Feature engineering, label generation, normalization, and train/val/test splitting.
 
 
-Updated:
-  - _compute_rh_from_era5()     : August-Roche-Magnus formula (replaces inline RH approx)
-  - _compute_heat_index()        : Rothfusz Regression (NWS standard, replaces Steadman)
-  - _generate_labels()           : dual-mode — "heat_index" (default) | "temperature" (legacy)
+Key components:
+  - _compute_rh_from_era5()     : August-Roche-Magnus formula for relative humidity
+  - _compute_derived_features() : Rothfusz Heat Index, wind speed, WBGT
+  - _generate_labels()           : delegates to utils.heatwave_labels (wbgt default)
+                                   legacy modes: "heat_index" | "temperature"
   - _merge_ndvi_features()       : merge MODIS NDVI; skips gracefully when ndvi.enabled: false
   - fit_transform() pipeline     : ordering aligned to Heatwave-definition.md Section 2
+  - _split_by_year()             : year-based split (no temporal leakage)
+  - _split_random()              : legacy stratified random split (reproducibility only)
 """
 import logging
 import warnings
@@ -107,12 +110,21 @@ class HeatwavePreprocessor:
         X = df[feature_names].values
         y = df[self.label_col].values
 
+        # Split val-year rows chronologically: first half → val, second half → test.
+        # This keeps val and test strictly non-overlapping so leaderboard metrics are valid.
+        val_indices = np.where(val_mask)[0]
+        mid = len(val_indices) // 2
+        val_idx  = val_indices[:mid]
+        test_idx = val_indices[mid:]
+
         logger.info(
-            "year_based split — train years: %s | val years: %s",
-            sorted(train_years), sorted(val_years),
+            "year_based split — train years: %s | val years: %s | val: %d | test: %d",
+            sorted(train_years), sorted(val_years), len(val_idx), len(test_idx),
         )
-        # X_test = X_val (2025 is both the validation and held-out test year)
-        return X[train_mask], X[val_mask], X[val_mask], y[train_mask], y[val_mask], y[val_mask]
+        return (
+            X[train_mask], X[val_idx], X[test_idx],
+            y[train_mask], y[val_idx], y[test_idx],
+        )
 
     def _split_random(self, df: pd.DataFrame, feature_names: list):
         """Legacy stratified random split — kept for reproducibility checks only."""
@@ -462,6 +474,7 @@ class HeatwavePreprocessor:
             "t2m_c", "d2m_c",       # temperature (°C)
             "rh",                    # relative humidity
             "heat_index",            # Heat Index (Rothfusz)
+            "wbgt",                  # Wet-Bulb Globe Temperature (Lemke & Kjellstrom 2012)
             "wind_speed",            # speed magnitude
             "sp",                    # surface pressure
             "ndvi", "ndvi_lag1", "ndvi_lag2",  # MODIS NDVI (if merged)

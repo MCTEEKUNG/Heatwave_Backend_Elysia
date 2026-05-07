@@ -16,12 +16,12 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 OUTPUT_DIR = Path("experiments/eda")
 
 STEPS = [
-    ("01 Data coverage",       "eda.01_data_coverage"),
-    ("02 Distribution summary","eda.02_distribution_summary"),
-    ("03 Climatology 2000-2019","eda.03_climatology_2000_2019"),
-    ("04 Year drift 2025",      "eda.04_year_drift_2020_2024_vs_2025"),
-    ("05 Label quality sweep",  "eda.05_label_quality"),
-    ("06 Spatial maps",         "eda.06_spatial_maps"),
+    ("01 Data coverage",        "eda.data_coverage"),
+    ("02 Distribution summary", "eda.distribution_summary"),
+    ("03 Climatology 2000-2019","eda.climatology_2000_2019"),
+    ("04 Year drift 2025",      "eda.year_drift"),
+    ("05 Label quality sweep",  "eda.label_quality"),
+    ("06 Spatial maps",         "eda.spatial_maps"),
 ]
 
 
