@@ -43,3 +43,13 @@ logs/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Setup sentinel files (machine-specific, do not commit)
+.deps_installed
+.cuda_upgraded
+
+# EDA outputs (generated, not source)
+experiments/eda/
+experiments/results/
+experiments/logs/
+experiments/forecasts/

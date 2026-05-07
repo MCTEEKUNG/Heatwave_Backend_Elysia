@@ -25,7 +25,7 @@ const MAX_CSV_BYTES = 1_048_576;
 const MAX_FORECAST_FILES = 50;
 
 // Rate limiting: max requests per IP per window
-const RATE_LIMIT_MAX = 10;
+const RATE_LIMIT_MAX = 60;
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
 
@@ -51,6 +51,8 @@ function isRateLimited(ip: string): boolean {
 
 // ─── Python runner (spawn — no shell, no injection) ───────────────────────────
 
+const PYTHON_TIMEOUT_MS = 120_000; // 2 minutes
+
 function runPythonScript(script: string, args: string[]): Promise<{ stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
     const pythonCmd = process.platform === "win32" ? "python" : "python3";
@@ -63,11 +65,22 @@ function runPythonScript(script: string, args: string[]): Promise<{ stdout: stri
 
     let stdout = "";
     let stderr = "";
+    let settled = false;
+
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      proc.kill("SIGKILL");
+      reject(new Error("Python script timed out after 120 seconds"));
+    }, PYTHON_TIMEOUT_MS);
 
     proc.stdout.on("data", (chunk: Buffer) => { stdout += chunk.toString(); });
     proc.stderr.on("data", (chunk: Buffer) => { stderr += chunk.toString(); });
 
     proc.on("close", (code) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
       if (code !== 0) {
         reject(new Error(`Python script exited with code ${code}: ${stderr.slice(0, 500)}`));
       } else {
@@ -76,6 +89,9 @@ function runPythonScript(script: string, args: string[]): Promise<{ stdout: stri
     });
 
     proc.on("error", (err) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
       reject(new Error(`Failed to start Python process: ${err.message}`));
     });
   });
@@ -189,7 +205,13 @@ const app = new Elysia()
   })
 
   .get("/api/predict/models", () => ({
-    availableModels: ["balanced_rf"],
+    availableModels: readdirSync(MODELS_DIR)
+      .filter(f => f.endsWith("_model.pkl"))
+      .map(f => {
+        if (f === "balanced_random_forest_model.pkl") return "balanced_rf";
+        return f.replace("_model.pkl", "");
+      })
+      .filter(model => VALID_MODELS.has(model)),
   }))
 
   .get("/api/predict/status", async () => {
@@ -298,9 +320,11 @@ const app = new Elysia()
       return { success: false, error: "Too many requests. Please wait before trying again." };
     }
 
-    const { model, days = 7 } = body as {
+    const { model, days = 7, latitude, longitude } = body as {
       model: string;
       days?: number;
+      latitude?: number;
+      longitude?: number;
     };
 
     // Validate model against whitelist
@@ -320,6 +344,14 @@ const app = new Elysia()
       "--days", String(forecastDays),
       "--config", join(TRAIN_DIR, "config.yaml"),
     ];
+
+    if (typeof latitude === "number" && Number.isFinite(latitude)) {
+      args.push("--latitude", String(latitude));
+    }
+
+    if (typeof longitude === "number" && Number.isFinite(longitude)) {
+      args.push("--longitude", String(longitude));
+    }
 
     try {
       const result = await runPythonScript(join(TRAIN_DIR, "prediction", "forecast.py"), args);
@@ -344,6 +376,10 @@ const app = new Elysia()
         filename: files[0],
         forecast: data,
         totalDays: Array.isArray(data) ? data.length : 0,
+        location: {
+          latitude: typeof latitude === "number" && Number.isFinite(latitude) ? latitude : null,
+          longitude: typeof longitude === "number" && Number.isFinite(longitude) ? longitude : null,
+        },
         log: result.stdout,
       };
     } catch (error: any) {
@@ -354,6 +390,8 @@ const app = new Elysia()
     body: t.Object({
       model: t.String(),
       days: t.Optional(t.Number()),  // 1–16, defaults to 7 (Open-Meteo limit)
+      latitude: t.Optional(t.Number()),
+      longitude: t.Optional(t.Number()),
     }),
   })
 

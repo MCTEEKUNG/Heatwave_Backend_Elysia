@@ -4,12 +4,15 @@ utils/preprocessing.py
 Feature engineering, label generation, normalization, and train/val/test splitting.
 
 
-Updated:
-  - _compute_rh_from_era5()     : August-Roche-Magnus formula (replaces inline RH approx)
-  - _compute_heat_index()        : Rothfusz Regression (NWS standard, replaces Steadman)
-  - _generate_labels()           : dual-mode — "heat_index" (default) | "temperature" (legacy)
+Key components:
+  - _compute_rh_from_era5()     : August-Roche-Magnus formula for relative humidity
+  - _compute_derived_features() : Rothfusz Heat Index, wind speed, WBGT
+  - _generate_labels()           : delegates to utils.heatwave_labels (wbgt default)
+                                   legacy modes: "heat_index" | "temperature"
   - _merge_ndvi_features()       : merge MODIS NDVI; skips gracefully when ndvi.enabled: false
   - fit_transform() pipeline     : ordering aligned to Heatwave-definition.md Section 2
+  - _split_by_year()             : year-based split (no temporal leakage)
+  - _split_random()              : legacy stratified random split (reproducibility only)
 """
 import logging
 import warnings
@@ -54,6 +57,10 @@ class HeatwavePreprocessor:
           5. _generate_labels         — binary heatwave label
           6. _drop_na
         Returns (X_train, X_val, X_test, y_train, y_val, y_test, feature_names)
+
+        Split strategy (config.split.method):
+          year_based — train on train_years, validate on val_years (no leakage)
+          random     — legacy stratified random split (kept for reproducibility checks)
         """
         df = self._engineer_features(df)
         df = self._compute_rh_from_era5(df)
@@ -63,36 +70,82 @@ class HeatwavePreprocessor:
         df = self._drop_na(df)
 
         feature_names = self._get_feature_names(df)
-        X = df[feature_names].values
-        y = df[self.label_col].values
 
-        logger.info("Label distribution: heatwave=%.2f%%", 100 * y.mean())
-        logger.info("Total samples: %d | Features: %d", len(X), len(feature_names))
-
-        # Split
-        stratify = y if self.split_cfg.get("stratify", True) else None
-        X_train_full, X_test, y_train_full, y_test = train_test_split(
-            X, y,
-            test_size=self.split_cfg["test"],
-            random_state=self.split_cfg["random_state"],
-            stratify=stratify,
-        )
-        val_ratio = self.split_cfg["val"] / (1 - self.split_cfg["test"])
-        stratify_train = y_train_full if self.split_cfg.get("stratify", True) else None
-        X_train, X_val, y_train, y_val = train_test_split(
-            X_train_full, y_train_full,
-            test_size=val_ratio,
-            random_state=self.split_cfg["random_state"],
-            stratify=stratify_train,
+        logger.info(
+            "Label distribution: heatwave=%.2f%% | Total samples: %d | Features: %d",
+            100 * df[self.label_col].mean(), len(df), len(feature_names),
         )
 
-        # Scale (fit only on train)
+        if self.split_cfg.get("method") == "year_based":
+            X_train, X_val, X_test, y_train, y_val, y_test = self._split_by_year(df, feature_names)
+        else:
+            X_train, X_val, X_test, y_train, y_val, y_test = self._split_random(df, feature_names)
+
+        # Scale (fit only on train to prevent leakage)
         X_train = self.scaler.fit_transform(X_train)
         X_val   = self.scaler.transform(X_val)
         X_test  = self.scaler.transform(X_test)
 
         logger.info("Split — Train: %d | Val: %d | Test: %d", len(X_train), len(X_val), len(X_test))
         return X_train, X_val, X_test, y_train, y_val, y_test, feature_names
+
+    def _split_by_year(self, df: pd.DataFrame, feature_names: list):
+        """Year-based split: train on train_years, val/test on val_years."""
+        train_years = set(self.split_cfg["train_years"])
+        val_years   = set(self.split_cfg["val_years"])
+
+        if "year" in df.columns:
+            year_col = df["year"]
+        else:
+            year_col = pd.to_datetime(df["time"]).dt.year
+
+        train_mask = year_col.isin(train_years).values
+        val_mask   = year_col.isin(val_years).values
+
+        # Hard leakage check — must never overlap
+        assert not np.any(train_mask & val_mask), (
+            "BUG: some rows are in both train and val splits!"
+        )
+
+        X = df[feature_names].values
+        y = df[self.label_col].values
+
+        # Split val-year rows chronologically: first half → val, second half → test.
+        # This keeps val and test strictly non-overlapping so leaderboard metrics are valid.
+        val_indices = np.where(val_mask)[0]
+        mid = len(val_indices) // 2
+        val_idx  = val_indices[:mid]
+        test_idx = val_indices[mid:]
+
+        logger.info(
+            "year_based split — train years: %s | val years: %s | val: %d | test: %d",
+            sorted(train_years), sorted(val_years), len(val_idx), len(test_idx),
+        )
+        return (
+            X[train_mask], X[val_idx], X[test_idx],
+            y[train_mask], y[val_idx], y[test_idx],
+        )
+
+    def _split_random(self, df: pd.DataFrame, feature_names: list):
+        """Legacy stratified random split — kept for reproducibility checks only."""
+        X = df[feature_names].values
+        y = df[self.label_col].values
+        stratify = y if self.split_cfg.get("stratify", True) else None
+        X_tr_full, X_test, y_tr_full, y_test = train_test_split(
+            X, y,
+            test_size=self.split_cfg.get("test", 0.15),
+            random_state=self.split_cfg.get("random_state", 42),
+            stratify=stratify,
+        )
+        val_ratio = self.split_cfg.get("val", 0.15) / (1 - self.split_cfg.get("test", 0.15))
+        stratify_tr = y_tr_full if self.split_cfg.get("stratify", True) else None
+        X_train, X_val, y_train, y_val = train_test_split(
+            X_tr_full, y_tr_full,
+            test_size=val_ratio,
+            random_state=self.split_cfg.get("random_state", 42),
+            stratify=stratify_tr,
+        )
+        return X_train, X_val, X_test, y_train, y_val, y_test
 
     def transform(self, df: pd.DataFrame) -> np.ndarray:
         """Apply preprocessing to new data using already-fitted scaler."""
@@ -221,6 +274,12 @@ class HeatwavePreprocessor:
         if "u10" in df.columns and "v10" in df.columns:
             df["wind_speed"] = np.sqrt(df["u10"] ** 2 + df["v10"] ** 2)
 
+        # WBGT — always compute so it's available as a feature regardless of labeling method.
+        # Lemke & Kjellstrom 2012 outdoor approximation (shaded, no globe temperature).
+        if "t2m_c" in df.columns and "rh" in df.columns:
+            from utils.heatwave_labels import compute_wbgt  # noqa: PLC0415
+            df["wbgt"] = compute_wbgt(df["t2m_c"].values, df["rh"].values)
+
         return df
 
     def _compute_heat_index(self, T: float, RH: float) -> float:
@@ -327,11 +386,21 @@ class HeatwavePreprocessor:
         """
         Generate binary heatwave labels.
 
-        Modes (controlled by config.data.labeling_method):
-          "heat_index" (default) : label = 1 if heat_index >= heatwave_heat_index_threshold (41.0°C)
-          "temperature" (legacy)  : label = 1 if t2m_c >= heatwave_threshold_celsius (35.0°C)
+        When config contains a 'heatwave_label' section, delegates to
+        utils.heatwave_labels.dispatch (multi-criteria, Thailand-aware).
+
+        Legacy modes (config.data.labeling_method):
+          "heat_index" : HI >= heatwave_heat_index_threshold (default 35°C)
+          "temperature": t2m_c >= heatwave_threshold_celsius (35°C)
         """
         df = df.copy()
+
+        # New multi-criteria labeler takes priority when configured
+        if "heatwave_label" in self.cfg:
+            from utils.heatwave_labels import dispatch
+            df = dispatch(df, self.cfg)
+            return df.rename(columns={"is_heatwave": self.label_col})
+
         method = self.cfg["data"].get("labeling_method", "heat_index")
 
         if method == "heat_index":
@@ -411,6 +480,7 @@ class HeatwavePreprocessor:
             "t2m_c", "d2m_c",       # temperature (°C)
             "rh",                    # relative humidity
             "heat_index",            # Heat Index (Rothfusz)
+            "wbgt",                  # Wet-Bulb Globe Temperature (Lemke & Kjellstrom 2012)
             "wind_speed",            # speed magnitude
             "sp",                    # surface pressure
             "ndvi", "ndvi_lag1", "ndvi_lag2",  # MODIS NDVI (if merged)

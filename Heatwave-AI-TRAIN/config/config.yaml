@@ -7,7 +7,7 @@ training:
   mixed_precision: true
   batch_size: 512
 data:
-  raw_dir: C:\Users\ASUS\OneDrive\Desktop\Heatwave-AI\Era5-data-2000-2026
+  raw_dir: ../Era5-data-2000-2026
   processed_dir: data/processed
   years:
     - 2000
@@ -39,7 +39,7 @@ data:
   surface_prefix: era5_surface_
   upper_prefix: era5_upper_
   heatwave_threshold_celsius: 35.0
-  labeling_method: heat_index
+  labeling_method: heat_index  # DEPRECATED — superseded by heatwave_label.method below; kept only for legacy random-split runs
   heat_index_thresholds:
     caution: 27.0
     extreme_caution: 32.0
@@ -71,19 +71,42 @@ ndvi:
     - h27v08
     - h28v07
     - h28v08
-  output_dir: C:\Users\ASUS\OneDrive\Desktop\Heatwave-AI\ndvi
-  processed_file: C:\Users\ASUS\OneDrive\Desktop\Heatwave-AI\ndvi\ndvi_aligned_era5.nc
+  output_dir: ../ndvi
+  processed_file: ../ndvi/ndvi_aligned_era5.nc
   fill_nodata_method: linear
   lag_months:
     - 0
     - 1
     - 2
 split:
+  method: year_based           # year_based (recommended) | random (legacy)
+  # 2000-2019 are reserved as climatology baseline (EHF percentiles only — never fed to model).
+  # Training starts at 2020 to avoid the model learning the baseline's own label distribution.
+  train_years: [2020, 2021, 2022, 2023, 2024]
+  val_years:   [2025]          # first half of 2025 rows → val; second half → test (chronological)
+  climatology_years: [2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009,
+                      2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019]
+  # legacy random-split settings (used only when method: random)
   train: 0.7
   val: 0.15
   test: 0.15
   random_state: 42
   stratify: true
+heatwave_label:
+  method: wbgt                 # wbgt (default) | heat_index | ehf | tropical_night
+  wbgt:
+    threshold_c: 32.0          # ISO 7243 / OSHA extreme caution / Thai MoPH high risk
+    min_consecutive_days: 2
+  heat_index:
+    threshold_c: 35.0
+    min_consecutive_days: 2
+  ehf:
+    percentile: 95             # local 95th-pct of Tmax (Perkins & Alexander 2013)
+    min_consecutive_days: 3
+    climatology_file: experiments/eda/climatology_2000_2019.nc
+  tropical_night:
+    tmin_c: 26.0               # WMO tropical-night threshold
+    min_consecutive_days: 2
 experiments:
   results_dir: experiments/results
   models_dir: experiments/models

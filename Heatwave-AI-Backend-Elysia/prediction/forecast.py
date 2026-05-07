@@ -19,8 +19,9 @@ import numpy as np
 import pandas as pd
 import yaml
 from datetime import datetime
+
 try:
-    from zoneinfo import ZoneInfo          # Python 3.9+
+    from zoneinfo import ZoneInfo  # Python 3.9+
 except ImportError:
     from backports.zoneinfo import ZoneInfo  # Python 3.8 fallback
 
@@ -36,9 +37,18 @@ DEFAULT_LON = 100.50
 # Seasonal NDVI climatology for Thailand (MODIS MOD13A3 long-term mean)
 # Used because real-time NDVI is monthly and unavailable for future dates.
 NDVI_SEASONAL = {
-    1: 0.42, 2: 0.38, 3: 0.33, 4: 0.31, 5: 0.35,
-    6: 0.45, 7: 0.52, 8: 0.55, 9: 0.57, 10: 0.53,
-    11: 0.50, 12: 0.46,
+    1: 0.42,
+    2: 0.38,
+    3: 0.33,
+    4: 0.31,
+    5: 0.35,
+    6: 0.45,
+    7: 0.52,
+    8: 0.55,
+    9: 0.57,
+    10: 0.53,
+    11: 0.50,
+    12: 0.46,
 }
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -82,7 +92,9 @@ class ForecastPredictor:
             f"&forecast_days={days}"
         )
 
-        logger.info("Fetching Open-Meteo forecast: lat=%.2f lon=%.2f days=%d", lat, lon, days)
+        logger.info(
+            "Fetching Open-Meteo forecast: lat=%.2f lon=%.2f days=%d", lat, lon, days
+        )
         try:
             with urllib.request.urlopen(url, timeout=30) as resp:
                 data = json.loads(resp.read())
@@ -93,28 +105,34 @@ class ForecastPredictor:
             ) from exc
 
         h = data["hourly"]
-        df_h = pd.DataFrame({
-            "time":          pd.to_datetime(h["time"]),
-            "t2m_c":         h["temperature_2m"],
-            "d2m_c":         h["dewpoint_2m"],
-            "rh":            h["relative_humidity_2m"],
-            "sp":            h["surface_pressure"],
-            "wind_speed":    h["wind_speed_10m"],
-            "wind_dir":      h["wind_direction_10m"],
-        })
+        df_h = pd.DataFrame(
+            {
+                "time": pd.to_datetime(h["time"]),
+                "t2m_c": h["temperature_2m"],
+                "d2m_c": h["dewpoint_2m"],
+                "rh": h["relative_humidity_2m"],
+                "sp": h["surface_pressure"],
+                "wind_speed": h["wind_speed_10m"],
+                "wind_dir": h["wind_direction_10m"],
+            }
+        )
         df_h["date"] = df_h["time"].dt.date
 
         # Daily aggregation
         # — temperature: use daily MAX (peak heat is what causes heatwaves)
         # — everything else: daily mean
-        daily = df_h.groupby("date").agg(
-            t2m_c     =("t2m_c",      "max"),
-            d2m_c     =("d2m_c",      "mean"),
-            rh        =("rh",         "mean"),
-            sp        =("sp",         "mean"),
-            wind_speed=("wind_speed", "mean"),
-            wind_dir  =("wind_dir",   "mean"),
-        ).reset_index()
+        daily = (
+            df_h.groupby("date")
+            .agg(
+                t2m_c=("t2m_c", "max"),
+                d2m_c=("d2m_c", "mean"),
+                rh=("rh", "mean"),
+                sp=("sp", "mean"),
+                wind_speed=("wind_speed", "mean"),
+                wind_dir=("wind_dir", "mean"),
+            )
+            .reset_index()
+        )
 
         daily["time"] = pd.to_datetime(daily["date"])
 
@@ -131,35 +149,39 @@ class ForecastPredictor:
 
         # Heat Index — Rothfusz regression
         # Valid only for T >= 26.7°C AND RH >= 40%
-        T  = daily["t2m_c"].values
+        T = daily["t2m_c"].values
         RH = daily["rh"].values
-        t_f  = T * 9.0 / 5.0 + 32.0
+        t_f = T * 9.0 / 5.0 + 32.0
         hi_f = (
             -42.379
-            + 2.04901523  * t_f
+            + 2.04901523 * t_f
             + 10.14333127 * RH
-            - 0.22475541  * t_f * RH
-            - 0.00683783  * t_f ** 2
-            - 0.05481717  * RH ** 2
-            + 0.00122874  * t_f ** 2 * RH
-            + 0.00085282  * t_f * RH ** 2
-            - 0.00000199  * t_f ** 2 * RH ** 2
+            - 0.22475541 * t_f * RH
+            - 0.00683783 * t_f**2
+            - 0.05481717 * RH**2
+            + 0.00122874 * t_f**2 * RH
+            + 0.00085282 * t_f * RH**2
+            - 0.00000199 * t_f**2 * RH**2
         )
         hi_c = (hi_f - 32.0) * 5.0 / 9.0
         daily["heat_index"] = np.where((T >= 26.7) & (RH >= 40.0), hi_c, T)
+
+        # WBGT — Lemke & Kjellstrom 2012 outdoor approximation (shaded, no globe temp)
+        e = (RH / 100.0) * 6.105 * np.exp(17.27 * T / (237.7 + T))
+        daily["wbgt"] = 0.567 * T + 0.393 * e + 3.94
 
         # NDVI — seasonal climatology (future dates have no real-time NDVI)
         month = daily["time"].dt.month.iloc[0]
         m1 = month
         m2 = month - 1 if month > 1 else 12
         m3 = month - 2 if month > 2 else month + 10
-        daily["ndvi"]      = NDVI_SEASONAL.get(m1, 0.40)
+        daily["ndvi"] = NDVI_SEASONAL.get(m1, 0.40)
         daily["ndvi_lag1"] = NDVI_SEASONAL.get(m2, 0.40)
         daily["ndvi_lag2"] = NDVI_SEASONAL.get(m3, 0.40)
 
-        daily["latitude"]  = lat
+        daily["latitude"] = lat
         daily["longitude"] = lon
-        daily["year"]      = daily["time"].dt.year
+        daily["year"] = daily["time"].dt.year
 
         logger.info(
             "Open-Meteo data ready: %d days (%s → %s) | "
@@ -179,7 +201,9 @@ class ForecastPredictor:
         model: str,
         start_date: datetime,
         days: int = 7,
-        cycles: int = 1,   # ignored — real data has no concept of "cycles"
+        cycles: int = 1,  # ignored — real data has no concept of "cycles"
+        latitude: float = DEFAULT_LAT,
+        longitude: float = DEFAULT_LON,
     ) -> pd.DataFrame:
         """
         Generate a heatwave forecast using real Open-Meteo weather data.
@@ -195,30 +219,37 @@ class ForecastPredictor:
         """
         days = min(days, OPENMETEO_MAX_DAYS)
 
-        forecast_input = self._fetch_openmeteo(DEFAULT_LAT, DEFAULT_LON, days)
+        forecast_input = self._fetch_openmeteo(latitude, longitude, days)
 
         predictions = self.predictor.predict(model, forecast_input)
-        probas      = self.predictor.predict_proba(model, forecast_input)
+        probas = self.predictor.predict_proba(model, forecast_input)
 
         if predictions is None or probas is None:
             raise ValueError(f"Predictor returned None for model '{model}'")
-        if len(predictions) != len(forecast_input) or len(probas) != len(forecast_input):
+        if len(predictions) != len(forecast_input) or len(probas) != len(
+            forecast_input
+        ):
             raise ValueError(
                 f"Predictor output length mismatch: expected {len(forecast_input)}, "
                 f"got predictions={len(predictions)}, probas={len(probas)}"
             )
 
-        result = pd.DataFrame({
-            "date":                forecast_input["time"].dt.strftime("%Y-%m-%d"),
-            "predicted_heatwave":  predictions,
-            "heatwave_probability": probas,
-            "forecast_cycle":      1,
-            "temperature_c":       forecast_input["t2m_c"].values,
-            "humidity_pct":        forecast_input["rh"].values.round(1),
-            "heat_index_c":        forecast_input["heat_index"].values.round(2),
-            "data_source":         "open-meteo",
-            "forecast_generated":  datetime.now(tz=ICT).isoformat(),
-        })
+        result = pd.DataFrame(
+            {
+                "date": forecast_input["time"].dt.strftime("%Y-%m-%d"),
+                "predicted_heatwave": predictions,
+                "heatwave_probability": probas,
+                "forecast_cycle": 1,
+                "temperature_c": forecast_input["t2m_c"].values,
+                "humidity_est": forecast_input["rh"].values.round(1),
+                "humidity_pct": forecast_input["rh"].values.round(1),
+                "heat_index_c": forecast_input["heat_index"].values.round(2),
+                "latitude": forecast_input["latitude"].values,
+                "longitude": forecast_input["longitude"].values,
+                "data_source": "open-meteo",
+                "forecast_generated": datetime.now(tz=ICT).isoformat(),
+            }
+        )
 
         return result
 
@@ -243,9 +274,24 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(description="Heatwave AI — Real-Data Forecast")
-    parser.add_argument("--model",  required=True, help="Model to use (e.g. balanced_rf)")
-    parser.add_argument("--days",   type=int, default=7,
-                        help=f"Forecast days (max {OPENMETEO_MAX_DAYS})")
+    parser.add_argument(
+        "--model", required=True, help="Model to use (e.g. balanced_rf)"
+    )
+    parser.add_argument(
+        "--days", type=int, default=7, help=f"Forecast days (max {OPENMETEO_MAX_DAYS})"
+    )
+    parser.add_argument(
+        "--latitude",
+        type=float,
+        default=DEFAULT_LAT,
+        help=f"Forecast latitude (default {DEFAULT_LAT})",
+    )
+    parser.add_argument(
+        "--longitude",
+        type=float,
+        default=DEFAULT_LON,
+        help=f"Forecast longitude (default {DEFAULT_LON})",
+    )
     parser.add_argument("--output", type=str, default=None, help="Output CSV path")
     parser.add_argument("--config", type=str, default="config.yaml", help="Config file")
 
@@ -256,7 +302,7 @@ def main():
         sys.exit(1)
 
     start_date = datetime.now(tz=ICT)
-    days       = min(args.days, OPENMETEO_MAX_DAYS)
+    days = min(args.days, OPENMETEO_MAX_DAYS)
 
     print(f"\n{'=' * 60}")
     print(f"  HEATWAVE-AI | {days}-Day Real-Weather Forecast")
@@ -264,15 +310,22 @@ def main():
     print(f"  Model       : {args.model}")
     print(f"  Start Date  : {start_date.strftime('%Y-%m-%d')} (today, ICT)")
     print(f"  Days        : {days}")
+    print(f"  Location    : {args.latitude:.4f}, {args.longitude:.4f}")
     print(f"  Data source : Open-Meteo (real NWP forecast)")
     print(f"{'=' * 60}\n")
 
     forecaster = ForecastPredictor(config_path=args.config)
-    result     = forecaster.forecast(args.model, start_date, days)
+    result = forecaster.forecast(
+        args.model,
+        start_date,
+        days,
+        latitude=args.latitude,
+        longitude=args.longitude,
+    )
 
     heatwave_days = (result["predicted_heatwave"] == 1).sum()
-    total_days    = len(result)
-    avg_prob      = result["heatwave_probability"].mean()
+    total_days = len(result)
+    avg_prob = result["heatwave_probability"].mean()
 
     print(f"\n{'=' * 60}")
     print(f"  Forecast Results")

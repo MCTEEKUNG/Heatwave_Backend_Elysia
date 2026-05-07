@@ -2,6 +2,9 @@
 title HEATWAVE-AI Prediction System
 color 0A
 
+:: Always run from the directory containing this script
+cd /d "%~dp0"
+
 echo.
 echo  ============================================================
 echo   HEATWAVE-AI  ^|  Modular AI Experimentation Framework

@@ -45,7 +45,8 @@ data:
     extreme_caution: 32.0
     danger: 41.0
     extreme_danger: 54.0
-  heatwave_heat_index_threshold: 41.0
+  heatwave_heat_index_threshold: 35.0
+  heatwave_min_consecutive_days: 2
   features:
     - t2m
     - d2m

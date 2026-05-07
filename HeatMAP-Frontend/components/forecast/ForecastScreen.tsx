@@ -12,9 +12,11 @@ import {
 import {
   runForecast,
   getLatestForecast,
+  getAvailableModels,
   getHeatwaveRiskLevel,
   ForecastDay
 } from '../../services/forecastService';
+import useLocation from '../../hooks/useLocation';
 
 const { width } = Dimensions.get('window');
 const CELL_W = Math.floor((width - 72) / 7); // 7-col calendar, 20px padding each side + 12px card padding each side
@@ -62,12 +64,17 @@ const THEME = {
 function groupByMonth(days: ForecastDay[]): [string, ForecastDay[]][] {
   const map: Map<string, ForecastDay[]> = new Map();
   for (const day of days) {
-    const d = new Date(day.date);
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const [year, month] = day.date.split('-');
+    const key = `${year}-${month}`;
     if (!map.has(key)) map.set(key, []);
     map.get(key)!.push(day);
   }
   return Array.from(map.entries());
+}
+
+function parseDateParts(date: string) {
+  const [year, month, day] = date.split('-').map(Number);
+  return { year, month, day };
 }
 
 function getMonthLabel(key: string): string {
@@ -97,16 +104,39 @@ export default function ForecastScreen() {
   const [selectedModel, setSelectedModel] = useState('balanced_rf');
   const [selectedCycle, setSelectedCycle] = useState(1);
   const [forecastDays, setForecastDays] = useState(7);
+  const [availableModels, setAvailableModels] = useState<{ key: string; label: string }[]>([]);
+  const { location, getCurrentLocation } = useLocation();
 
-  const models = [
-    { key: 'balanced_rf', label: 'Balanced RF' },
-    { key: 'xgboost',     label: 'XGBoost' },
-    { key: 'lightgbm',    label: 'LightGBM' },
-    { key: 'mlp',         label: 'MLP' },
-    { key: 'kan',         label: 'KAN' },
-  ];
+  const modelLabels: Record<string, string> = {
+    balanced_rf: 'Balanced RF',
+    xgboost: 'XGBoost',
+    lightgbm: 'LightGBM',
+    mlp: 'MLP',
+    kan: 'KAN',
+  };
 
-  useEffect(() => { loadLatestForecast(); }, []);
+  useEffect(() => {
+    loadModels();
+    loadLatestForecast();
+  }, []);
+
+  const loadModels = async () => {
+    try {
+      const data = await getAvailableModels();
+      const nextModels = data.availableModels.map(key => ({
+        key,
+        label: modelLabels[key] ?? key,
+      }));
+
+      setAvailableModels(nextModels);
+
+      if (nextModels.length > 0 && !nextModels.some(m => m.key === selectedModel)) {
+        setSelectedModel(nextModels[0].key);
+      }
+    } catch {
+      setAvailableModels([{ key: 'balanced_rf', label: 'Balanced RF' }]);
+    }
+  };
 
   const loadLatestForecast = async () => {
     setLoading(true);
@@ -129,9 +159,16 @@ export default function ForecastScreen() {
     setLoading(true);
     setError(null);
     try {
-      const result = await runForecast(selectedModel, forecastDays);
+      const currentLocation = location ?? await getCurrentLocation();
+      const result = await runForecast(
+        selectedModel,
+        forecastDays,
+        currentLocation?.latitude,
+        currentLocation?.longitude,
+      );
       if (result.success && result.forecast) {
         setForecast(result.forecast);
+        setSelectedCycle(1);
       } else {
         setError(result.error || 'Forecast generation failed');
       }
@@ -156,8 +193,8 @@ export default function ForecastScreen() {
 
   const dateMap = new Map<string, ForecastDay>();
   filteredForecast.forEach(d => {
-    const parsed = new Date(d.date);
-    const key = `${parsed.getFullYear()}-${String(parsed.getMonth()+1).padStart(2,'0')}-${String(parsed.getDate()).padStart(2,'0')}`;
+    const { year, month, day } = parseDateParts(d.date);
+    const key = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
     dateMap.set(key, d);
   });
 
@@ -189,7 +226,7 @@ export default function ForecastScreen() {
         <Text style={[styles.label, { color: t.textMuted }]}>AI MODEL</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <View style={styles.chipRow}>
-            {models.map(m => (
+            {availableModels.map(m => (
               <TouchableOpacity
                 key={m.key}
                 style={[styles.chip, { backgroundColor: t.chipBg },
@@ -352,7 +389,7 @@ export default function ForecastScreen() {
                     const riskColor = RISK_COLORS[risk];
                     const bg = isDark ? RISK_BG_DARK[risk] : RISK_BG_LIGHT[risk];
                     const isHW = day.predicted_heatwave === 1;
-                    const dayNum = new Date(day.date).getDate();
+                    const dayNum = parseDateParts(day.date).day;
 
                     return (
                       <View

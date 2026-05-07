@@ -122,6 +122,29 @@ export default function MapScreen() {
   // Get current severity level (null if low/no risk)
   const currentSeverity = userGridCell?.severity || null;
 
+  // Severity for the floating temp card — derived from REAL live temp
+  // (Open-Meteo at user's GPS), using the same Heat Index thresholds as the
+  // forecast model. This keeps the card consistent and avoids the previous
+  // green→red flip that happened when the card switched from `liveTemp` to a
+  // synthesized grid-cell temp once the forecast loaded.
+  const liveSeverity: Severity =
+    liveTemp >= 41 ? 'extreme'
+    : liveTemp >= 35 ? 'high'
+    : liveTemp >= 28 ? 'moderate'
+    : 'low';
+
+  // The theme only exposes 3 colours (extreme/medium/low); collapse the 4-tier
+  // severity onto them so 'high' and 'moderate' don't silently fall back to green.
+  const liveSeverityColor =
+    liveSeverity === 'extreme' || liveSeverity === 'high' ? theme.extreme
+    : liveSeverity === 'moderate' ? theme.medium
+    : theme.low;
+
+  const liveSeverityLabel =
+    liveSeverity === 'extreme' || liveSeverity === 'high' ? t('extremeHeat')
+    : liveSeverity === 'moderate' ? (t('heatRiskLevelMedium').split(': ')[1] || 'Medium')
+    : t('lowRisk');
+
   // Check if any extreme severity exists
   const hasExtreme = gridData.some(cell => cell.severity === 'extreme');
   
@@ -190,18 +213,12 @@ export default function MapScreen() {
         ]}>
           <ScaledText variant="labelSmall" style={{ color: theme.primary, textTransform: 'uppercase', letterSpacing: 1 }}>{t('currentlyTemp')}</ScaledText>
           <ScaledText variant="displaySmall" style={{ color: theme.text, fontWeight: '700' }}>
-            {userGridCell ? `${userGridCell.temperature}°C` : `${Math.round(liveTemp)}°C`}
+            {`${Math.round(liveTemp)}°C`}
           </ScaledText>
           <View style={styles.tempStatus}>
-            <View style={[
-              styles.tempIndicator, 
-              { backgroundColor: currentSeverity === 'extreme' ? theme.extreme : currentSeverity === 'medium' ? theme.medium : theme.low }
-            ]} />
-            <ScaledText variant="labelSmall" style={{ 
-              color: currentSeverity === 'extreme' ? theme.extreme : currentSeverity === 'medium' ? theme.medium : theme.low, 
-              textTransform: 'uppercase' 
-            }}>
-              {currentSeverity === 'extreme' ? t('extremeHeat') : currentSeverity === 'medium' ? t('heatRiskLevelMedium').split(': ')[1] || 'Medium' : t('lowRisk')}
+            <View style={[styles.tempIndicator, { backgroundColor: liveSeverityColor }]} />
+            <ScaledText variant="labelSmall" style={{ color: liveSeverityColor, textTransform: 'uppercase' }}>
+              {liveSeverityLabel}
             </ScaledText>
           </View>
         </View>
