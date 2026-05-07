@@ -194,7 +194,7 @@ flowchart TD
     subgraph PREP["Data Preparation"]
         B["ERA5DataLoader\nLoad NetCDF files"] --> C
         C["HeatwavePreprocessor\nCompute Heat Index\nAdd NDVI lags\nLabel heatwave days"] --> D
-        D["Stratified Split\n70% train / 15% val / 15% test\nrandom_state=42"]
+        D["Year-based Split\nTrain: 2020–2024\nVal / Test: 2025\n(no temporal leakage)"]
     end
 
     D --> E["StandardScaler\nFit on train set only"]
@@ -215,11 +215,18 @@ flowchart TD
     H --> J["Save *_model.pkl\nfor each trained model"]
 
     subgraph LABEL["Heatwave Label Definition"]
-        L1["Heat Index ≥ 35°C\nAND ≥ 2 consecutive days\n→ heatwave = 1"]
+        L1["WBGT ≥ 32°C\nAND ≥ 2 consecutive days\n→ heatwave = 1\n(ISO 7243 / Thai MoPH standard)\nConfigurable: wbgt | heat_index | ehf | tropical_night"]
     end
 ```
 
-**Heatwave label:** Heat Index ≥ 35 °C for ≥ 2 consecutive days = `heatwave = 1`.
+**Heatwave label (default):** WBGT ≥ 32 °C for ≥ 2 consecutive days = `heatwave = 1`.
+WBGT (Wet-Bulb Globe Temperature) is used because Thailand's hot-humid climate makes
+pure temperature thresholds insufficient — sweat evaporates poorly at high RH. The 32 °C
+threshold matches Thailand's MoPH public-advisory level. Formula: ABoM outdoor approximation
+(Lemke & Kjellstrom 2012): `WBGT = 0.567·T + 0.393·e + 3.94` where `e` is vapor pressure.
+
+**Data split:** 2000–2019 used as climatology baseline (percentile labels only),
+2020–2024 as training data, 2025 as the held-out validation year.
 
 ---
 

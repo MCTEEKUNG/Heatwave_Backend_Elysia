@@ -40,7 +40,7 @@ ERA5 คือฐานข้อมูล **Reanalysis** จาก ECMWF (Europe
 | **Collection**          | Version 6.1 (ล่าสุด)                    |
 | **Temporal Resolution** | **รายเดือน** (Monthly Composite)        |
 | **Spatial Resolution**  | **1 km**                                |
-| **ช่วงเวลา**            | 2000–2015 (ตรงกับ ERA5 training period) |
+| **ช่วงเวลา**            | 2000–2025 (ตรงกับ ERA5 training period) |
 | **แหล่งดาวน์โหลด**      | Google Earth Engine (GEE)               |
 
 ### เปรียบเทียบตัวเลือก Satellite NDVI
@@ -61,7 +61,7 @@ ERA5 คือฐานข้อมูล **Reanalysis** จาก ECMWF (Europe
 | ----------------------- | ----------------------------------------------------- |
 | **Spatial Resolution**  | **0.25° × 0.25°** (~27 km ที่เส้นศูนย์สูตร)           |
 | **Temporal Resolution** | รายชั่วโมง (Hourly) → โปรเจกต์นี้ใช้ผ่าน NetCDF รายปี |
-| **ช่วงเวลา**            | 2000–2015 (16 ปี)                                     |
+| **ช่วงเวลา**            | 2000–2025 (26 ปี) — climatology 2000–2019, train 2020–2024, val 2025 |
 | **Projection**          | Geographic (WGS84 / EPSG:4326)                        |
 
 ### NDVI (MODIS MOD13A3)
@@ -81,13 +81,41 @@ ERA5 คือฐานข้อมูล **Reanalysis** จาก ECMWF (Europe
 
 ## 4️⃣ Label Heatwave สร้างยังไง?
 
-โปรเจกต์นี้ใช้ **Fixed Absolute Threshold** ไม่ใช่ Percentile หรือ Consecutive Days
+โปรเจกต์นี้รองรับหลายวิธีการ label ผ่าน `config.heatwave_label.method` — เลือกวิธีที่เหมาะกับบริบทประเทศไทย
 
-### วิธีปัจจุบัน (Heat Index Mode — ค่า Default ใหม่)
+### วิธีปัจจุบัน (WBGT Mode — ค่า Default สำหรับประเทศไทย)
+
+ประเทศไทยร้อนและชื้นสูง การใช้แค่อุณหภูมิอากาศ (Tmax) ไม่เพียงพอ เพราะเหงื่อไม่ระเหยได้ดีในอากาศชื้น WBGT (Wet-Bulb Globe Temperature) เป็นมาตรฐานที่กระทรวงสาธารณสุขไทยและกรมสวัสดิการและคุ้มครองแรงงานใช้อยู่แล้ว
 
 ```
-heatwave = 1  ถ้า  Heat Index >= 41.0°C
-heatwave = 0  ถ้า  Heat Index <  41.0°C
+heatwave = 1  ถ้า  WBGT >= 32.0°C  ติดต่อกัน >= 2 วัน ที่ตำแหน่งเดิม
+heatwave = 0  ถ้า  ไม่เป็นไปตามเงื่อนไขข้างต้น
+```
+
+**สูตร WBGT (ABoM approximation, Lemke & Kjellstrom 2012):**
+
+```
+Step 1: RH (%) = Magnus formula จาก t2m_c + d2m_c
+Step 2: e (hPa) = (RH/100) × 6.105 × exp(17.27·T / (237.7+T))
+Step 3: WBGT = 0.567·T + 0.393·e + 3.94
+Step 4: ถ้า WBGT >= 32°C ติดต่อกัน >= 2 วัน → label = 1
+```
+
+**เหตุผลที่เลือก 32°C:** ตรงกับระดับ "Extreme Caution" ของ OSHA/NIOSH และคำแนะนำสาธารณสุขไทย
+
+### วิธีอื่นที่รองรับ (เลือกใน config.yaml)
+
+| method | คำอธิบาย | เหมาะกับ |
+|--------|----------|----------|
+| `wbgt` ✅ | WBGT ≥ 32°C / ≥ 2 วัน | **Default — เหมาะสุดสำหรับไทย** |
+| `heat_index` | HI ≥ 35°C / ≥ 2 วัน | ใช้ได้ — เป็นวิธีเดิม |
+| `ehf` | Tmax เกิน Percentile 95 ของ climatology / ≥ 3 วัน | ดีที่สุดสำหรับงานวิจัย |
+| `tropical_night` | Tmin ≥ 26°C / ≥ 2 คืน | ดูความล้มเหลวของการฟื้นตัวตอนกลางคืน |
+
+### วิธีเก่า (Heat Index Mode — ยังเรียกใช้ได้ผ่าน config)
+
+```
+heatwave = 1  ถ้า  Heat Index >= 35.0°C  ติดต่อกัน >= 2 วัน
 ```
 
 **ที่มาของ Heat Index:**
@@ -95,7 +123,7 @@ heatwave = 0  ถ้า  Heat Index <  41.0°C
 ```
 Step 1: RH (%) = Magnus formula จาก t2m_c + d2m_c
 Step 2: Heat Index (°C) = Rothfusz Regression จาก t2m_c + RH
-Step 3: ถ้า Heat Index >= 41.0°C → label = 1
+Step 3: ถ้า Heat Index >= 35°C ติดต่อกัน >= 2 วัน → label = 1
 ```
 
 **ตัวอย่างที่แสดงให้เห็นความสำคัญ:**

@@ -54,6 +54,10 @@ class HeatwavePreprocessor:
           5. _generate_labels         — binary heatwave label
           6. _drop_na
         Returns (X_train, X_val, X_test, y_train, y_val, y_test, feature_names)
+
+        Split strategy (config.split.method):
+          year_based — train on train_years, validate on val_years (no leakage)
+          random     — legacy stratified random split (kept for reproducibility checks)
         """
         df = self._engineer_features(df)
         df = self._compute_rh_from_era5(df)
@@ -63,36 +67,73 @@ class HeatwavePreprocessor:
         df = self._drop_na(df)
 
         feature_names = self._get_feature_names(df)
-        X = df[feature_names].values
-        y = df[self.label_col].values
 
-        logger.info("Label distribution: heatwave=%.2f%%", 100 * y.mean())
-        logger.info("Total samples: %d | Features: %d", len(X), len(feature_names))
-
-        # Split
-        stratify = y if self.split_cfg.get("stratify", True) else None
-        X_train_full, X_test, y_train_full, y_test = train_test_split(
-            X, y,
-            test_size=self.split_cfg["test"],
-            random_state=self.split_cfg["random_state"],
-            stratify=stratify,
-        )
-        val_ratio = self.split_cfg["val"] / (1 - self.split_cfg["test"])
-        stratify_train = y_train_full if self.split_cfg.get("stratify", True) else None
-        X_train, X_val, y_train, y_val = train_test_split(
-            X_train_full, y_train_full,
-            test_size=val_ratio,
-            random_state=self.split_cfg["random_state"],
-            stratify=stratify_train,
+        logger.info(
+            "Label distribution: heatwave=%.2f%% | Total samples: %d | Features: %d",
+            100 * df[self.label_col].mean(), len(df), len(feature_names),
         )
 
-        # Scale (fit only on train)
+        if self.split_cfg.get("method") == "year_based":
+            X_train, X_val, X_test, y_train, y_val, y_test = self._split_by_year(df, feature_names)
+        else:
+            X_train, X_val, X_test, y_train, y_val, y_test = self._split_random(df, feature_names)
+
+        # Scale (fit only on train to prevent leakage)
         X_train = self.scaler.fit_transform(X_train)
         X_val   = self.scaler.transform(X_val)
         X_test  = self.scaler.transform(X_test)
 
         logger.info("Split — Train: %d | Val: %d | Test: %d", len(X_train), len(X_val), len(X_test))
         return X_train, X_val, X_test, y_train, y_val, y_test, feature_names
+
+    def _split_by_year(self, df: pd.DataFrame, feature_names: list):
+        """Year-based split: train on train_years, val/test on val_years."""
+        train_years = set(self.split_cfg["train_years"])
+        val_years   = set(self.split_cfg["val_years"])
+
+        if "year" in df.columns:
+            year_col = df["year"]
+        else:
+            year_col = pd.to_datetime(df["time"]).dt.year
+
+        train_mask = year_col.isin(train_years).values
+        val_mask   = year_col.isin(val_years).values
+
+        # Hard leakage check — must never overlap
+        assert not np.any(train_mask & val_mask), (
+            "BUG: some rows are in both train and val splits!"
+        )
+
+        X = df[feature_names].values
+        y = df[self.label_col].values
+
+        logger.info(
+            "year_based split — train years: %s | val years: %s",
+            sorted(train_years), sorted(val_years),
+        )
+        # X_test = X_val (2025 is both the validation and held-out test year)
+        return X[train_mask], X[val_mask], X[val_mask], y[train_mask], y[val_mask], y[val_mask]
+
+    def _split_random(self, df: pd.DataFrame, feature_names: list):
+        """Legacy stratified random split — kept for reproducibility checks only."""
+        X = df[feature_names].values
+        y = df[self.label_col].values
+        stratify = y if self.split_cfg.get("stratify", True) else None
+        X_tr_full, X_test, y_tr_full, y_test = train_test_split(
+            X, y,
+            test_size=self.split_cfg.get("test", 0.15),
+            random_state=self.split_cfg.get("random_state", 42),
+            stratify=stratify,
+        )
+        val_ratio = self.split_cfg.get("val", 0.15) / (1 - self.split_cfg.get("test", 0.15))
+        stratify_tr = y_tr_full if self.split_cfg.get("stratify", True) else None
+        X_train, X_val, y_train, y_val = train_test_split(
+            X_tr_full, y_tr_full,
+            test_size=val_ratio,
+            random_state=self.split_cfg.get("random_state", 42),
+            stratify=stratify_tr,
+        )
+        return X_train, X_val, X_test, y_train, y_val, y_test
 
     def transform(self, df: pd.DataFrame) -> np.ndarray:
         """Apply preprocessing to new data using already-fitted scaler."""
@@ -327,11 +368,21 @@ class HeatwavePreprocessor:
         """
         Generate binary heatwave labels.
 
-        Modes (controlled by config.data.labeling_method):
-          "heat_index" (default) : label = 1 if heat_index >= heatwave_heat_index_threshold (41.0°C)
-          "temperature" (legacy)  : label = 1 if t2m_c >= heatwave_threshold_celsius (35.0°C)
+        When config contains a 'heatwave_label' section, delegates to
+        utils.heatwave_labels.dispatch (multi-criteria, Thailand-aware).
+
+        Legacy modes (config.data.labeling_method):
+          "heat_index" : HI >= heatwave_heat_index_threshold (default 35°C)
+          "temperature": t2m_c >= heatwave_threshold_celsius (35°C)
         """
         df = df.copy()
+
+        # New multi-criteria labeler takes priority when configured
+        if "heatwave_label" in self.cfg:
+            from utils.heatwave_labels import dispatch
+            df = dispatch(df, self.cfg)
+            return df.rename(columns={"is_heatwave": self.label_col})
+
         method = self.cfg["data"].get("labeling_method", "heat_index")
 
         if method == "heat_index":
