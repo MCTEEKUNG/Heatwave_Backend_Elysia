@@ -110,7 +110,73 @@ def run(config_path: str = "config/config.yaml") -> pd.DataFrame:
     print(f"\nFiles missing: {(~df['file_exists']).sum()}")
     print(f"Years with time gaps: {len(gaps_report)}")
     print(f"Saved: {OUTPUT_DIR}/coverage_matrix.csv")
+
+    _plot_coverage_heatmap(df)
     return df
+
+
+def _plot_coverage_heatmap(df: pd.DataFrame) -> None:
+    """Traffic-light heatmap: years × variables, color = completeness %."""
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        import matplotlib.colors as mcolors
+    except ImportError:
+        print("  [plot] matplotlib not installed — skipping coverage heatmap")
+        return
+
+    plots_dir = OUTPUT_DIR / "plots"
+    plots_dir.mkdir(parents=True, exist_ok=True)
+
+    nan_cols = [c for c in df.columns if c.startswith("nan_pct_")]
+    variables = [c.replace("nan_pct_", "") for c in nan_cols]
+
+    if df.empty or not nan_cols:
+        return
+
+    # Build matrix: completeness per (year, variable) = 100 - nan_pct
+    df_plot = df[df["file_exists"]].copy()
+    if df_plot.empty:
+        return
+
+    years = df_plot["year"].tolist()
+    matrix = np.array(
+        [(100.0 - df_plot[c].fillna(100).values) for c in nan_cols]
+    ).T  # shape: (n_years, n_vars)
+
+    # Also include overall time completeness as first column
+    if "completeness_pct" in df_plot.columns:
+        comp = df_plot["completeness_pct"].fillna(0).values.reshape(-1, 1)
+        matrix = np.hstack([comp, matrix])
+        variables = ["time_coverage"] + variables
+
+    cmap = mcolors.LinearSegmentedColormap.from_list(
+        "traffic", [(0, "#d73027"), (0.7, "#fee08b"), (0.9, "#1a9850"), (1, "#1a9850")]
+    )
+
+    fig, ax = plt.subplots(figsize=(max(8, len(variables) * 1.2), max(4, len(years) * 0.4 + 1)))
+    im = ax.imshow(matrix, cmap=cmap, vmin=0, vmax=100, aspect="auto")
+
+    ax.set_xticks(range(len(variables)))
+    ax.set_xticklabels(variables, rotation=45, ha="right", fontsize=8)
+    ax.set_yticks(range(len(years)))
+    ax.set_yticklabels(years, fontsize=8)
+    ax.set_title("Data Coverage (% complete)\n🟢 ≥90%  🟡 70–90%  🔴 <70%", fontsize=10)
+
+    for i in range(len(years)):
+        for j in range(len(variables)):
+            val = matrix[i, j]
+            txt = f"{val:.0f}"
+            ax.text(j, i, txt, ha="center", va="center",
+                    fontsize=7, color="black" if val > 40 else "white")
+
+    plt.colorbar(im, ax=ax, label="Completeness %", shrink=0.8)
+    plt.tight_layout()
+    out = plots_dir / "coverage_heatmap.png"
+    fig.savefig(out, dpi=120, bbox_inches="tight")
+    plt.close(fig)
+    print(f"  [plot] Saved: {out}")
 
 
 if __name__ == "__main__":

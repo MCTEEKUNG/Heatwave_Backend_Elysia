@@ -102,7 +102,8 @@ def label_wbgt(
         if col not in df.columns:
             raise ValueError(f"Column '{col}' not found. Run preprocessing steps first.")
 
-    df["wbgt"] = compute_wbgt(df["t2m_c"].values, df["rh"].values)
+    if "wbgt" not in df.columns:
+        df["wbgt"] = compute_wbgt(df["t2m_c"].values, df["rh"].values)
     df["_hot"] = (df["wbgt"] >= threshold_c).astype(int)
     df["is_heatwave"] = _apply_run_filter(df, "_hot", min_days)
     df = df.drop(columns=["_hot"])

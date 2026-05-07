@@ -166,6 +166,71 @@ def run(config_path: str = "config/config.yaml") -> None:
     clim_xr.to_netcdf(OUTPUT_FILE)
     print(f"\nSaved climatology: {OUTPUT_FILE}")
 
+    _plot_climatology(clim_df, min(clim_years), max(clim_years))
+
+
+def _plot_climatology(clim_df: pd.DataFrame, year_start: int, year_end: int) -> None:
+    """DOY seasonal cycle for the central Bangkok cell with p90/p95 percentile bands."""
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+    except ImportError:
+        print("  [plot] matplotlib not installed — skipping climatology plot")
+        return
+
+    plots_dir = OUTPUT_DIR / "plots"
+    plots_dir.mkdir(parents=True, exist_ok=True)
+
+    # Pick the cell nearest to Bangkok (13.75°N, 100.5°E)
+    if "latitude" in clim_df.columns and "longitude" in clim_df.columns:
+        lat_c = clim_df["latitude"].unique()
+        lon_c = clim_df["longitude"].unique()
+        best_lat = lat_c[np.argmin(np.abs(lat_c - 13.75))]
+        best_lon = lon_c[np.argmin(np.abs(lon_c - 100.5))]
+        cell = clim_df[
+            (clim_df["latitude"].round(2) == round(best_lat, 2)) &
+            (clim_df["longitude"].round(2) == round(best_lon, 2))
+        ].sort_values("doy")
+    else:
+        cell = clim_df.groupby("doy").mean(numeric_only=True).reset_index()
+
+    if cell.empty:
+        return
+
+    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+
+    for ax, (var_p90, var_p95, title, ylabel, threshold, thr_label) in zip(axes, [
+        ("t2m_max_p90", "t2m_max_p95", "Daily Tmax Climatology (Bangkok cell)",
+         "Temperature (°C)", None, None),
+        ("wbgt_mean_p90", "wbgt_mean_p95", "WBGT Climatology (Bangkok cell)",
+         "WBGT (°C)", 32.0, "Heatwave threshold 32°C"),
+    ]):
+        doy = cell["doy"].values
+        if var_p90 in cell.columns:
+            ax.fill_between(doy, cell[var_p90], cell.get(var_p95, cell[var_p90]),
+                            alpha=0.3, color="#4e79a7", label=f"p90–p95 band")
+            ax.plot(doy, cell[var_p90], color="#4e79a7", linewidth=1.5, label="p90")
+        if var_p95 in cell.columns:
+            ax.plot(doy, cell[var_p95], color="#d73027", linewidth=1.5,
+                    linestyle="--", label="p95")
+        if threshold is not None:
+            ax.axhline(threshold, color="#d73027", linewidth=1.2, linestyle=":",
+                       alpha=0.8, label=thr_label)
+        ax.set_xlabel("Day of Year", fontsize=9)
+        ax.set_ylabel(ylabel, fontsize=9)
+        ax.set_title(f"{title}\n({year_start}–{year_end} baseline)", fontsize=9)
+        ax.legend(fontsize=8)
+        ax.grid(True, alpha=0.25)
+        # Mark Thai hot season (Mar–Jun ≈ DOY 60–180)
+        ax.axvspan(60, 180, alpha=0.06, color="red")
+
+    plt.tight_layout()
+    out = plots_dir / "climatology_seasonal.png"
+    fig.savefig(out, dpi=120, bbox_inches="tight")
+    plt.close(fig)
+    print(f"  [plot] Saved: {out}")
+
 
 if __name__ == "__main__":
     run()

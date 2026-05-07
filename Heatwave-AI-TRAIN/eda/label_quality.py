@@ -216,7 +216,65 @@ def run(config_path: str = "config/config.yaml") -> pd.DataFrame:
                           "cohen_kappa_vs_wbgt32"]].to_string(index=False))
 
     print(f"\nSaved: {OUTPUT_DIR}/label_sensitivity.csv")
+
+    wbgt_thr = cfg.get("heatwave_label", {}).get("wbgt", {}).get("threshold_c", 32.0)
+    _plot_label_sensitivity(df_out, wbgt_thr)
     return df_out
+
+
+def _plot_label_sensitivity(df_out: pd.DataFrame, current_wbgt_thr: float = 32.0) -> None:
+    """Heatwave positive rate vs threshold for WBGT and HI, current threshold marked."""
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+    except ImportError:
+        print("  [plot] matplotlib not installed — skipping label sensitivity plot")
+        return
+
+    plots_dir = OUTPUT_DIR / "plots"
+    plots_dir.mkdir(parents=True, exist_ok=True)
+
+    fig, ax = plt.subplots(figsize=(9, 5))
+
+    for method, color, label in [
+        ("wbgt",        "#4e79a7", "WBGT"),
+        ("heat_index",  "#f28e2b", "Heat Index"),
+    ]:
+        subset = df_out[(df_out["method"] == method) & (df_out["min_days"] == 2)]
+        if subset.empty:
+            continue
+        ax.plot(subset["threshold"], subset["positive_rate"],
+                marker="o", color=color, label=label, linewidth=2, markersize=5)
+
+    # Mark current WBGT threshold
+    wbgt_row = df_out[
+        (df_out["method"] == "wbgt") &
+        (df_out["threshold"] == current_wbgt_thr) &
+        (df_out["min_days"] == 2)
+    ]
+    if not wbgt_row.empty:
+        rate = wbgt_row["positive_rate"].iloc[0]
+        ax.axvline(current_wbgt_thr, color="#d73027", linestyle="--", linewidth=1.5,
+                   label=f"Current WBGT thr = {current_wbgt_thr}°C ({rate:.1f}%)")
+        ax.axhline(rate, color="#d73027", linestyle=":", linewidth=1, alpha=0.6)
+
+    # Target zone
+    ax.axhspan(3, 8, alpha=0.08, color="green", label="Target zone 3–8%")
+    ax.axhspan(1, 3, alpha=0.06, color="orange")
+    ax.axhspan(8, 15, alpha=0.06, color="orange")
+
+    ax.set_xlabel("Threshold (°C)", fontsize=10)
+    ax.set_ylabel("Heatwave positive rate (%)", fontsize=10)
+    ax.set_title("Label sensitivity: positive rate vs threshold (min_days=2)\n"
+                 "Green band = target 3–8%, Orange = caution, outside = too rare/common", fontsize=9)
+    ax.legend(fontsize=8)
+    ax.grid(True, alpha=0.3)
+    plt.tight_layout()
+    out = plots_dir / "label_sensitivity.png"
+    fig.savefig(out, dpi=120, bbox_inches="tight")
+    plt.close(fig)
+    print(f"  [plot] Saved: {out}")
 
 
 if __name__ == "__main__":

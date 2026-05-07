@@ -274,6 +274,12 @@ class HeatwavePreprocessor:
         if "u10" in df.columns and "v10" in df.columns:
             df["wind_speed"] = np.sqrt(df["u10"] ** 2 + df["v10"] ** 2)
 
+        # WBGT — always compute so it's available as a feature regardless of labeling method.
+        # Lemke & Kjellstrom 2012 outdoor approximation (shaded, no globe temperature).
+        if "t2m_c" in df.columns and "rh" in df.columns:
+            from utils.heatwave_labels import compute_wbgt  # noqa: PLC0415
+            df["wbgt"] = compute_wbgt(df["t2m_c"].values, df["rh"].values)
+
         return df
 
     def _compute_heat_index(self, T: float, RH: float) -> float:

@@ -157,7 +157,63 @@ def run(config_path: str = "config/config.yaml") -> pd.DataFrame:
     print(f"\nPSI > 0.25 (significant shift): "
           f"{(df_result['psi'] > 0.25).sum()} features")
     print(f"Saved: {OUTPUT_DIR}/drift_report.csv")
+
+    _plot_drift_histograms(train_df, val_df, features, df_result)
     return df_result
+
+
+def _plot_drift_histograms(
+    train_df: "pd.DataFrame",
+    val_df: "pd.DataFrame",
+    features: list,
+    drift_df: "pd.DataFrame",
+) -> None:
+    """Overlay histograms: 2020–2024 (blue) vs 2025 (orange), PSI annotated."""
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+    except ImportError:
+        print("  [plot] matplotlib not installed — skipping drift histograms")
+        return
+
+    if not features:
+        return
+
+    plots_dir = OUTPUT_DIR / "plots"
+    plots_dir.mkdir(parents=True, exist_ok=True)
+
+    n = len(features)
+    fig, axes = plt.subplots(1, n, figsize=(5 * n, 4))
+    if n == 1:
+        axes = [axes]
+
+    psi_map = dict(zip(drift_df["feature"], drift_df["psi"])) if not drift_df.empty else {}
+    status_map = dict(zip(drift_df["feature"], drift_df["status"])) if not drift_df.empty else {}
+
+    for ax, feat in zip(axes, features):
+        tr = train_df[feat].dropna().values
+        vl = val_df[feat].dropna().values
+        bins = np.linspace(min(tr.min(), vl.min()), max(tr.max(), vl.max()), 40)
+
+        ax.hist(tr, bins=bins, alpha=0.55, color="#4e79a7", density=True, label="2020–2024 (train)")
+        ax.hist(vl, bins=bins, alpha=0.65, color="#f28e2b", density=True, label="2025 (val)")
+
+        psi_val = psi_map.get(feat, float("nan"))
+        status  = status_map.get(feat, "")
+        color   = "#d73027" if status == "SIGNIFICANT_SHIFT" else ("#fee08b" if status == "MINOR_SHIFT" else "#1a9850")
+        ax.set_title(f"{feat}\nPSI = {psi_val:.3f}  ({status})", fontsize=9, color=color)
+        ax.set_xlabel(feat, fontsize=8)
+        ax.set_ylabel("Density", fontsize=8)
+        ax.legend(fontsize=7)
+        ax.tick_params(labelsize=7)
+
+    fig.suptitle("Distribution Drift: val year (2025) vs training years (2020–2024)", fontsize=10)
+    plt.tight_layout()
+    out = plots_dir / "drift_histograms.png"
+    fig.savefig(out, dpi=120, bbox_inches="tight")
+    plt.close(fig)
+    print(f"  [plot] Saved: {out}")
 
 
 if __name__ == "__main__":

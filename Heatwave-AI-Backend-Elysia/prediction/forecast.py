@@ -166,6 +166,10 @@ class ForecastPredictor:
         hi_c = (hi_f - 32.0) * 5.0 / 9.0
         daily["heat_index"] = np.where((T >= 26.7) & (RH >= 40.0), hi_c, T)
 
+        # WBGT — Lemke & Kjellstrom 2012 outdoor approximation (shaded, no globe temp)
+        e = (RH / 100.0) * 6.105 * np.exp(17.27 * T / (237.7 + T))
+        daily["wbgt"] = 0.567 * T + 0.393 * e + 3.94
+
         # NDVI — seasonal climatology (future dates have no real-time NDVI)
         month = daily["time"].dt.month.iloc[0]
         m1 = month
