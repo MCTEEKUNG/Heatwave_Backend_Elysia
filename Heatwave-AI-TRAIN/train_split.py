@@ -224,22 +224,35 @@ def phase_brf(config_path: str):
 # Phase: gpu  (H100 session)
 # ─────────────────────────────────────────────────────────────────────────────
 
-def phase_gpu(config_path: str):
-    """Train XGBoost, LightGBM, MLP, KAN from cached arrays. Run on H100 session."""
+def phase_gpu(config_path: str, model: str | None = None):
+    """Train GPU models from cached arrays. Run on T4/H100 session.
 
-    _banner("GPU  —  XGBoost · LightGBM · MLP · KAN  [H100]", Fore.YELLOW)
+    Args:
+        model: Train a single model key (xgboost/lightgbm/mlp/kan).
+               If None, trains all four in sequence.
+    """
+    ALL_GPU_MODELS = ["xgboost", "lightgbm", "mlp", "kan"]
+
+    if model is not None:
+        if model not in ALL_GPU_MODELS:
+            print(f"{Fore.RED}Unknown GPU model: {model}. Valid: {ALL_GPU_MODELS}{Style.RESET_ALL}")
+            sys.exit(1)
+        gpu_models = [model]
+        _banner(f"GPU  —  {model.upper()}  [GPU]", Fore.YELLOW)
+    else:
+        gpu_models = ALL_GPU_MODELS
+        _banner("GPU  —  XGBoost · LightGBM · MLP · KAN  [GPU]", Fore.YELLOW)
 
     import torch
     if torch.cuda.is_available():
         print(f"  {Fore.GREEN}GPU : {torch.cuda.get_device_name(0)}{Style.RESET_ALL}")
         print(f"  VRAM: {torch.cuda.get_device_properties(0).total_memory / 1e9:.1f} GB")
     else:
-        print(f"  {Fore.RED}⚠ No GPU detected — switch runtime to H100 GPU{Style.RESET_ALL}")
+        print(f"  {Fore.RED}⚠ No GPU detected — switch runtime to GPU{Style.RESET_ALL}")
         sys.exit(1)
 
     X_train, X_val, X_test, y_train, y_val, y_test = load_cache()
 
-    gpu_models = ["xgboost", "lightgbm", "mlp", "kan"]
     results = []
     t0 = time.time()
 
@@ -341,15 +354,22 @@ Phases:
         choices=["preprocess", "brf", "gpu", "save"],
     )
     parser.add_argument("--config", default="config/config.yaml")
+    parser.add_argument(
+        "--model",
+        default=None,
+        choices=["xgboost", "lightgbm", "mlp", "kan"],
+        help="(gpu phase only) train a single model instead of all four",
+    )
     args = parser.parse_args()
 
-    dispatch = {
-        "preprocess": phase_preprocess,
-        "brf":        phase_brf,
-        "gpu":        phase_gpu,
-        "save":       phase_save,
-    }
-    dispatch[args.phase](args.config)
+    if args.phase == "gpu":
+        phase_gpu(args.config, model=args.model)
+    elif args.phase == "preprocess":
+        phase_preprocess(args.config)
+    elif args.phase == "brf":
+        phase_brf(args.config)
+    elif args.phase == "save":
+        phase_save(args.config)
 
 
 if __name__ == "__main__":
