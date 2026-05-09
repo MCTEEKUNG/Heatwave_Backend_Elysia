@@ -51,7 +51,7 @@ function isRateLimited(ip: string): boolean {
 
 // ─── Python runner (spawn — no shell, no injection) ───────────────────────────
 
-const PYTHON_TIMEOUT_MS = 120_000; // 2 minutes
+const PYTHON_TIMEOUT_MS = 180_000; // 3 minutes — allows 16-day fetch + inference on cold Render start
 
 function runPythonScript(script: string, args: string[]): Promise<{ stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
@@ -71,7 +71,7 @@ function runPythonScript(script: string, args: string[]): Promise<{ stdout: stri
       if (settled) return;
       settled = true;
       proc.kill("SIGKILL");
-      reject(new Error("Python script timed out after 120 seconds"));
+      reject(new Error("Python script timed out after 180 seconds"));
     }, PYTHON_TIMEOUT_MS);
 
     proc.stdout.on("data", (chunk: Buffer) => { stdout += chunk.toString(); });
@@ -204,15 +204,20 @@ const app = new Elysia()
     return result;
   })
 
-  .get("/api/predict/models", () => ({
-    availableModels: readdirSync(MODELS_DIR)
-      .filter(f => f.endsWith("_model.pkl"))
-      .map(f => {
-        if (f === "balanced_random_forest_model.pkl") return "balanced_rf";
-        return f.replace("_model.pkl", "");
-      })
-      .filter(model => VALID_MODELS.has(model)),
-  }))
+  .get("/api/predict/models", () => {
+    try {
+      const availableModels = readdirSync(MODELS_DIR)
+        .filter(f => f.endsWith("_model.pkl"))
+        .map(f => {
+          if (f === "balanced_random_forest_model.pkl") return "balanced_rf";
+          return f.replace("_model.pkl", "");
+        })
+        .filter(model => VALID_MODELS.has(model));
+      return { availableModels };
+    } catch {
+      return { availableModels: ["balanced_rf"] };
+    }
+  })
 
   .get("/api/predict/status", async () => {
     try {

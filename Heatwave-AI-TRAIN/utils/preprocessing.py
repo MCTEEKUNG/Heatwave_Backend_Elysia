@@ -21,6 +21,7 @@ import pandas as pd
 import yaml
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
+from sklearn.impute import SimpleImputer
 import joblib
 import os
 
@@ -41,6 +42,7 @@ class HeatwavePreprocessor:
         self.label_col   = self.cfg["data"]["label_col"]
         self.split_cfg   = self.cfg["split"]
         self.scaler      = StandardScaler()
+        self.imputer     = SimpleImputer(strategy="median")
 
     # ------------------------------------------------------------------
     # Public API
@@ -49,22 +51,25 @@ class HeatwavePreprocessor:
     def fit_transform(self, df: pd.DataFrame):
         """
         Apply full preprocessing pipeline.
-        Pipeline ordering (Heatwave-definition.md Section 2):
-          1. _engineer_features       — unit conversions
-          2. _compute_rh_from_era5    — Relative Humidity (Magnus formula)
+        Pipeline ordering:
+          1. _engineer_features        — unit conversions (K → °C)
+          2. _compute_rh_from_era5     — Relative Humidity (Magnus formula)
           3. _compute_derived_features — Heat Index (Rothfusz), wind speed
-          4. _merge_ndvi_features     — MODIS NDVI (skipped if ndvi.enabled: false)
-          5. _generate_labels         — binary heatwave label
-          6. _drop_na
+          4. _aggregate_to_daily       — collapse hourly ERA5 → 1 row/day/cell [FIX #1]
+          5. _merge_ndvi_features      — MODIS NDVI (skipped if ndvi.enabled: false)
+          6. _generate_labels          — binary heatwave label (WBGT consecutive-day)
+          7. _drop_na
         Returns (X_train, X_val, X_test, y_train, y_val, y_test, feature_names)
 
         Split strategy (config.split.method):
-          year_based — train on train_years, validate on val_years (no leakage)
+          year_based — train on train_years; val = first half of val_years (chrono);
+                       test = second half of val_years (truly held out) [FIX #2]
           random     — legacy stratified random split (kept for reproducibility checks)
         """
         df = self._engineer_features(df)
         df = self._compute_rh_from_era5(df)
         df = self._compute_derived_features(df)
+        df = self._aggregate_to_daily(df)       # FIX #1: hourly → daily before labeling
         df = self._merge_ndvi_features(df)
         df = self._generate_labels(df)
         df = self._drop_na(df)
@@ -81,7 +86,11 @@ class HeatwavePreprocessor:
         else:
             X_train, X_val, X_test, y_train, y_val, y_test = self._split_random(df, feature_names)
 
-        # Scale (fit only on train to prevent leakage)
+        # FIX #3: impute NaN → median, then scale (fit only on train to prevent leakage)
+        X_train = self.imputer.fit_transform(X_train)
+        X_val   = self.imputer.transform(X_val)
+        X_test  = self.imputer.transform(X_test)
+
         X_train = self.scaler.fit_transform(X_train)
         X_val   = self.scaler.transform(X_val)
         X_test  = self.scaler.transform(X_test)
@@ -90,7 +99,17 @@ class HeatwavePreprocessor:
         return X_train, X_val, X_test, y_train, y_val, y_test, feature_names
 
     def _split_by_year(self, df: pd.DataFrame, feature_names: list):
-        """Year-based split: train on train_years, val/test on val_years."""
+        """
+        Year-based temporal split — no leakage, with a true held-out test set.
+
+        Train : train_years  (e.g. 2020–2024)
+        Val   : first half of val_years data, sorted chronologically
+        Test  : second half of val_years data, sorted chronologically
+
+        Splitting val_years 50/50 chronologically (e.g. Jan–Jun 2025 = val,
+        Jul–Dec 2025 = test) gives a held-out test set that was never seen during
+        hyperparameter tuning or early stopping.
+        """
         train_years = set(self.split_cfg["train_years"])
         val_years   = set(self.split_cfg["val_years"])
 
@@ -107,23 +126,32 @@ class HeatwavePreprocessor:
             "BUG: some rows are in both train and val splits!"
         )
 
+        # Chronological split of val_years → val (first half) and test (second half)
+        val_indices = np.where(val_mask)[0]
+        if "time" in df.columns and len(val_indices) > 1:
+            val_times = pd.to_datetime(df["time"].iloc[val_indices])
+            sorted_val_idx = val_indices[np.argsort(val_times.values)]
+        else:
+            sorted_val_idx = val_indices
+
+        mid = len(sorted_val_idx) // 2
+        val_only_mask  = np.zeros(len(df), dtype=bool)
+        test_only_mask = np.zeros(len(df), dtype=bool)
+        val_only_mask[sorted_val_idx[:mid]]  = True
+        test_only_mask[sorted_val_idx[mid:]] = True
+
         X = df[feature_names].values
         y = df[self.label_col].values
 
-        # Split val-year rows chronologically: first half → val, second half → test.
-        # This keeps val and test strictly non-overlapping so leaderboard metrics are valid.
-        val_indices = np.where(val_mask)[0]
-        mid = len(val_indices) // 2
-        val_idx  = val_indices[:mid]
-        test_idx = val_indices[mid:]
-
         logger.info(
-            "year_based split — train years: %s | val years: %s | val: %d | test: %d",
-            sorted(train_years), sorted(val_years), len(val_idx), len(test_idx),
+            "year_based split — train: %d rows %s | val: %d rows (first-half %s) | test: %d rows (second-half %s)",
+            train_mask.sum(), sorted(train_years),
+            val_only_mask.sum(), sorted(val_years),
+            test_only_mask.sum(), sorted(val_years),
         )
         return (
-            X[train_mask], X[val_idx], X[test_idx],
-            y[train_mask], y[val_idx], y[test_idx],
+            X[train_mask],    X[val_only_mask],    X[test_only_mask],
+            y[train_mask],    y[val_only_mask],    y[test_only_mask],
         )
 
     def _split_random(self, df: pd.DataFrame, feature_names: list):
@@ -148,22 +176,36 @@ class HeatwavePreprocessor:
         return X_train, X_val, X_test, y_train, y_val, y_test
 
     def transform(self, df: pd.DataFrame) -> np.ndarray:
-        """Apply preprocessing to new data using already-fitted scaler."""
+        """Apply preprocessing to new data using already-fitted scaler and imputer."""
         df = self._engineer_features(df)
         df = self._compute_rh_from_era5(df)
         df = self._compute_derived_features(df)
         df = self._merge_ndvi_features(df)
         feature_names = self._get_feature_names(df)
-        X = df[feature_names].fillna(0).values
+        X = df[feature_names].values
+        X = self.imputer.transform(X)   # FIX #3: same NaN strategy as training
         return self.scaler.transform(X)
 
     def save_scaler(self, path: str):
         os.makedirs(os.path.dirname(path), exist_ok=True)
         joblib.dump(self.scaler, path)
+        imputer_path = path.replace("scaler.pkl", "imputer.pkl")
+        joblib.dump(self.imputer, imputer_path)
         logger.info("Scaler saved to %s", path)
+        logger.info("Imputer saved to %s", imputer_path)
 
     def load_scaler(self, path: str):
         self.scaler = joblib.load(path)
+        imputer_path = path.replace("scaler.pkl", "imputer.pkl")
+        if os.path.isfile(imputer_path):
+            self.imputer = joblib.load(imputer_path)
+            logger.info("Imputer loaded from %s", imputer_path)
+        else:
+            logger.warning(
+                "imputer.pkl not found at %s — re-run preprocessing to generate it. "
+                "Falling back to median imputation with unfitted imputer.",
+                imputer_path,
+            )
         logger.info("Scaler loaded from %s", path)
 
     # ------------------------------------------------------------------
@@ -311,7 +353,61 @@ class HeatwavePreprocessor:
         return (HI_f - 32) * 5 / 9  # convert back to Celsius
 
     # ------------------------------------------------------------------
-    # Step 4 — NDVI Merge (skipped gracefully when ndvi.enabled: false)
+    # Step 4 — Daily Aggregation (FIX #1: collapse hourly ERA5 → 1 row/day/cell)
+    # ------------------------------------------------------------------
+
+    def _aggregate_to_daily(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Collapse sub-daily ERA5 rows into one row per (date, latitude, longitude).
+
+        Aggregation rules:
+          - t2m_c, heat_index : max  — peak heat drives heatwave labels
+          - d2m_c, rh, sp     : mean
+          - u10, v10          : mean — wind components preserve directionality
+          - wind_speed        : mean
+          - year              : first (constant within a year)
+
+        No-op when input is already at daily or coarser resolution, so the
+        pipeline is safe to call on pre-aggregated data too.
+        """
+        if "time" not in df.columns:
+            return df
+
+        times = pd.to_datetime(df["time"])
+        unique_times = times.nunique()
+        unique_dates = times.dt.date.nunique()
+
+        if unique_times == unique_dates:
+            return df  # already daily — nothing to do
+
+        logger.info(
+            "_aggregate_to_daily: %d rows | %d timestamps → %d dates — aggregating to daily...",
+            len(df), unique_times, unique_dates,
+        )
+
+        df = df.copy()
+        df["_date"] = times.dt.date
+        group_cols = [c for c in ["latitude", "longitude", "_date"] if c in df.columns]
+
+        agg: dict = {}
+        for col in ["t2m_c", "heat_index", "t2m"]:
+            if col in df.columns:
+                agg[col] = "max"
+        for col in ["d2m_c", "rh", "sp", "u10", "v10", "wind_speed", "d2m"]:
+            if col in df.columns:
+                agg[col] = "mean"
+        if "year" in df.columns:
+            agg["year"] = "first"
+
+        daily = df.groupby(group_cols).agg(agg).reset_index()
+        daily = daily.rename(columns={"_date": "time"})
+        daily["time"] = pd.to_datetime(daily["time"])
+
+        logger.info("_aggregate_to_daily: → %d daily rows", len(daily))
+        return daily
+
+    # ------------------------------------------------------------------
+    # Step 5 — NDVI Merge (skipped gracefully when ndvi.enabled: false)
     # ------------------------------------------------------------------
 
     def _merge_ndvi_features(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -379,7 +475,7 @@ class HeatwavePreprocessor:
         return df.drop(columns=["time_month", "lat_r", "lon_r"], errors="ignore")
 
     # ------------------------------------------------------------------
-    # Step 5 — Label Generation (dual-mode)
+    # Step 6 — Label Generation (dual-mode)
     # ------------------------------------------------------------------
 
     def _generate_labels(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -475,7 +571,12 @@ class HeatwavePreprocessor:
         return df
 
     def _get_feature_names(self, df: pd.DataFrame) -> list:
-        """Return ordered list of available engineered feature columns."""
+        """Return ordered list of available, non-empty engineered feature columns.
+
+        Columns that are entirely NaN (e.g. ndvi when the NDVI file is missing)
+        are excluded — an all-NaN column gives SimpleImputer a NaN median, which
+        then propagates NaN into the scaler and crashes fit_transform.
+        """
         candidates = [
             "t2m_c", "d2m_c",       # temperature (°C)
             "rh",                    # relative humidity
@@ -485,7 +586,10 @@ class HeatwavePreprocessor:
             "sp",                    # surface pressure
             "ndvi", "ndvi_lag1", "ndvi_lag2",  # MODIS NDVI (if merged)
         ]
-        return [c for c in candidates if c in df.columns]
+        return [
+            c for c in candidates
+            if c in df.columns and df[c].notna().any()
+        ]
 
 
 # ------------------------------------------------------------------

@@ -132,7 +132,8 @@ def load_cache():
 
     required = [
         "X_train.npy", "X_val.npy", "X_test.npy",
-        "y_train.npy", "y_val.npy", "y_test.npy", "meta.json"
+        "y_train.npy", "y_val.npy", "y_test.npy",
+        "scaler.pkl", "imputer.pkl", "meta.json",
     ]
     missing = [f for f in required if not os.path.isfile(f"{CACHE_DIR}/{f}")]
     if missing:
@@ -287,8 +288,35 @@ def phase_save(config_path: str):
         print(f"  ✓ {fname:<45} {mb:>8.1f} MB")
         saved.append(fname)
 
-    print(f"\n{Fore.GREEN}✅ {len(saved)} files saved to {MODELS_DIR}")
-    print(f"\n  Upload .pkl files to HuggingFace, then redeploy Render.{Style.RESET_ALL}\n")
+    print(f"\n{Fore.GREEN}✅ {len(saved)} files saved to {MODELS_DIR}{Style.RESET_ALL}")
+
+    # ── Upload to HuggingFace ─────────────────────────────────────────────────
+    import subprocess
+    print(f"\n{Fore.CYAN}  Uploading models to HuggingFace Hub...{Style.RESET_ALL}")
+    hf_repo = "MCTEEKUNG123/heatwave-ai-models"
+    hf_result = subprocess.run(
+        ["hf", "upload", hf_repo, MODELS_DIR,
+         "--commit-message", "Trained models update"],
+        capture_output=True, text=True
+    )
+    if hf_result.returncode == 0:
+        print(f"  {Fore.GREEN}✓ Uploaded to HuggingFace: {hf_repo}{Style.RESET_ALL}")
+    else:
+        print(f"  {Fore.RED}✗ HuggingFace upload failed — upload manually")
+        print(f"    {hf_result.stderr[:200]}{Style.RESET_ALL}")
+
+    # ── Trigger Render redeploy ───────────────────────────────────────────────
+    print(f"\n{Fore.CYAN}  Triggering Render redeploy...{Style.RESET_ALL}")
+    try:
+        sys.path.insert(0, ROOT)
+        import render_deploy
+        render_deploy.deploy(wait=False)   # fire-and-forget; build takes ~10 min
+        print(f"  {Fore.GREEN}✓ Render deploy triggered (may take ~10 min to go live){Style.RESET_ALL}")
+    except Exception as e:
+        print(f"  {Fore.YELLOW}⚠ Render deploy skipped: {e}")
+        print(f"    Trigger manually: python render_deploy.py{Style.RESET_ALL}")
+
+    print(f"\n{Fore.GREEN}✅ Done! Backend will redeploy with new models in ~10 minutes.{Style.RESET_ALL}\n")
 
 
 # ─────────────────────────────────────────────────────────────────────────────

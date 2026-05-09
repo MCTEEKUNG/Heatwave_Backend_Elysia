@@ -104,18 +104,22 @@ class Predictor:
         return model
 
     def _preprocess(self, df: pd.DataFrame) -> np.ndarray:
-        """Apply feature engineering and scaling to input DataFrame."""
+        """
+        Apply feature engineering, imputation, and scaling to input DataFrame.
+        Uses the same imputer → scaler order as training to avoid distribution shift.
+        """
         df = self.preprocessor._engineer_features(df)
+        df = self.preprocessor._compute_rh_from_era5(df)
+        df = self.preprocessor._compute_derived_features(df)
+        df = self.preprocessor._merge_ndvi_features(df)
+
         if self.feature_names:
             for col in self.feature_names:
                 if col not in df.columns:
-                    df[col] = 0.0
-            X = df[self.feature_names].fillna(0).values
+                    df[col] = np.nan  # NaN → imputer fills with training median
+            X = df[self.feature_names].values
         else:
-            X = df.select_dtypes(include=[np.number]).fillna(0).values
+            X = df.select_dtypes(include=[np.number]).values
 
-        try:
-            X = self.preprocessor.scaler.transform(X)
-        except Exception as e:
-            logger.warning("Scaler transform failed: %s — using raw features", e)
-        return X
+        X = self.preprocessor.imputer.transform(X)
+        return self.preprocessor.scaler.transform(X)

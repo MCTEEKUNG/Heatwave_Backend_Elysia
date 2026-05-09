@@ -7,7 +7,6 @@ export interface ForecastDay {
   forecast_cycle: number;
   temperature_c: number;
   humidity_est: number;
-  humidity_pct?: number;
   heat_index_c?: number;
   latitude?: number;
   longitude?: number;

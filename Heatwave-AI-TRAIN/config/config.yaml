@@ -39,14 +39,11 @@ data:
   surface_prefix: era5_surface_
   upper_prefix: era5_upper_
   heatwave_threshold_celsius: 35.0
-  labeling_method: heat_index  # DEPRECATED — superseded by heatwave_label.method below; kept only for legacy random-split runs
   heat_index_thresholds:
     caution: 27.0
     extreme_caution: 32.0
     danger: 41.0
     extreme_danger: 54.0
-  heatwave_heat_index_threshold: 35.0  # lowered from 41.0 — 41°C is too rare in ERA5 grid data (was <1%)
-  heatwave_min_consecutive_days: 2   # lowered from 3 — 35°C/3days gives 1.4%, 35°C/2days gives 5% (target rate)
   features:
     - t2m
     - d2m

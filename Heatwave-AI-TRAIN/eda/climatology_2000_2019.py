@@ -138,8 +138,6 @@ def run(config_path: str = "config/config.yaml") -> None:
         if var not in daily.columns:
             continue
         for p in percentiles:
-            col = f"{var.split('_')[0]}_{var.split('_')[1]}_p{p}" if "_" in var else f"{var}_p{p}"
-            # standardize names: t2m_max_p90, t2m_min_p90, wbgt_mean_p90
             col = f"{var}_p{p}"
             pct = (
                 daily.groupby(group_cols)[var]

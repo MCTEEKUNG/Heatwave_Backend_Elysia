@@ -170,14 +170,16 @@ class ForecastPredictor:
         e = (RH / 100.0) * 6.105 * np.exp(17.27 * T / (237.7 + T))
         daily["wbgt"] = 0.567 * T + 0.393 * e + 3.94
 
-        # NDVI — seasonal climatology (future dates have no real-time NDVI)
-        month = daily["time"].dt.month.iloc[0]
-        m1 = month
-        m2 = month - 1 if month > 1 else 12
-        m3 = month - 2 if month > 2 else month + 10
-        daily["ndvi"] = NDVI_SEASONAL.get(m1, 0.40)
-        daily["ndvi_lag1"] = NDVI_SEASONAL.get(m2, 0.40)
-        daily["ndvi_lag2"] = NDVI_SEASONAL.get(m3, 0.40)
+        # NDVI — seasonal climatology mapped per row so multi-month forecasts
+        # (e.g. 16 days spanning two calendar months) get correct values each day.
+        row_months = daily["time"].dt.month
+        daily["ndvi"] = row_months.map(lambda m: NDVI_SEASONAL.get(m, 0.40))
+        daily["ndvi_lag1"] = row_months.map(
+            lambda m: NDVI_SEASONAL.get(m - 1 if m > 1 else 12, 0.40)
+        )
+        daily["ndvi_lag2"] = row_months.map(
+            lambda m: NDVI_SEASONAL.get(m - 2 if m > 2 else m + 10, 0.40)
+        )
 
         daily["latitude"] = lat
         daily["longitude"] = lon
@@ -242,7 +244,6 @@ class ForecastPredictor:
                 "forecast_cycle": 1,
                 "temperature_c": forecast_input["t2m_c"].values,
                 "humidity_est": forecast_input["rh"].values.round(1),
-                "humidity_pct": forecast_input["rh"].values.round(1),
                 "heat_index_c": forecast_input["heat_index"].values.round(2),
                 "latitude": forecast_input["latitude"].values,
                 "longitude": forecast_input["longitude"].values,
@@ -342,7 +343,7 @@ def main():
             f"Prob: {row['heatwave_probability']:.3f} | "
             f"Temp: {row['temperature_c']:.1f}°C | "
             f"HI: {row['heat_index_c']:.1f}°C | "
-            f"RH: {row['humidity_pct']:.0f}%"
+            f"RH: {row['humidity_est']:.0f}%"
         )
 
     output_path = (
