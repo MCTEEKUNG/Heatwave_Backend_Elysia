@@ -5,6 +5,7 @@
 
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect, useMemo } from 'react';
 import { Appearance, useColorScheme, Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { translations as i18nTranslations, TranslationKey } from '@/i18n/translations';
 import { createTypography, FONT_SIZE_SCALE, BASE_FONT_SIZES } from '@/constants/theme';
 
@@ -22,12 +23,17 @@ export const GlobalSettings = {
   hapticFeedback: false,
 };
 
-// Storage keys - Using a simple in-memory approach for persistence
+// Storage keys for persisting user settings to device storage
 const STORAGE_KEYS = {
   THEME_MODE: 'theme_mode',
   LANGUAGE: 'language',
   FONT_SIZE: 'font_size',
 };
+
+// Allowed values — guard against corrupt/legacy persisted data
+const THEME_MODES: ThemeMode[] = ['light', 'dark', 'system'];
+const LANGUAGES: Language[] = ['en', 'th'];
+const FONT_SIZES: FontSize[] = ['small', 'default', 'large'];
 
 // Font size scaling factors
 const FONT_SCALE = {
@@ -104,16 +110,34 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        // For now, we'll use in-memory defaults
-        // AsyncStorage can be added back once installed
-        console.log('Settings loaded with defaults');
+        const [[, storedTheme], [, storedLang], [, storedFontSize]] =
+          await AsyncStorage.multiGet([
+            STORAGE_KEYS.THEME_MODE,
+            STORAGE_KEYS.LANGUAGE,
+            STORAGE_KEYS.FONT_SIZE,
+          ]);
+
+        if (storedTheme && THEME_MODES.includes(storedTheme as ThemeMode)) {
+          const mode = storedTheme as ThemeMode;
+          setThemeModeState(mode);
+          // Sync native appearance to the restored preference
+          if (isNativePlatform && typeof Appearance.setColorScheme === 'function') {
+            Appearance.setColorScheme(mode === 'system' ? (null as any) : mode);
+          }
+        }
+        if (storedLang && LANGUAGES.includes(storedLang as Language)) {
+          setLanguageState(storedLang as Language);
+        }
+        if (storedFontSize && FONT_SIZES.includes(storedFontSize as FontSize)) {
+          setFontSizeState(storedFontSize as FontSize);
+        }
       } catch (error) {
         console.error('Error loading settings:', error);
       } finally {
         setIsLoaded(true);
       }
     };
-    
+
     loadSettings();
   }, []);
   
@@ -137,7 +161,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     }
     
     try {
-      // AsyncStorage can be added back once installed
+      await AsyncStorage.setItem(STORAGE_KEYS.THEME_MODE, mode);
     } catch (error) {
       console.error('Error saving theme mode:', error);
     }
@@ -147,7 +171,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const setLanguage = useCallback(async (lang: Language) => {
     setLanguageState(lang);
     try {
-      // AsyncStorage can be added back once installed
+      await AsyncStorage.setItem(STORAGE_KEYS.LANGUAGE, lang);
     } catch (error) {
       console.error('Error saving language:', error);
     }
@@ -157,7 +181,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const setFontSize = useCallback(async (size: FontSize) => {
     setFontSizeState(size);
     try {
-      // AsyncStorage can be added back once installed
+      await AsyncStorage.setItem(STORAGE_KEYS.FONT_SIZE, size);
     } catch (error) {
       console.error('Error saving font size:', error);
     }

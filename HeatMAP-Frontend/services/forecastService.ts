@@ -6,7 +6,9 @@ export interface ForecastDay {
   heatwave_probability: number;
   forecast_cycle: number;
   temperature_c: number;
-  humidity_est: number;
+  humidity_pct: number;
+  heat_index_c: number;
+  data_source: string;
   forecast_generated: string;
 }
 
