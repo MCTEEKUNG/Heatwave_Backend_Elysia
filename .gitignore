@@ -48,3 +48,13 @@ temp_*.csv
 
 # Local Models
 models/*.pkl
+
+# Python (training-dashboard server + ML pipeline)
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# Tooling scratch
+.playwright-mcp/

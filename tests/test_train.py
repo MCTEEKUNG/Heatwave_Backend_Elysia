@@ -45,6 +45,27 @@ def test_train_model_runs_calibrates_and_reports():
     assert bundle.model_version == "lgbm-v1"
 
 
+def test_train_model_progress_cb_fires_per_round():
+    """The optional progress_cb must drive the real LightGBM CallbackEnv adapter:
+    step rises monotonically 1..total and total stays constant (== num rounds).
+    Exercises the new lgbm-trainer path without needing a parquet on disk."""
+    ds = _synth_dataset()
+    calls = []
+    train_model(ds, horizons=range(1, 4),
+                progress_cb=lambda step, total, msg: calls.append((step, total, msg)))
+
+    assert calls, "progress_cb was never invoked"
+    steps = [s for s, _, _ in calls]
+    totals = {t for _, t, _ in calls}
+    assert len(totals) == 1, f"total changed across rounds: {totals}"
+    total = totals.pop()
+    assert total > 0
+    assert steps == sorted(steps), f"steps not monotonic: {steps}"
+    assert steps[0] == 1 and steps[-1] == total, f"steps {steps[0]}..{steps[-1]} != 1..{total}"
+    # message is the (step, total, message) contract the dashboard consumes
+    assert all(isinstance(m, str) and m for _, _, m in calls)
+
+
 def test_features_have_no_leaky_columns():
     ds = _synth_dataset()
     frame = build_frames(ds, horizons=range(1, 4))
