@@ -12,6 +12,7 @@ import os
 
 from .base import ProgressCb, ShouldStop, Trainer
 from pipeline.run_log import append_run
+from pipeline.leaderboard import upsert_model
 
 DATASET_PATH = "data/processed/dataset.parquet"
 
@@ -67,6 +68,8 @@ class LgbmTrainer(Trainer):
         # from the curated production artifact models/heatwave_model.pkl).
         report["saved"] = save_dashboard_model("lgbm", bundle, report)
         _t = report.get("test") or {}
+        upsert_model("lgbm", {**_t, "threshold": report.get("threshold")},
+                     n_provinces=int(frame["province_id"].nunique()))
         append_run({"trainer": "lgbm", "f2": _t.get("f2"), "pr_auc": _t.get("pr_auc"),
                     "brier_skill_score": _t.get("brier_skill_score"),
                     "threshold": report.get("threshold"),

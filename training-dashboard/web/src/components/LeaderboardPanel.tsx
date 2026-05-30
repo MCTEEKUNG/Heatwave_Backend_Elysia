@@ -39,7 +39,7 @@ const COLS: { key: keyof Row; label: string; d?: number }[] = [
   { key: 'fit_seconds', label: 'fit (s)', d: 0 },
 ]
 
-export default function LeaderboardPanel() {
+export default function LeaderboardPanel({ refreshSignal }: { refreshSignal?: number }) {
   const [data, setData] = useState<Leaderboard | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -60,7 +60,7 @@ export default function LeaderboardPanel() {
 
   useEffect(() => {
     void load()
-  }, [load])
+  }, [load, refreshSignal])
 
   const results = data?.results ?? []
   const hasResults = (data?.available ?? false) && results.length > 0

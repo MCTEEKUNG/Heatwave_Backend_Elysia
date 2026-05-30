@@ -42,6 +42,7 @@ export default function App() {
   const [state, dispatch] = useReducer(appReducer, initialState)
   const [trainer, setTrainer] = useState<TrainerKind>('simulated')
   const [toast, setToast] = useState<ToastMessage | null>(null)
+  const [refreshSignal, setRefreshSignal] = useState(0)
   const clientRef = useRef<WsClient | null>(null)
   const nonceRef = useRef(0)
   const prevRunState = useRef(state.state)
@@ -69,6 +70,7 @@ export default function App() {
       if (state.state === 'done') {
         nonceRef.current += 1
         setToast({ kind: 'success', text: 'Training complete', nonce: nonceRef.current })
+        setRefreshSignal((s) => s + 1)
       } else if (state.state === 'error') {
         nonceRef.current += 1
         setToast({
@@ -160,9 +162,9 @@ export default function App() {
 
       <LogPanel logs={state.logs} />
 
-      <LeaderboardPanel />
+      <LeaderboardPanel refreshSignal={refreshSignal} />
 
-      <RunHistory />
+      <RunHistory refreshSignal={refreshSignal} />
 
       <ModelReport />
 

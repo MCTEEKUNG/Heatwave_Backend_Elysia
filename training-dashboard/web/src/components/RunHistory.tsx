@@ -21,7 +21,7 @@ type RunsResponse = {
 const f3 = (v: number | null | undefined) =>
   v === null || v === undefined ? '—' : v.toFixed(3)
 
-export default function RunHistory() {
+export default function RunHistory({ refreshSignal }: { refreshSignal?: number }) {
   const [data, setData] = useState<RunsResponse | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -42,7 +42,7 @@ export default function RunHistory() {
 
   useEffect(() => {
     void load()
-  }, [load])
+  }, [load, refreshSignal])
 
   const runs = data?.runs ?? []
   const hasRuns = runs.length > 0

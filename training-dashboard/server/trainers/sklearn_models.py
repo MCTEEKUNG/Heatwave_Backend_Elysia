@@ -22,6 +22,7 @@ from src.model_zoo import SUPPORTED, make_model
 from .base import ProgressCb, ShouldStop, Trainer
 from .saving import save_dashboard_model
 from pipeline.run_log import append_run
+from pipeline.leaderboard import upsert_model
 
 DATASET_PATH = "data/processed/dataset.parquet"
 
@@ -111,6 +112,7 @@ class ModelTrainer(Trainer):
             bundle = CalibratedModel(model, calibrator=cal, threshold=thr,
                                      feature_cols=list(feats), model_version=self.name)
             report["saved"] = save_dashboard_model(self.name, bundle, report)
+            upsert_model(self.name, report, n_provinces=report.get("n_provinces"))
             append_run({"trainer": self.name, "f2": report.get("f2"),
                         "pr_auc": report.get("pr_auc"),
                         "brier_skill_score": report.get("brier_skill_score"),
