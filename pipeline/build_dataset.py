@@ -14,10 +14,18 @@ from src.labels import label_heatwave
 from src.provinces import load_provinces
 
 
-def build_for_provinces(provinces: pd.DataFrame, start: str, end: str):
+# Only these daily variables are needed to derive sWBGT and the heatwave label;
+# requesting just these (instead of the full DAILY_VARS) cuts Open-Meteo request
+# weight ~3x for bulk historical builds.
+BUILD_DAILY_VARS = ["temperature_2m_max", "relative_humidity_2m_mean"]
+
+
+def build_for_provinces(provinces: pd.DataFrame, start: str, end: str,
+                        daily_vars: list | None = None):
     all_rows, all_thr = [], []
     for _, p in provinces.iterrows():
-        raw = openmeteo_client.fetch_history(p["lat"], p["lon"], start, end)
+        raw = openmeteo_client.fetch_history(
+            p["lat"], p["lon"], start, end, daily_vars=daily_vars or BUILD_DAILY_VARS)
         raw["swbgt_max"] = swbgt(raw["temperature_2m_max"],
                                  raw["relative_humidity_2m_mean"])
         thr = compute_doy_percentiles(raw, value_col="swbgt_max",

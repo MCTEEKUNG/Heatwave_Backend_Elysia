@@ -12,7 +12,7 @@ def test_build_one_province(monkeypatch):
         "relative_humidity_2m_mean": 60 + np.random.normal(0, 10, len(rng)),
     })
     monkeypatch.setattr(bd.openmeteo_client, "fetch_history",
-                        lambda lat, lon, s, e: fake.copy())
+                        lambda lat, lon, s, e, daily_vars=None: fake.copy())
 
     prov = pd.DataFrame([{"id": 1, "code": "BKK", "name_th": "x", "name_en": "Bangkok",
                           "region": "Central", "lat": 13.75, "lon": 100.5}])

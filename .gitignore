@@ -49,6 +49,9 @@ temp_*.csv
 # Local Models
 models/*.pkl
 
+# Built datasets (large; reproducible via scripts/build_full_dataset.py)
+data/processed/
+
 # Python (training-dashboard server + ML pipeline)
 .venv/
 __pycache__/

@@ -1,57 +1,69 @@
-[
-  {
-    "Rank": 1,
-    "model": "Balanced Random Forest",
-    "accuracy": 1.0,
-    "precision": 0.9998,
-    "recall": 1.0,
-    "f1_score": 0.9999,
-    "roc_auc": 1.0,
-    "timestamp": "2026-04-01 17:16:22",
-    "train_time_seconds": 424.22
+{
+  "dataset": "data/processed/dataset.parquet",
+  "n_test": 5054,
+  "test_base_rate": 0.07202216066481995,
+  "split": {
+    "train": "<=2023",
+    "val": "2024",
+    "test": "2025"
   },
-  {
-    "Rank": 2,
-    "model": "LightGBM",
-    "accuracy": 0.9981,
-    "precision": 0.4815,
-    "recall": 1.0,
-    "f1_score": 0.65,
-    "roc_auc": 0.999,
-    "timestamp": "2026-03-05 21:26:21",
-    "train_time_seconds": 7.3
-  },
-  {
-    "Rank": 3,
-    "model": "KAN",
-    "accuracy": 0.9982,
-    "precision": 0.0,
-    "recall": 0.0,
-    "f1_score": 0.0,
-    "roc_auc": null,
-    "timestamp": "2026-03-05 22:41:23",
-    "train_time_seconds": 1398.09
-  },
-  {
-    "Rank": 4,
-    "model": "MLP Neural Network",
-    "accuracy": 0.9982,
-    "precision": 0.0,
-    "recall": 0.0,
-    "f1_score": 0.0,
-    "roc_auc": null,
-    "timestamp": "2026-03-05 21:51:49",
-    "train_time_seconds": 1527.3
-  },
-  {
-    "Rank": 5,
-    "model": "XGBoost",
-    "accuracy": 0.9982,
-    "precision": 0.0,
-    "recall": 0.0,
-    "f1_score": 0.0,
-    "roc_auc": 0.8777,
-    "timestamp": "2026-03-05 21:26:13",
-    "train_time_seconds": 7.21
-  }
-]
+  "ranked_by": "f2 then pr_auc",
+  "results": [
+    {
+      "model": "lightgbm",
+      "pr_auc": 0.12239714807292452,
+      "mcc": 0.1673055574746738,
+      "f2": 0.33929903057419836,
+      "roc_auc": 0.6513460952693362,
+      "brier": 0.06513042843997865,
+      "threshold": 0.10970464135021098,
+      "n": 5054,
+      "n_pos": 364,
+      "base_rate": 0.07202216066481995,
+      "brier_skill_score": 0.025503723912002618,
+      "fit_seconds": 3.8
+    },
+    {
+      "model": "random_forest",
+      "pr_auc": 0.12225150835528696,
+      "mcc": 0.12754981235115453,
+      "f2": 0.3239773066587041,
+      "roc_auc": 0.6676623749384943,
+      "brier": 0.06549000815406165,
+      "threshold": 0.08196721311475409,
+      "n": 5054,
+      "n_pos": 364,
+      "base_rate": 0.07202216066481995,
+      "brier_skill_score": 0.020123610488465227,
+      "fit_seconds": 7.4
+    },
+    {
+      "model": "balanced_rf",
+      "pr_auc": 0.1385409288792058,
+      "mcc": 0.17273257052340435,
+      "f2": 0.3232577665827036,
+      "roc_auc": 0.6887895686403149,
+      "brier": 0.06471791962804407,
+      "threshold": 0.10824742268041238,
+      "n": 5054,
+      "n_pos": 364,
+      "base_rate": 0.07202216066481995,
+      "brier_skill_score": 0.03167577452969794,
+      "fit_seconds": 3.7
+    },
+    {
+      "model": "xgboost",
+      "pr_auc": 0.10652395691983206,
+      "mcc": 0.13086472130679233,
+      "f2": 0.31997414350355524,
+      "roc_auc": 0.6126640150893883,
+      "brier": 0.06633024915289815,
+      "threshold": 0.07729468599033816,
+      "n": 5054,
+      "n_pos": 364,
+      "base_rate": 0.07202216066481995,
+      "brier_skill_score": 0.007551733656160908,
+      "fit_seconds": 2.3
+    }
+  ]
+}

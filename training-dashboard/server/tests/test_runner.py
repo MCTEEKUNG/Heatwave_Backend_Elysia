@@ -150,7 +150,13 @@ def test_last_status_replay_starts_idle():
     assert s["state"] == "idle"
 
 
-def test_error_does_not_crash_and_sets_error_state():
+def test_error_does_not_crash_and_sets_error_state(monkeypatch):
+    # Force the lgbm trainer's dataset path to a guaranteed-missing file so this
+    # test is deterministic whether or not a real dataset.parquet exists on disk.
+    from server.trainers import lgbm as lgbm_mod
+    monkeypatch.setattr(lgbm_mod, "DATASET_PATH",
+                        "data/processed/__nonexistent_for_test__.parquet")
+
     events, broadcast = _collect()
     runner = Runner(broadcast=broadcast, status_interval=0.02)
     # lgbm with no dataset -> friendly FileNotFoundError -> error event + status.
