@@ -72,35 +72,33 @@ as a feature**. Add predicted Tmax/RH/sWBGT for `target_time` to the feature set
   Conclusion: **P0 is worth building.** Even a conservative forecast meaningfully
   improves precision and short-lead skill.
 
-  **P0 REAL-DATA run** (`scripts/p0_forecast_real.py`). Replaced the noise model
-  with *real* archived forecasts (Open-Meteo Historical Forecast API, 20 provinces,
-  2022–25; train 2022–23 / val 2024 / test 2025):
+  **P0 REAL-DATA run — FAILED to measure forecast skill (oracle in disguise).**
+  (`scripts/p0_forecast_real.py`.) Pulled "archived forecasts" from the Open-Meteo
+  Historical Forecast API (20 provinces, 2022–25) and trained with them. Result
+  was near-oracle (F2 0.900, PR-AUC 0.854) with an almost-flat per-horizon curve
+  (lead-1 0.872 → lead-7 0.836). **That flatness is the red flag**, and a direct
+  check confirms it: fetched `fc_swbgt`/`fc_tmax`/`fc_rh` vs the dataset actuals
+  have **corr = 1.0000, MAE = 0.000** — the API returns the *same* near-analysis
+  values for past dates, not genuine forecasts issued k days earlier. So this run
+  is the oracle again (the small gap vs 0.877 is just the thinner 2022–23 training
+  window), and it instantiates the very **train/serve-skew trap** P0 warns about:
+  training on analysis-quality values the model can never get at serve time.
 
-  | features | PR-AUC | F2 | precision | recall |
-  |----------|--------|----|-----------|--------|
-  | baseline (antecedent) | 0.310 | 0.549 | 0.217 | 0.889 |
-  | + REAL forecast covariates | **0.854** | **0.900** | 0.687 | 0.976 |
+  **It does NOT provide a realizable estimate.** The only honest realizable number
+  remains the noise model:
+  | scenario | PR-AUC | F2 | status |
+  |----------|--------|----|--------|
+  | baseline | 0.31–0.33 | 0.55 | measured |
+  | **noise model (lead-decaying)** | **0.48** | **0.63** | **realizable estimate (assumption-based)** |
+  | oracle / "real archived forecast" | 0.85–0.88 | 0.90–0.92 | ceiling only — NOT realizable |
 
-  Near the oracle (0.877) — **but read it carefully.** The Historical Forecast API
-  returns one archived series per date (~analysis / short-lead quality), *not*
-  lead-specific forecasts, so per-horizon skill is almost flat (lead-1 0.872 →
-  lead-7 0.836). That is **optimistic at long leads** — a real day-7 forecast is
-  much worse than a day-1 forecast, which this data doesn't reflect.
+  What the real-data run *did* earn: the fetch/join plumbing works and is reusable,
+  and it re-confirms the label is near-deterministic in target-day weather.
 
-  **So the realizable gain is bracketed:**
-  | scenario | PR-AUC | F2 |
-  |----------|--------|----|
-  | baseline | 0.31–0.33 | 0.55 |
-  | noise model (lead-decaying, conservative) | 0.48 | 0.63 |
-  | real archived forecast (~uniform short-lead, optimistic) | 0.85 | 0.90 |
-  | oracle (perfect) | 0.88 | 0.92 |
-
-  Truth per horizon sits between the two middle rows: short leads (1–3 d) land
-  near the optimistic row (huge, real gain); long leads (5–7 d) closer to the
-  conservative row. **The lever is confirmed real with actual forecast data.**
-  The remaining correctness gap is *lead-specific* forecast quality: the proper
-  next step is reforecasts that preserve true day-k error (Open-Meteo previous-runs,
-  limited history; or ECMWF reforecasts) before wiring into the production pipeline.
+  **Real next step for an assumption-free per-lead number:** lead-specific
+  reforecasts that preserve true day-k error — Open-Meteo previous-runs
+  (`temperature_2m_previous_dayN`, limited history) or ECMWF reforecasts — before
+  wiring forecast covariates into the production pipeline.
 
 **P1 — Label fidelity: hourly → daily-max sWBGT.** The label is built from daily
 `Tmax` + daily-*mean* RH; physically the daily max temp coincides with min RH,

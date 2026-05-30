@@ -121,7 +121,21 @@ def main():
     print(f"\nREAL-DATA LIFT  PR-AUC {b['pr_auc']:.3f} -> {r['pr_auc']:.3f}  "
           f"F2 {b['f2']:.3f} -> {r['f2']:.3f}", flush=True)
 
-    print("\nper-horizon PR-AUC (note: forecast ~uniform quality, optimistic at long lead):", flush=True)
+    # Self-diagnosis: are the "forecasts" actually just the analysis/actuals?
+    chk = fr.merge(ds.rename(columns={"time": "target_time", "swbgt_max": "act_swbgt"})
+                   [["province_id", "target_time", "act_swbgt"]],
+                   on=["province_id", "target_time"], how="left")
+    corr = np.corrcoef(chk["fc_swbgt"], chk["act_swbgt"])[0, 1]
+    mae = float(np.abs(chk["fc_swbgt"] - chk["act_swbgt"]).mean())
+    print(f"\nfc_swbgt vs actual sWBGT: corr={corr:.4f}  MAE={mae:.3f}", flush=True)
+    if corr > 0.98 and mae < 0.5:
+        print("  WARNING: the Historical Forecast API returned ~analysis values, NOT", flush=True)
+        print("  lead-specific forecasts. This run is the ORACLE in disguise and does", flush=True)
+        print("  NOT measure realizable forecast skill. Use scripts/oracle_headroom.py", flush=True)
+        print("  for the ceiling and scripts/p0_forecast_prototype.py for the realizable", flush=True)
+        print("  estimate. A true per-lead number needs reforecasts (previous-runs/ECMWF).", flush=True)
+
+    print("\nper-horizon PR-AUC (FLAT curve below = further proof these aren't real lead-k forecasts):", flush=True)
     yte = te["y"].to_numpy()
     kte = te["horizon_k"].to_numpy()
     pb = runs["baseline (antecedent only)"][1]
