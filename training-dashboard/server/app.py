@@ -37,10 +37,24 @@ class ConnectionManager:
         self.active: Set[WebSocket] = set()
         self.lock = asyncio.Lock()
 
-    async def connect(self, ws: WebSocket) -> None:
+    async def accept(self, ws: WebSocket) -> None:
         await ws.accept()
+
+    async def register(self, ws: WebSocket, snapshot_fn) -> bool:
+        """Atomically send the current snapshot, then start receiving broadcasts.
+
+        Holding ``lock`` across both steps (and capturing the snapshot *inside*
+        the lock) guarantees the new client's first frame is its snapshot and
+        that it can never receive a broadcast that precedes it -- closing the
+        connect/replay race. Returns False if the socket is already dead.
+        """
         async with self.lock:
+            try:
+                await ws.send_text(json.dumps(snapshot_fn()))
+            except Exception:
+                return False
             self.active.add(ws)
+            return True
 
     async def disconnect(self, ws: WebSocket) -> None:
         async with self.lock:
@@ -51,14 +65,20 @@ class ConnectionManager:
 
     async def broadcast(self, event: dict) -> None:
         text = json.dumps(event)
+        # Hold the lock across the whole send loop so concurrent broadcasts
+        # (each scheduled as its own task from the worker thread) are serialized
+        # and frame order is preserved. Dead sockets are dropped inline -- we
+        # must NOT call self.disconnect() here, as it would re-acquire this lock
+        # and deadlock.
         async with self.lock:
-            targets = list(self.active)
-        for ws in targets:
-            try:
-                await ws.send_text(text)
-            except Exception:
-                # Drop dead sockets; cleanup happens on their own disconnect.
-                await self.disconnect(ws)
+            dead = []
+            for ws in list(self.active):
+                try:
+                    await ws.send_text(text)
+                except Exception:
+                    dead.append(ws)
+            for ws in dead:
+                self.active.discard(ws)
 
 
 manager = ConnectionManager()
@@ -90,12 +110,10 @@ async def healthz() -> dict:
 
 @app.websocket("/ws")
 async def ws_endpoint(ws: WebSocket) -> None:
-    await manager.connect(ws)
-    # On connect, immediately send the last known status (idle initially).
-    try:
-        await manager.send_one(ws, runner.last_status())
-    except Exception:
-        await manager.disconnect(ws)
+    await manager.accept(ws)
+    # Atomically send the last known status (idle initially) and join the
+    # broadcast set; bail if the socket died before we could greet it.
+    if not await manager.register(ws, runner.last_status):
         return
 
     try:

@@ -34,22 +34,31 @@ class LgbmTrainer(Trainer):
                 f"dataset not found: {DATASET_PATH} -- run build_dataset first"
             )
 
-        progress_cb(0, 1, "loading dataset")
-        dataset = pd.read_parquet(DATASET_PATH)
-        if "lat" not in dataset.columns:
-            prov = pd.read_csv(PROVINCES_PATH)[["id", "lat", "lon"]]
-            dataset = dataset.merge(
-                prov, left_on="province_id", right_on="id", how="left"
-            ).drop(columns=["id"])
+        def _check_stop() -> None:
+            if should_stop():
+                raise _StopTraining()
 
         def _progress(step: int, total: int, message: str) -> None:
             # Abort promptly if asked to stop -- raised through LightGBM's
             # callback and caught below.
-            if should_stop():
-                raise _StopTraining()
+            _check_stop()
             progress_cb(step, total, message)
 
+        # The load/preprocess phases below can each take many seconds and are
+        # not interruptible mid-call; check stop at every phase boundary so a
+        # stop issued before the first boosting round still halts promptly
+        # instead of leaving a zombie thread running to completion.
         try:
+            _check_stop()
+            progress_cb(0, 1, "loading dataset")
+            dataset = pd.read_parquet(DATASET_PATH)
+            _check_stop()
+            if "lat" not in dataset.columns:
+                prov = pd.read_csv(PROVINCES_PATH)[["id", "lat", "lon"]]
+                dataset = dataset.merge(
+                    prov, left_on="province_id", right_on="id", how="left"
+                ).drop(columns=["id"])
+            _check_stop()
             bundle, report = train_model(dataset, progress_cb=_progress)
         except _StopTraining:
             return {"trainer": "lgbm", "stopped": True}

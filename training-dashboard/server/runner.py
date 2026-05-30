@@ -119,7 +119,15 @@ class Runner:
 
         self._thread = threading.Thread(
             target=self._run, args=(trainer_name, config or {}), daemon=True)
-        self._thread.start()
+        try:
+            self._thread.start()
+        except Exception:
+            # Thread creation can fail under resource exhaustion; don't leave
+            # the runner permanently wedged with _running == True.
+            with self._lock:
+                self._running = False
+            self._emit(protocol.error_event("failed to start training thread"))
+            return False
         return True
 
     def stop(self) -> None:
@@ -198,6 +206,8 @@ class Runner:
             self._emit(protocol.status_event(
                 "error", message=msg, ts=time.time()))
         finally:
+            # Clear the stop flag under the same lock that flips _running, so a
+            # stop() racing with the next start() can't be silently discarded.
             with self._lock:
                 self._running = False
-            self._stop_flag.clear()
+                self._stop_flag.clear()
