@@ -21,6 +21,9 @@ class StartConfig(BaseModel):
 
     total_steps: int = 10000
     speed_per_sec: float = 100.0
+    n_estimators: Optional[int] = None
+    max_depth: Optional[int] = None
+    learning_rate: Optional[float] = None
 
 
 class StartCommand(BaseModel):

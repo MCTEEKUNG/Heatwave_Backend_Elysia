@@ -25,6 +25,9 @@ export interface StartCommand {
   config?: {
     total_steps?: number
     speed_per_sec?: number
+    n_estimators?: number
+    max_depth?: number
+    learning_rate?: number
   }
 }
 

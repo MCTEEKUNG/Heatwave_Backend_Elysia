@@ -72,7 +72,8 @@ class ModelTrainer(Trainer):
             check_stop()
 
             progress_cb(3, TOTAL, f"fitting {self.name} (this can take a while)")
-            model = make_model(self.name, spw)
+            overrides = {k: config.get(k) for k in ("n_estimators", "max_depth", "learning_rate")} if config else {}
+            model = make_model(self.name, spw, **overrides)
             _hb_done = threading.Event()
             def _heartbeat():
                 t0 = time.time()

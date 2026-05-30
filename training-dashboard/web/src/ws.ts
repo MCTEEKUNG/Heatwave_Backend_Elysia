@@ -228,7 +228,7 @@ export class WsClient {
     return false
   }
 
-  start(trainer: TrainerKind, config?: { total_steps?: number; speed_per_sec?: number }): boolean {
+  start(trainer: TrainerKind, config?: Record<string, number>): boolean {
     return this.send(config ? { command: 'start', trainer, config } : { command: 'start', trainer })
   }
 

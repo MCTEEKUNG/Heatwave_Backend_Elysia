@@ -740,6 +740,18 @@
 /* Inputs */
 .trainer-select { transition: border-color 0.15s ease, box-shadow 0.15s ease; }
 .trainer-select:not(:disabled):hover { border-color: var(--accent-2); }
+.hp-input {
+  width: 90px;
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 0.9rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.hp-input:not(:disabled):hover { border-color: var(--accent-2); }
+.hp-input:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* Cards: a hair of depth -- inset top highlight + soft drop, not heavy. */
 .card,

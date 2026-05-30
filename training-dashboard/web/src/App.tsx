@@ -90,8 +90,8 @@ export default function App() {
     return 'dot-closed'
   }, [state.connection])
 
-  function handleStart() {
-    clientRef.current?.start(trainer)
+  function handleStart(config?: Record<string, number>) {
+    clientRef.current?.start(trainer, config)
   }
   function handleStop() {
     clientRef.current?.stop()
