@@ -59,25 +59,31 @@ Candidates: LightGBM, Balanced RF, Random Forest, XGBoost, **CatBoost**, an
 **KAN is deliberately deferred** (heavy `pykan` dependency; the tabular evidence
 in §2 says it loses — not worth the integration cost now).
 
-**Preliminary (2 provinces — Bangkok + Samut Prakan; adjacent/central, low
-diversity → weak, noisy signal; refresh on the expanding multi-province data):**
+**Result — 20 provinces (all 6 regions), 1.78M-row frame, test = 2025 (50.5k
+samples, 15% positive), ranked by F2:**
 
 | model | F2 | PR-AUC | BSS | ROC-AUC | Brier | MCC | fit |
 |-------|----|--------|-----|---------|-------|-----|-----|
-| mlp (ref) | 0.347 | 0.115 | 0.019 | 0.664 | 0.0655 | 0.153 | 58s |
-| **lightgbm** | 0.339 | 0.122 | 0.026 | 0.651 | 0.0651 | 0.167 | 3s |
-| random_forest | 0.324 | 0.122 | 0.020 | 0.668 | 0.0655 | 0.128 | 4s |
-| balanced_rf | 0.323 | **0.139** | **0.032** | **0.689** | 0.0647 | 0.173 | 3s |
-| ensemble(lgbm+xgb+cat) | 0.322 | 0.116 | 0.019 | 0.635 | 0.0656 | 0.150 | — |
-| xgboost | 0.320 | 0.107 | 0.008 | 0.613 | 0.0663 | 0.131 | 2s |
-| catboost | 0.317 | 0.107 | 0.005 | 0.600 | 0.0665 | 0.140 | 4s |
+| **balanced_rf** | **0.559** | 0.329 | 0.096 | 0.760 | 0.1154 | 0.257 | 33s |
+| **lightgbm** | 0.556 | **0.332** | 0.094 | 0.760 | 0.1157 | 0.252 | 41s |
+| ensemble(lgbm+xgb+cat) | 0.553 | 0.331 | 0.093 | 0.761 | 0.1158 | 0.241 | — |
+| **catboost** | 0.553 | 0.332 | **0.097** | **0.762** | 0.1153 | 0.241 | 31s |
+| random_forest | 0.544 | 0.316 | 0.083 | 0.752 | 0.1171 | 0.226 | 122s |
+| xgboost | 0.534 | 0.319 | 0.078 | 0.749 | 0.1178 | 0.206 | 18s |
+| mlp (ref) | 0.515 | 0.268 | 0.030 | 0.704 | 0.1240 | 0.169 | **1160s** |
 
-On just 2 adjacent provinces the models are within noise of each other and MLP's
-tiny F2 edge is not meaningful (it cost 20× the fit time and trails on PR-AUC /
-calibration). The GBDTs and balanced RF cluster together as expected; this run's
-purpose is to prove **all seven candidates + the ensemble train and score
-through one unified, calibrated pipeline**. Real separation needs the
-multi-province dataset (build in progress).
+With real geographic coverage the signal rises from 2-province noise (F2 ≈ 0.34)
+to **F2 ≈ 0.56 / PR-AUC ≈ 0.33 / ROC-AUC ≈ 0.76**, and the model ranking becomes
+clear and stable. **The three tree ensembles — Balanced RF, LightGBM, CatBoost —
+are in a statistical tie at the top** (F2 0.553–0.559, PR-AUC ≈ 0.33, BSS ≈
+0.09–0.10, all comfortably beating climatology). XGBoost trails slightly. The
+**MLP is decisively last *and* cost ~19 minutes** (vs 18–40 s for the trees) — a
+clean empirical confirmation of §2/§5: deep nets do not win this tabular,
+rare-event problem and are not worth their cost. The GBDT soft-vote ensemble
+matches its members without beating them, so it is optional, not necessary.
+
+> Reproduce / refresh as coverage grows: `.\.venv\Scripts\python.exe scripts\bakeoff.py`
+> (writes `experiments/results/leaderboard.json`).
 
 On a more diverse 3-province validation (incl. a southern + a NE province),
 LightGBM reached **F2 0.58 / PR-AUC 0.30** vs an F2 0.54 base-rate baseline —
@@ -110,8 +116,9 @@ literature: the tree-ensemble family wins, deep nets are not needed.
 
 ## 5. Flags (don't bury)
 
-- Numbers above are **preliminary** (few provinces, hourly API limit). Expand the
-  dataset (`DATA.md`) and re-run the bake-off before quoting them anywhere.
+- Numbers above are from a **20/77-province** stratified build (all 6 regions) —
+  solid and directionally trustworthy, but expand toward full coverage
+  (`DATA.md`, resumable) and re-run the bake-off before treating them as final.
 - The **sWBGT_max label bias** (Tmax with mean RH) is the #1 accuracy fix and
   affects *every* model equally — see `DATA.md §3.2`.
 - We evaluated the **wired Open-Meteo/sWBGT** path, not `config.yaml`'s
