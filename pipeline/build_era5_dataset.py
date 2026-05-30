@@ -32,7 +32,7 @@ def attach_climatology_label(df, mode="absolute", abs_threshold=41.0,
     return out
 
 
-def main(mode="absolute", abs_threshold=41.0):
+def main(mode="relative", abs_threshold=41.0):  # canonical label = relative (p95 + 2-day run)
     provinces = load_provinces()
     # v2 scope: 2016-2025 only (earlier years are daily + t2m-only, no humidity).
     years = sorted(y for y in (int(f.split("_")[-1].split(".")[0])
