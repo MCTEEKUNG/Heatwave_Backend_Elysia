@@ -16,6 +16,7 @@ import SpeedChart from './components/SpeedChart'
 import LogPanel from './components/LogPanel'
 import MetricsPanel from './components/MetricsPanel'
 import LeaderboardPanel from './components/LeaderboardPanel'
+import RunHistory from './components/RunHistory'
 import ModelReport from './components/ModelReport'
 import FolderIcon from './components/FolderIcon'
 import Toast, { type ToastMessage } from './components/Toast'
@@ -160,6 +161,8 @@ export default function App() {
       <LogPanel logs={state.logs} />
 
       <LeaderboardPanel />
+
+      <RunHistory />
 
       <ModelReport />
 

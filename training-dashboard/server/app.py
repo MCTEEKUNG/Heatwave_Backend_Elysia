@@ -20,6 +20,8 @@ from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
+from pipeline.run_log import read_runs
+
 from . import protocol
 from .runner import Runner
 from .trainers import available as available_trainers
@@ -138,6 +140,12 @@ def _read_json_artifact(path: str, empty: dict) -> dict:
 async def leaderboard() -> dict:
     """Return the latest bake-off leaderboard, or available=False if none yet."""
     return _read_json_artifact(LEADERBOARD_PATH, {"results": []})
+
+
+@app.get("/api/runs")
+async def runs() -> dict:
+    """Most-recent-first run history (last 100)."""
+    return {"runs": list(reversed(read_runs()))[:100]}
 
 
 @app.get("/api/model-report")
