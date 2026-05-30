@@ -22,14 +22,13 @@ import pandas as pd
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from pipeline.train import build_frames
+from pipeline.frame_cache import cached_build_frames
 from src.features import feature_columns
 from src.model import train as lgbm_train
 from src.calibration import fit_calibrator, calibrate, tune_threshold
 from evaluation.heatwave_metrics import compute_metrics
 
 DATASET = "data/processed/dataset.parquet"
-PROVINCES = "data/provinces.csv"
 OUT = "experiments/results/leaderboard.json"
 HORIZONS = range(1, 8)
 
@@ -71,12 +70,7 @@ def main():
         print(f"missing {DATASET} -- run scripts/build_full_dataset.py first")
         return 1
 
-    ds = pd.read_parquet(DATASET)
-    if "lat" not in ds.columns:
-        prov = pd.read_csv(PROVINCES)[["id", "lat", "lon"]]
-        ds = ds.merge(prov, left_on="province_id", right_on="id", how="left").drop(columns=["id"])
-
-    frame = build_frames(ds, horizons=HORIZONS)
+    frame = cached_build_frames(DATASET, horizons=HORIZONS)
     feats = feature_columns(frame)
     yr = pd.to_datetime(frame["origin_time"]).dt.year
     tr, va, te = frame[yr <= 2023], frame[yr == 2024], frame[yr == 2025]
@@ -85,7 +79,7 @@ def main():
     Xte, yte = te[feats], te["y"].to_numpy()
     pos, neg = int(ytr.sum()), int((ytr == 0).sum())
     spw = (neg / pos) if pos else 1.0
-    print(f"frame rows={len(frame)} feats={len(feats)} provinces={ds['province_id'].nunique()} "
+    print(f"frame rows={len(frame)} feats={len(feats)} provinces={frame['province_id'].nunique()} "
           f"train={len(tr)} val={len(va)} test={len(te)} test_pos_rate={yte.mean():.4f}", flush=True)
 
     base = float(yte.mean())
@@ -119,7 +113,7 @@ def main():
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     payload = {
         "dataset": DATASET,
-        "n_provinces": int(ds["province_id"].nunique()),
+        "n_provinces": int(frame["province_id"].nunique()),
         "n_test": int(len(te)),
         "test_base_rate": base,
         "split": {"train": "<=2023", "val": "2024", "test": "2025"},

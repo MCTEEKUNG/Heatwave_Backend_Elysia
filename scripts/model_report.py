@@ -27,7 +27,7 @@ from sklearn.metrics import precision_recall_curve, precision_score, recall_scor
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from pipeline.train import build_frames
+from pipeline.frame_cache import cached_build_frames
 from src.features import feature_columns
 from src.model import train as lgbm_train, CalibratedModel
 from src.calibration import fit_calibrator, calibrate, tune_threshold
@@ -77,12 +77,9 @@ def main():
         return 1
 
     ds = pd.read_parquet(DATASET)
-    if "lat" not in ds.columns:
-        prov = pd.read_csv(PROVINCES)[["id", "lat", "lon"]]
-        ds = ds.merge(prov, left_on="province_id", right_on="id", how="left").drop(columns=["id"])
     prov_meta = pd.read_csv(PROVINCES)[["id", "name_en", "region"]]
 
-    frame = build_frames(ds, horizons=HORIZONS)
+    frame = cached_build_frames(DATASET, horizons=HORIZONS)
     feats = feature_columns(frame)
     yr = pd.to_datetime(frame["origin_time"]).dt.year
     tr, va, te = frame[yr <= 2023], frame[yr == 2024], frame[yr == 2025]

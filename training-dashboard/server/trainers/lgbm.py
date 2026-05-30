@@ -13,7 +13,6 @@ import os
 from .base import ProgressCb, ShouldStop, Trainer
 
 DATASET_PATH = "data/processed/dataset.parquet"
-PROVINCES_PATH = "data/provinces.csv"
 
 
 class _StopTraining(Exception):
@@ -28,6 +27,7 @@ class LgbmTrainer(Trainer):
         # without pulling in pandas / lightgbm unless a real run is requested.
         import pandas as pd
         from pipeline.train import train_model
+        from pipeline.frame_cache import cached_build_frames
         from .saving import save_dashboard_model
 
         if not os.path.exists(DATASET_PATH):
@@ -54,13 +54,9 @@ class LgbmTrainer(Trainer):
             progress_cb(0, 1, "loading dataset")
             dataset = pd.read_parquet(DATASET_PATH)
             _check_stop()
-            if "lat" not in dataset.columns:
-                prov = pd.read_csv(PROVINCES_PATH)[["id", "lat", "lon"]]
-                dataset = dataset.merge(
-                    prov, left_on="province_id", right_on="id", how="left"
-                ).drop(columns=["id"])
+            frame = cached_build_frames(DATASET_PATH, horizons=range(1, 8))
             _check_stop()
-            bundle, report = train_model(dataset, progress_cb=_progress)
+            bundle, report = train_model(dataset, progress_cb=_progress, frame=frame)
         except _StopTraining:
             return {"trainer": "lgbm", "stopped": True}
 

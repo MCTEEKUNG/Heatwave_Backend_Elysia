@@ -34,7 +34,7 @@ def build_frames(dataset: pd.DataFrame, horizons=range(1, 8)) -> pd.DataFrame:
 
 def train_model(dataset: pd.DataFrame, horizons=range(1, 8),
                 train_end=2023, val_year=2024, test_year=2025,
-                progress_cb=None):
+                progress_cb=None, frame=None):
     """Train + calibrate + evaluate. Returns ``(bundle, report)``.
 
     ``dataset`` must carry province ``lat``/``lon`` (so features match the
@@ -44,8 +44,12 @@ def train_model(dataset: pd.DataFrame, horizons=range(1, 8),
     message)`` invoked once per LightGBM boosting round. When ``None`` (the
     default) behavior is identical to before -- no callback is created or
     passed down to the LightGBM trainer.
+
+    ``frame`` (optional) is a pre-built forecasting frame (e.g. from
+    ``cached_build_frames``). When provided, the ``build_frames`` call is
+    skipped entirely, making repeated runs significantly faster.
     """
-    frame = build_frames(dataset, horizons=horizons)
+    frame = build_frames(dataset, horizons=horizons) if frame is None else frame
     feat_cols = feature_columns(frame)
     yr = pd.to_datetime(frame["origin_time"]).dt.year
 

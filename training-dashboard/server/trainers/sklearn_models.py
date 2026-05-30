@@ -21,7 +21,6 @@ from .base import ProgressCb, ShouldStop, Trainer
 from .saving import save_dashboard_model
 
 DATASET_PATH = "data/processed/dataset.parquet"
-PROVINCES_PATH = "data/provinces.csv"
 
 
 class _StopTraining(Exception):
@@ -37,7 +36,7 @@ class ModelTrainer(Trainer):
     def run(self, config: dict, progress_cb: ProgressCb, should_stop: ShouldStop) -> dict:
         import numpy as np
         import pandas as pd
-        from pipeline.train import build_frames
+        from pipeline.frame_cache import cached_build_frames
         from src.features import feature_columns
         from src.calibration import fit_calibrator, calibrate, tune_threshold
         from src.model import CalibratedModel
@@ -55,15 +54,7 @@ class ModelTrainer(Trainer):
 
         try:
             progress_cb(1, TOTAL, "loading dataset")
-            ds = pd.read_parquet(DATASET_PATH)
-            if "lat" not in ds.columns:
-                prov = pd.read_csv(PROVINCES_PATH)[["id", "lat", "lon"]]
-                ds = ds.merge(prov, left_on="province_id", right_on="id",
-                              how="left").drop(columns=["id"])
-            check_stop()
-
-            progress_cb(2, TOTAL, "building forecasting features")
-            frame = build_frames(ds, horizons=range(1, 8))
+            frame = cached_build_frames(DATASET_PATH, horizons=range(1, 8))
             feats = feature_columns(frame)
             yr = pd.to_datetime(frame["origin_time"]).dt.year
             tr, va, te = frame[yr <= 2023], frame[yr == 2024], frame[yr == 2025]
@@ -72,6 +63,9 @@ class ModelTrainer(Trainer):
             Xte, yte = te[feats], te["y"].to_numpy()
             pos, neg = int(ytr.sum()), int((ytr == 0).sum())
             spw = (neg / pos) if pos else 1.0
+            check_stop()
+
+            progress_cb(2, TOTAL, "building forecasting features (cached)")
             check_stop()
 
             progress_cb(3, TOTAL, f"fitting {self.name} (this can take a while)")
@@ -94,7 +88,7 @@ class ModelTrainer(Trainer):
             report.pop("reliability", None)
             report["trainer"] = self.name
             report["threshold"] = thr
-            report["n_provinces"] = int(ds["province_id"].nunique())
+            report["n_provinces"] = int(frame["province_id"].nunique())
 
             # Wrap in the production CalibratedModel format and persist (separate
             # from the curated production artifact).
