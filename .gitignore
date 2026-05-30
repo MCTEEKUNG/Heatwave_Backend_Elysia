@@ -48,6 +48,7 @@ temp_*.csv
 
 # Local Models
 models/*.pkl
+models/model_card.json
 
 # Built datasets (large; reproducible via scripts/build_full_dataset.py)
 data/processed/

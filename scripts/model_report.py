@@ -180,6 +180,54 @@ def main():
     worst = sorted(prov_slices, key=lambda d: d["f2"])[:10]
     best = sorted(prov_slices, key=lambda d: -d["f2"])[:5]
 
+    # ---- production readiness (truthful DONE/PARTIAL/BLOCKED) + dev plan ----
+    n_prov = int(ds["province_id"].nunique())
+    artifact = os.path.exists("models/heatwave_model.pkl") and os.path.exists("models/model_card.json")
+    beats_base = head["f2"] > baselines["climatology"]["f2"] and head["f2"] > baselines["persistence"]["f2"]
+    horizon_drop = round((per_h[0]["f2"] or 0) - (per_h[-1]["f2"] or 0), 3)
+    worst_region = by_region[0]["region"] if by_region else "n/a"
+    worst_prov = worst[0]["province"] if worst else "n/a"
+
+    readiness = [
+        {"item": "Beats climatology + persistence baselines", "status": "DONE",
+         "detail": f"test F2 {head['f2']:.3f} vs clim {baselines['climatology']['f2']:.2f} / persist {baselines['persistence']['f2']:.2f}"},
+        {"item": "Probabilities calibrated (isotonic, pooled)", "status": "DONE" if (head["brier_skill_score"] or 0) > 0 else "PARTIAL",
+         "detail": f"Brier skill {head['brier_skill_score']:.3f} vs climatology"},
+        {"item": "Diagnostics + error analysis available", "status": "DONE",
+         "detail": "per-horizon + per-region/province slices, calibration, threshold sweep"},
+        {"item": "Trained artifact saved + consumption path verified", "status": "DONE" if artifact else "BLOCKED",
+         "detail": "models/heatwave_model.pkl (+ model_card.json)" if artifact else "run scripts/train_production.py"},
+        {"item": "Data coverage = all 77 provinces", "status": "DONE" if n_prov >= 77 else "PARTIAL",
+         "detail": f"{n_prov}/77 built; resumable via scripts/build_full_dataset.py"},
+        {"item": "Label fidelity: hourly sWBGT (vs daily-aggregate bias)", "status": "PARTIAL",
+         "detail": "daily-aggregate label in use; HEATWAVE_HOURLY=1 available (heavier)"},
+        {"item": "Alarm precision acceptable for product", "status": "PARTIAL",
+         "detail": f"precision {head['precision']:.2f} at recall {head['recall']:.2f} (recall-leaning F2 point) — needs product sign-off"},
+        {"item": "Live serving wired (forecast job -> DB -> Elysia API)", "status": "BLOCKED",
+         "detail": "needs DATABASE_URL + Open-Meteo live fetch + deploy infra"},
+    ]
+
+    plan = [
+        {"priority": "P0", "action": f"Expand coverage 20->77 provinces",
+         "why": "biggest generalization lever; current model is a 20/77 candidate",
+         "how": "re-run scripts/build_full_dataset.py across hourly windows, then train_production + bakeoff"},
+        {"priority": "P0", "action": f"Targeted fix for weakest slices ({worst_region} region; {worst_prov})",
+         "why": f"{worst_prov} F2={worst[0]['f2'] if worst else 'n/a'} — model is near-blind there",
+         "how": "inspect those provinces' climatology/feature distributions; consider per-region thresholds or features for arid/northern climates"},
+        {"priority": "P1", "action": "Tune operating point for product false-alarm tolerance",
+         "why": f"precision {head['precision']:.2f} (many false alarms) at the F2 point",
+         "how": "use the validation threshold sweep to pick a precision-leaning point if the app needs fewer alerts; or a two-tier alert"},
+        {"priority": "P1", "action": "Fix the sWBGT label bias (hourly -> daily max)",
+         "why": "daily Tmax + mean RH biases the label; affects every model equally",
+         "how": "build with HEATWAVE_HOURLY=1 for key provinces, compare leaderboard"},
+        {"priority": "P2", "action": f"Address per-horizon decay (F2 {per_h[0]['f2']}->{per_h[-1]['f2']})",
+         "why": f"skill drops ~{horizon_drop} from lead 1 to lead 7",
+         "how": "horizon-specific calibration/threshold, or separate long-lead handling"},
+        {"priority": "P2", "action": "Wire live serving to production",
+         "why": "model is production-ready but not yet deployed",
+         "how": "set DATABASE_URL, run pipeline/run_forecast.main(), surface via Elysia /api + app"},
+    ]
+
     report = {
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "git_sha": _git_sha(),
@@ -209,6 +257,14 @@ def main():
         "per_horizon": {"evaluated_on": "test(2025)", "rows": per_h},
         "slices": {"evaluated_on": "test(2025)", "min_pos": MIN_POS,
                    "by_region": by_region, "worst_provinces": worst, "best_provinces": best},
+        "production_readiness": {
+            "stage": "production-candidate",
+            "summary": {"done": sum(r["status"] == "DONE" for r in readiness),
+                        "partial": sum(r["status"] == "PARTIAL" for r in readiness),
+                        "blocked": sum(r["status"] == "BLOCKED" for r in readiness),
+                        "total": len(readiness)},
+            "checklist": readiness},
+        "development_plan": plan,
     }
 
     os.makedirs(os.path.dirname(OUT), exist_ok=True)

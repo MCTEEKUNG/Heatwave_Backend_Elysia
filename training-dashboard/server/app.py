@@ -115,6 +115,7 @@ LEADERBOARD_PATH = "experiments/results/leaderboard.json"
 
 
 MODEL_REPORT_PATH = "experiments/results/model_report.json"
+MODEL_CARD_PATH = "models/model_card.json"
 
 
 def _read_json_artifact(path: str, empty: dict) -> dict:
@@ -139,6 +140,12 @@ async def leaderboard() -> dict:
 async def model_report() -> dict:
     """Return the production-model deep-dive report, or available=False if none."""
     return _read_json_artifact(MODEL_REPORT_PATH, {})
+
+
+@app.get("/api/model-card")
+async def model_card() -> dict:
+    """Return the trained-artifact provenance card, or available=False if none."""
+    return _read_json_artifact(MODEL_CARD_PATH, {})
 
 
 @app.websocket("/ws")

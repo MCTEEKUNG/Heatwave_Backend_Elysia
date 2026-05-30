@@ -151,6 +151,91 @@ function SliceTable({ rows, label }: { rows: any[]; label: string }) {
   )
 }
 
+// ---- export helpers --------------------------------------------------------
+function download(filename: string, text: string, type = 'application/json') {
+  const url = URL.createObjectURL(new Blob([text], { type }))
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
+function toCSV(rows: any[]): string {
+  if (!rows?.length) return ''
+  const cols = Array.from(
+    rows.reduce((s: Set<string>, r) => { Object.keys(r).forEach((k) => s.add(k)); return s }, new Set<string>()),
+  )
+  const esc = (v: any) => {
+    const s = v == null ? '' : String(v)
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+  }
+  return [cols.join(','), ...rows.map((r) => cols.map((c) => esc(r[c])).join(','))].join('\n')
+}
+
+const STATUS_CLASS: Record<string, string> = { DONE: 'st-done', PARTIAL: 'st-partial', BLOCKED: 'st-blocked' }
+
+function Readiness({ pr }: { pr: any }) {
+  const s = pr.summary
+  return (
+    <div className="card readiness-card">
+      <div className="card-title">
+        production readiness · {pr.stage}
+        <span className="ready-counts">
+          <span className="st-done">{s.done} done</span>
+          <span className="st-partial">{s.partial} partial</span>
+          <span className="st-blocked">{s.blocked} blocked</span>
+        </span>
+      </div>
+      <ul className="ready-list">
+        {pr.checklist.map((r: any, i: number) => (
+          <li className="ready-item" key={i}>
+            <span className={`st-badge ${STATUS_CLASS[r.status]}`}>{r.status}</span>
+            <span className="ready-text">
+              <span className="ready-item-name">{r.item}</span>
+              <span className="ready-detail">{r.detail}</span>
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+function DevPlan({ plan }: { plan: any[] }) {
+  return (
+    <div className="card plan-card">
+      <div className="card-title">development plan · path to production</div>
+      <div className="plan-list">
+        {plan.map((p: any, i: number) => (
+          <div className="plan-row" key={i}>
+            <span className={`prio prio-${p.priority}`}>{p.priority}</span>
+            <div className="plan-body">
+              <div className="plan-action">{p.action}</div>
+              <div className="plan-meta"><span className="plan-tag">why</span> {p.why}</div>
+              <div className="plan-meta"><span className="plan-tag">how</span> {p.how}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function ExportBar({ d }: { d: any }) {
+  const ts = (d.generated_at || '').slice(0, 10)
+  return (
+    <div className="export-bar">
+      <span className="export-label">export</span>
+      <button className="btn btn-refresh" onClick={() => download(`model_report_${ts}.json`, JSON.stringify(d, null, 2))}>report.json</button>
+      <button className="btn btn-refresh" onClick={() => download(`worst_slices_${ts}.csv`, toCSV(d.slices?.worst_provinces ?? []), 'text/csv')}>slices.csv</button>
+      <button className="btn btn-refresh" onClick={async () => {
+        try { const r = await fetch(`${API_BASE}/api/model-card`); download('model_card.json', JSON.stringify(await r.json(), null, 2)) } catch { /* ignore */ }
+      }}>card.json</button>
+      <a className="btn btn-refresh export-api" href={`${API_BASE}/api/model-report`} target="_blank" rel="noreferrer">/api ↗</a>
+    </div>
+  )
+}
+
 // ---- main ------------------------------------------------------------------
 export default function ModelReport() {
   const [d, setD] = useState<Report | null>(null)
@@ -206,13 +291,16 @@ export default function ModelReport() {
     <section className="report">
       <div className="report-head">
         <div>
-          <div className="report-eyebrow">model diagnostics · what to fix next</div>
+          <div className="report-eyebrow">production candidate · what to fix next</div>
           <h2 className="report-title">{d.model} <span className="report-title-dim">deep-dive</span></h2>
           <div className="report-note">{d.note}</div>
         </div>
-        <button className="btn btn-refresh" onClick={() => void load()} disabled={loading}>
-          {loading ? 'loading…' : 'refresh'}
-        </button>
+        <div className="report-head-actions">
+          <ExportBar d={d} />
+          <button className="btn btn-refresh" onClick={() => void load()} disabled={loading}>
+            {loading ? 'loading…' : 'refresh'}
+          </button>
+        </div>
       </div>
 
       <div className="report-meta">
@@ -233,6 +321,14 @@ export default function ModelReport() {
           </div>
         ))}
       </div>
+
+      {/* Path to production: readiness + instant development plan */}
+      {d.production_readiness && d.development_plan && (
+        <div className="report-row report-row-2 prod-row">
+          <Readiness pr={d.production_readiness} />
+          <DevPlan plan={d.development_plan} />
+        </div>
+      )}
 
       {/* CENTERPIECE: error analysis */}
       <div className="report-block">
