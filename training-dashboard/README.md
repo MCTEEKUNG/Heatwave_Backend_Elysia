@@ -16,7 +16,19 @@ training-dashboard/
   multiclient_check.py   live broadcast check (2 clients)
 ```
 
-## Quick start
+## Quick start (one command)
+
+From the repo root, launch the server + web UI + browser together:
+
+```powershell
+training-dashboard\dev.cmd            # or: powershell -ExecutionPolicy Bypass -File training-dashboard\dev.ps1
+```
+
+It frees ports 8000/5173, starts both servers in their own windows (with logs),
+and opens http://127.0.0.1:5173. Stop with `training-dashboard\stop.ps1` (or
+close the windows). First run auto-installs web deps if missing.
+
+## Quick start (manual, two terminals)
 
 Two terminals, both from the **repo root** (`C:\Users\ASUS\Heatwave_AI`).
 
