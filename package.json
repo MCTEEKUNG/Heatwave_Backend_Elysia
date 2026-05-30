@@ -2,8 +2,12 @@
   "name": "heatwave-ai-backend-elysia",
   "version": "1.0.50",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "bun run --watch src/index.ts"
+    "test": "bun test",
+    "test:line": "bun test src/line",
+    "dev": "bun run --watch src/index.ts",
+    "smoke": "bun run src/smoke.ts",
+    "line:richmenu": "bun run src/line/richmenu.ts",
+    "line:push": "bun run src/line/push.run.ts"
   },
   "dependencies": {
     "@elysiajs/cors": "^1.4.1",

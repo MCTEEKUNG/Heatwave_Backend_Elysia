@@ -9,6 +9,10 @@ import {
   getForecastMap,
   getThresholds,
 } from "./routes/forecast";
+import { getSql } from "./db";
+import { verifySignature } from "./line/signature";
+import { createLineClient } from "./line/client";
+import { handleEvents, type LineEvent } from "./line/webhook";
 
 // CORS whitelist from env (comma-separated). Falls back to a sensible local
 // default when ALLOWED_ORIGINS is unset so the app never crashes on boot.
@@ -77,7 +81,7 @@ function readJsonFile(filePath: string): any {
   return JSON.parse(readFileSync(filePath, "utf-8"));
 }
 
-const app = new Elysia()
+export const app = new Elysia()
   .use(cors({ origin: corsOrigin }))
   .get("/", () => ({
     service: "Heatwave AI Backend",
@@ -372,8 +376,68 @@ const app = new Elysia()
     }
   })
 
-  .listen(process.env.PORT || 3000);
+  // --- Phase 4: LINE Messaging API webhook ---
+  //
+  // LINE signs the RAW request body with HMAC-SHA256 (channel secret). We must
+  // verify against the exact bytes received, so a per-route `parse` hook returns
+  // the body as a raw string (this does NOT affect the JSON parsing of other
+  // POST routes such as /api/predict or /api/forecast).
+  //
+  // Returns 401 only on signature mismatch. For valid requests we always return
+  // 200 quickly (even if individual event handling errors) so LINE does not
+  // retry — errors are caught and logged inside handleEvents.
+  .post(
+    "/api/line/webhook",
+    async ({ body, headers, set }) => {
+      const rawBody = typeof body === "string" ? body : "";
+      const signature = headers["x-line-signature"];
+      const channelSecret = process.env.LINE_CHANNEL_SECRET || "";
 
-console.log(
-  `🦊 Heatwave AI Backend running at ${app.server?.hostname}:${app.server?.port}`
-);
+      if (!verifySignature(rawBody, signature, channelSecret)) {
+        set.status = 401;
+        return { error: "Invalid signature" };
+      }
+
+      // Parse the verified raw body.
+      let events: LineEvent[] = [];
+      try {
+        const parsed = JSON.parse(rawBody || "{}");
+        events = Array.isArray(parsed.events) ? parsed.events : [];
+      } catch {
+        // Body verified but not JSON — ack with 200 so LINE does not retry.
+        set.status = 200;
+        return { ok: true, handled: 0 };
+      }
+
+      if (events.length === 0) {
+        return { ok: true, handled: 0 };
+      }
+
+      try {
+        const sql = getSql();
+        const line = createLineClient();
+        const results = await handleEvents({ sql, line }, events);
+        return { ok: true, handled: results.length };
+      } catch (error: any) {
+        // Never surface 5xx to LINE for a transient backend issue (e.g. DB or
+        // LINE client misconfig). LINE retries non-2xx, so we ack with 200.
+        console.error("[line.webhook] fatal:", error?.message ?? error);
+        set.status = 200;
+        return { ok: false, handled: 0 };
+      }
+    },
+    {
+      // Deliver the raw request body as a string for this route only.
+      parse: async ({ request }) => await request.text(),
+    }
+  );
+
+// Start the server only when this file is run directly (not when imported by
+// tests). `import.meta.main` is true under `bun run src/index.ts` and in the
+// Docker entrypoint, so deployment behaviour is unchanged.
+if (import.meta.main) {
+  app.listen(process.env.PORT || 3000);
+  console.log(
+    `🦊 Heatwave AI Backend running at ${app.server?.hostname}:${app.server?.port}`
+  );
+}
