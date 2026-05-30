@@ -94,3 +94,35 @@ Quick end-to-end sanity check on a few provinces (no disk writes):
 `data/processed/_parts/`). Re-run `build_full_dataset.py` (across hourly windows
 as needed) to reach all 77. The large parquet artifacts are git-ignored; the
 **reproducible builder** is the source of truth.
+
+## 5. Canonical clean dataset v2 — ERA5 + (NDVI pending): `dataset_era5.parquet`
+
+Built per `docs/superpowers/plans/2026-05-31-clean-era5-ndvi-dataset.md`. **All
+future ERA5-based training references this dataset.**
+
+| Item | Value |
+|------|-------|
+| Source | **ERA5 reanalysis** (Copernicus CDS), `.nc` from the `MCTEEKUNG/Heatwave_Backend_Elysia` repo via `scripts/fetch_era5_repo.py` |
+| Temporal scope | **2016–2025** (6-hourly era; 2000–2015 are daily/t2m-only → out of scope) |
+| Spatial | all **77** provinces (nearest 0.25° cell to centroid) |
+| Raw vars | `t2m, d2m, sp, u10, v10` (6-hourly) |
+| Daily aggregates | `t2m_c_max, rh_mean, heat_index_max` (**6-hourly→daily-max, the correct intensity**), `wind_speed_max, sp_mean` |
+| Label | **B (relative): `heat_index_max ≥ per-doy p95` AND ≥2-day run** (~4.3% base rate) — see `docs/DATASET_PROFILE.md` for the decision vs the rejected absolute 16% label |
+| Split | **temporal** — train 2016–2021 / val 2022–2023 / test 2024–2025 |
+| Build | `.venv\Scripts\python.exe pipeline\build_era5_dataset.py` (resumes from `era5_daily.parquet`) |
+
+**Pipeline:** `src/heat_index.py` (Magnus RH + Rothfusz HI) → `src/era5_ingest.py`
+(NetCDF→daily, rejects daily files loudly) → `pipeline/build_era5_dataset.py`
+(label) → `src/features.py` (leakage-safe antecedent features) → `scripts/train_era5.py`.
+
+**Status (honest):** the clean v2 model (`era5_lgbm`, F2 0.317) currently scores
+**below** the v1 Open-Meteo model (F2 0.556) — **not** because the data is worse but
+because requiring humidity restricted training to 6 years (2016–2021) that are cooler
+than the 2024–25 test years (positive rate drifts 2.6%→8.1%), and antecedent-only
+features hit the known signal ceiling. See `docs/MODEL-IMPROVEMENT.md §5` for the full
+diagnosis and next options. **v1 remains the better-scoring model; v2 is the clean,
+reproducible foundation** for the history/label-robustness/forecast-covariate work.
+
+> NDVI (NASA MOD13A3) ingestion exists (`src/ndvi_ingest.py`) but is **not yet merged**
+> into `dataset_era5.parquet`; it is deferred as a measured ablation (a slow antecedent
+> feature won't recover the history/shift deficit).

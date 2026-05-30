@@ -136,3 +136,42 @@ forecast of the day it predicts.** Wire in NWP forecast covariates (trained on
 hindcasts to avoid serve-skew); that's where the measured 0.33→0.88 headroom
 lives. Everything else (label fidelity, coverage, regional fixes, operating
 point) is real but secondary.
+
+---
+
+## 5. v2 clean ERA5 dataset — built, and the honest result
+
+Per `docs/superpowers/plans/2026-05-31-clean-era5-ndvi-dataset.md` we rebuilt the
+dataset from **real** ERA5 (CDS, 6-hourly) with full integrity: correct daily-max
+heat-index label, 77 provinces, temporal split, leakage-safe antecedent features,
+NO leakage (sanity gate passed). Canonical dataset: `data/processed/dataset_era5.parquet`
+(281k daily rows, 2016–2025, relative p95+run label ~4.3%). Model `era5_lgbm`:
+
+| model | features | train yrs | test | PR-AUC | F2 | ROC |
+|-------|----------|-----------|------|--------|----|----|
+| old (Open-Meteo) | 2-var antecedent | 1991–2023 (33) | 2025 | 0.332 | 0.556 | 0.760 |
+| **era5_lgbm** | 45 ERA5 antecedent | 2016–2021 (6) | 2024–25 | **0.117** | **0.317** | **0.624** |
+
+**The clean v2 scored LOWER — and the diagnosis is honest and instructive:**
+1. **Train→test distribution shift.** Positive rate climbs **2.6% (train ≤2021) →
+   5.3% (val 22–23) → 8.1% (test 24–25)** — the 6 humidity-bearing training years
+   (2016–2021) are systematically *cooler* than the hot 2024–25 test years. The old
+   dataset's 33-year history spanned the warming, so 2025 was less out-of-distribution.
+   **Requiring humidity (ERA5 2016+) cost us 27 years of history** — a worse tradeoff
+   than the richer features bought back.
+2. **Antecedent signal is weak (ROC 0.624).** Exactly the oracle lesson: past-only
+   features can't see the target day. Richer antecedent variables don't change that.
+
+**This is not a failure of the rebuild — it is the truth about this data.** The
+foundation (clean, real, leakage-free, correct label, 77 provinces, reproducible) is
+sound and reusable. The score didn't improve because (a) the humidity constraint
+shrank history and (b) antecedent features hit the same ceiling P0 was designed to break.
+
+**Implications / next options (for the user to choose):**
+- **More history:** combine long-record t2m (Open-Meteo/ERA5 back to 1991) for the
+  antecedent backbone with humidity-rich features only where available — multi-fidelity.
+- **Label robustness:** fit per-province p95 on a fixed baseline (train years) so the
+  threshold doesn't absorb the warming trend (reduces the train→test label shift).
+- **P0 remains the real lever:** forecast covariates (genuine lead-k forecasts) — the
+  only thing the oracle showed can reach the headroom. ERA5 reanalysis ≠ forecast.
+- NDVI ablation deferred: a slow antecedent feature won't recover a history/​shift deficit.
