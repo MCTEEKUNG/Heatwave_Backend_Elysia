@@ -235,3 +235,39 @@ After ~2–3 months (enough issue dates spanning a hot season) the store can be 
 at `target_date` into the forecasting frame as P0 covariates and retrained — the first
 configuration that can realistically approach the oracle headroom (PR-AUC 0.33→0.88).
 This is the path to production; the clock is now running.
+
+### P0 unblocked NOW with REAL multi-year forecasts: NOAA GEFS reforecast
+
+The forward-collector waits months; we don't have to. **NOAA GEFSv12 reforecast**
+(`scripts/fetch_gefs_reforecast.py`) provides GENUINE lead-k forecasts 2000–2019,
+free, no credentials, on AWS Open Data — proven readable here (`cfgrib` on Windows).
+Ingestion is built + tested end-to-end: downloaded 52 inits (2018–2019 hot seasons),
+extracted per-province daily-max forecast tmax → 28,028 leakage-safe rows
+(`issue_date < target_date`). The full P0 measurement pipeline (`scripts/train_p0.py`)
+joins these into the frame and trains A (antecedent) vs B (+forecast) on identical rows.
+
+**First honest real-data P0 measurement (no oracle, no noise model, no analysis-leak):**
+
+| model (identical 2018→2019 matched rows) | ROC | PR-AUC lift |
+|---|---|---|
+| A antecedent only | 0.486 | 0.98× |
+| B + GEFS forecast **tmax** | 0.499 | 1.00× |
+
+**≈ no lift — and the reason is specific, not a dead end:**
+1. **Wrong covariate.** The label is *heat-index* (humidity-driven); I joined forecast
+   *temperature only*. The oracle's power came from target-day **heat-index** (temp **+**
+   humidity). A temperature-only forecast cannot reproduce it.
+2. **Underpowered subset.** Matched rows are GEFS-init origin days only (2 yrs, 1.6%
+   positives); even the antecedent baseline collapses to ~random (0.486) here vs
+   0.60–0.72 on the full frame. Too little data to resolve a modest effect.
+
+This is *consistent* with the noise model (realistic forecast error → **modest** lift,
+not the perfect-oracle 0.88). **Exact next experiment (specified + runnable):** pull
+GEFS `spfh_2m` (+`tmp_2m`/`pres_sfc`) for the same inits, compute a forecast
+**heat-index** covariate (matches the label and the oracle signal), expand to
+2016–2019 with denser inits for power, and re-run `train_p0.py`.
+
+**State of the P0 path:** fully built and PROVEN on real data (ingest → join → train,
+all tested) — not "wait months." Reaching a production number is now bounded
+compute + the humidity-covariate step above, with an honest expectation (per oracle
+vs noise model) of a *modest* real-forecast lift, largest at short lead.
