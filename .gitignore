@@ -68,3 +68,6 @@ __pycache__/
 
 # Tooling scratch
 .playwright-mcp/
+
+# Raw downloaded data (large binary files; download via scripts/fetch_era5_repo.py)
+data/raw/
