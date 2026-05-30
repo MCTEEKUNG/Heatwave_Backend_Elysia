@@ -14,11 +14,14 @@ the long one for Random Forest / MLP; the status message says so.
 from __future__ import annotations
 
 import os
+import threading
+import time
 
 from src.model_zoo import SUPPORTED, make_model
 
 from .base import ProgressCb, ShouldStop, Trainer
 from .saving import save_dashboard_model
+from pipeline.run_log import append_run
 
 DATASET_PATH = "data/processed/dataset.parquet"
 
@@ -70,7 +73,18 @@ class ModelTrainer(Trainer):
 
             progress_cb(3, TOTAL, f"fitting {self.name} (this can take a while)")
             model = make_model(self.name, spw)
-            model.fit(Xtr, ytr)
+            _hb_done = threading.Event()
+            def _heartbeat():
+                t0 = time.time()
+                while not _hb_done.wait(1.5):
+                    progress_cb(3, TOTAL, f"fitting {self.name}… {int(time.time() - t0)}s")
+            _hb = threading.Thread(target=_heartbeat, daemon=True)
+            _hb.start()
+            try:
+                model.fit(Xtr, ytr)
+            finally:
+                _hb_done.set()
+                _hb.join(timeout=2)
             check_stop()
 
             progress_cb(4, TOTAL, "calibrating probabilities (isotonic)")
@@ -96,6 +110,13 @@ class ModelTrainer(Trainer):
             bundle = CalibratedModel(model, calibrator=cal, threshold=thr,
                                      feature_cols=list(feats), model_version=self.name)
             report["saved"] = save_dashboard_model(self.name, bundle, report)
+            append_run({"trainer": self.name, "f2": report.get("f2"),
+                        "pr_auc": report.get("pr_auc"),
+                        "brier_skill_score": report.get("brier_skill_score"),
+                        "threshold": report.get("threshold"),
+                        "n_provinces": report.get("n_provinces"),
+                        "saved": (report.get("saved") or {}).get("path"),
+                        "config": config or {}})
             return report
         except _StopTraining:
             return {"trainer": self.name, "stopped": True}
