@@ -20,6 +20,17 @@ def test_lgbm_missing_dataset_raises_friendly(monkeypatch):
     assert "build_dataset" in msg
 
 
-def test_registry_lists_both():
+def test_registry_lists_all_trainers():
     from server.trainers import available
-    assert available() == ["lgbm", "simulated"]
+    assert available() == [
+        "balanced_rf", "catboost", "lgbm", "mlp",
+        "random_forest", "simulated", "xgboost",
+    ]
+
+
+def test_sklearn_trainer_missing_dataset_raises(monkeypatch):
+    from server.trainers import sklearn_models as sk
+    monkeypatch.setattr(sk, "DATASET_PATH", "data/processed/__nonexistent__.parquet")
+    trainer = get_trainer("xgboost")
+    with pytest.raises(FileNotFoundError):
+        trainer.run({}, lambda s, t, m: None, lambda: False)

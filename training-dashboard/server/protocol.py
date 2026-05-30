@@ -25,7 +25,9 @@ class StartConfig(BaseModel):
 
 class StartCommand(BaseModel):
     command: Literal["start"]
-    trainer: Literal["simulated", "lgbm"]
+    # Any registered trainer name; the registry (server/trainers) is the source
+    # of truth and raises a friendly error for unknown names.
+    trainer: str
     config: Optional[StartConfig] = None
 
 

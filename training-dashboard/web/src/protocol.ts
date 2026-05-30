@@ -1,6 +1,18 @@
 // FROZEN PROTOCOL CONTRACT — field names match the server agent's spec exactly.
 
-export type TrainerKind = 'simulated' | 'lgbm'
+// Trainers offered in the dashboard. The server registry is the source of
+// truth; this list mirrors it with human labels for the dropdown.
+export const TRAINERS = [
+  { value: 'simulated', label: 'Simulated (demo)' },
+  { value: 'lgbm', label: 'LightGBM — production' },
+  { value: 'balanced_rf', label: 'Balanced Random Forest' },
+  { value: 'random_forest', label: 'Random Forest' },
+  { value: 'xgboost', label: 'XGBoost' },
+  { value: 'catboost', label: 'CatBoost' },
+  { value: 'mlp', label: 'MLP — neural net (slow)' },
+] as const
+
+export type TrainerKind = (typeof TRAINERS)[number]['value']
 
 export type RunState = 'idle' | 'running' | 'done' | 'error'
 

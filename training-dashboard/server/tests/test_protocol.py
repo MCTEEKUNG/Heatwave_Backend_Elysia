@@ -32,9 +32,14 @@ def test_unknown_command_raises():
         protocol.parse_command({"command": "nope"})
 
 
-def test_bad_trainer_raises():
-    with pytest.raises(Exception):
-        protocol.parse_command({"command": "start", "trainer": "magic"})
+def test_any_trainer_name_parses_registry_validates():
+    # The protocol accepts any trainer string; the registry is the source of
+    # truth and rejects unknown names at get_trainer time.
+    cmd = protocol.parse_command({"command": "start", "trainer": "magic"})
+    assert isinstance(cmd, protocol.StartCommand) and cmd.trainer == "magic"
+    from server.trainers import get_trainer
+    with pytest.raises(ValueError):
+        get_trainer("magic")
 
 
 def test_status_event_fields_exact():

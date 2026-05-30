@@ -1,4 +1,4 @@
-import type { TrainerKind } from '../protocol'
+import { TRAINERS, type TrainerKind } from '../protocol'
 
 interface ControlsProps {
   trainer: TrainerKind
@@ -29,8 +29,11 @@ export default function Controls({
         disabled={running}
         onChange={(e) => onTrainerChange(e.target.value as TrainerKind)}
       >
-        <option value="simulated">simulated</option>
-        <option value="lgbm">lgbm</option>
+        {TRAINERS.map((t) => (
+          <option key={t.value} value={t.value}>
+            {t.label}
+          </option>
+        ))}
       </select>
       <button
         type="button"
