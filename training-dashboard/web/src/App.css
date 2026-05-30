@@ -269,6 +269,83 @@
   color: var(--red);
 }
 
+/* leaderboard */
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.card-head .card-title {
+  margin-bottom: 0;
+}
+.btn-refresh {
+  padding: 3px 12px;
+  font-size: 0.8rem;
+}
+.lb-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+.lb-empty {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.lb-empty code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--accent);
+}
+.lb-error {
+  color: var(--red);
+}
+.lb-scroll {
+  overflow-x: auto;
+}
+.lb-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.84rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.lb-table th,
+.lb-table td {
+  text-align: right;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.lb-table th {
+  color: var(--muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  letter-spacing: 0.4px;
+}
+.lb-table .lb-rank {
+  text-align: center;
+  width: 28px;
+  color: var(--muted);
+}
+.lb-table .lb-model {
+  text-align: left;
+  color: var(--text);
+}
+.lb-table tbody tr:hover {
+  background: var(--panel-2);
+}
+.lb-table tr.lb-best {
+  background: color-mix(in srgb, var(--green) 12%, transparent);
+}
+.lb-table tr.lb-best .lb-model {
+  color: var(--green);
+  font-weight: 600;
+}
+
 /* toast */
 .toast {
   position: fixed;

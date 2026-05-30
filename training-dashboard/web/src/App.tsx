@@ -15,6 +15,7 @@ import Eta from './components/Eta'
 import SpeedChart from './components/SpeedChart'
 import LogPanel from './components/LogPanel'
 import MetricsPanel from './components/MetricsPanel'
+import LeaderboardPanel from './components/LeaderboardPanel'
 import Toast, { type ToastMessage } from './components/Toast'
 
 type Action =
@@ -128,6 +129,8 @@ export default function App() {
       </div>
 
       <LogPanel logs={state.logs} />
+
+      <LeaderboardPanel />
 
       <Toast message={toast} />
     </div>

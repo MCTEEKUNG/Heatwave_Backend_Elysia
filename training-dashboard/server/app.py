@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 from typing import Optional, Set
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
@@ -106,6 +107,25 @@ async def _on_startup() -> None:
 @app.get("/healthz")
 async def healthz() -> dict:
     return {"status": "ok", "running": runner.is_running}
+
+
+# Path is relative to the repo root (the server's working directory), where
+# scripts/bakeoff.py writes the model-comparison leaderboard.
+LEADERBOARD_PATH = "experiments/results/leaderboard.json"
+
+
+@app.get("/api/leaderboard")
+async def leaderboard() -> dict:
+    """Return the latest bake-off leaderboard, or available=False if none yet."""
+    if not os.path.exists(LEADERBOARD_PATH):
+        return {"available": False, "results": []}
+    try:
+        with open(LEADERBOARD_PATH, encoding="utf-8") as f:
+            data = json.load(f)
+        data["available"] = True
+        return data
+    except Exception as exc:  # noqa: BLE001 -- never 500 the dashboard
+        return {"available": False, "error": str(exc), "results": []}
 
 
 @app.websocket("/ws")
