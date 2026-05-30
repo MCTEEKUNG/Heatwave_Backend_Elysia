@@ -215,3 +215,23 @@ decisions only the user can make:
 
 Until one is chosen, the model cannot cross ROC ≈ 0.6–0.76. This is a genuine
 external-data blocker, not an algorithmic one.
+
+### P0 data engine — BUILT and RUNNING (`scripts/collect_forecast.py`)
+
+Decision taken: **forward-collect** (the only clean, credential-free path; the probe
+confirmed `past_days`/Historical-Forecast return analysis = leakage, so there is no
+honest backfill). The engine fetches Open-Meteo's 7-day-ahead daily forecast (Tmax +
+mean RH → `fc_heat_index`) for all 77 provinces and appends rows keyed by
+`(province_id, issue_date, target_date, lead_k)` to `data/processed/forecast_store.parquet`.
+Leakage-safe by construction (`issue_date < target_date`), append-only, idempotent.
+**Seeded 2026-05-31: 539 rows (77 provinces × leads 0–6).**
+
+**Run it daily** so the clean forecast-hindcast accumulates (Windows Task Scheduler):
+```
+schtasks /Create /TN HeatwaveForecastCollect /SC DAILY /ST 08:00 ^
+  /TR "C:\Users\ASUS\Heatwave_AI\.venv\Scripts\python.exe C:\Users\ASUS\Heatwave_AI\scripts\collect_forecast.py"
+```
+After ~2–3 months (enough issue dates spanning a hot season) the store can be joined
+at `target_date` into the forecasting frame as P0 covariates and retrained — the first
+configuration that can realistically approach the oracle headroom (PR-AUC 0.33→0.88).
+This is the path to production; the clock is now running.
