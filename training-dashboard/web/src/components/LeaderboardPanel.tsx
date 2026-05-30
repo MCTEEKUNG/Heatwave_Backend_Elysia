@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import FolderIcon from './FolderIcon'
 
 const API_BASE = 'http://127.0.0.1:8000'
 
@@ -68,9 +69,21 @@ export default function LeaderboardPanel() {
     <div className="card leaderboard-card">
       <div className="card-head">
         <div className="card-title">model leaderboard</div>
-        <button className="btn btn-refresh" onClick={() => void load()} disabled={loading}>
-          {loading ? 'loading…' : 'refresh'}
-        </button>
+        <div className="lb-actions">
+          <button
+            className="btn btn-refresh folder-btn"
+            title="Open the saved-models folder (models/dashboard)"
+            onClick={() => {
+              void fetch(`${API_BASE}/api/reveal-models`, { method: 'POST' })
+            }}
+          >
+            <FolderIcon />
+            models folder
+          </button>
+          <button className="btn btn-refresh" onClick={() => void load()} disabled={loading}>
+            {loading ? 'loading…' : 'refresh'}
+          </button>
+        </div>
       </div>
 
       {hasResults && (

@@ -331,6 +331,16 @@
   padding: 3px 12px;
   font-size: 0.8rem;
 }
+.lb-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.lb-actions .folder-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
 .lb-meta {
   display: flex;
   flex-wrap: wrap;
