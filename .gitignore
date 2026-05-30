@@ -45,6 +45,7 @@ package-lock.json
 Era5-data-2000-2026/
 ndvi/
 experiments/logs/
+experiments/runs.jsonl
 temp_*.csv
 
 # Local Models (artifacts are reproducible; never commit the blobs)
