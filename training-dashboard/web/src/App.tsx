@@ -142,9 +142,22 @@ export default function App() {
             <span>
               saved model <code>{saved.path}</code> ({saved.size_kb} KB)
             </span>
-            <a className="btn btn-refresh" href={`${API_BASE}/api/model-file/${saved.name}`}>
-              download .pkl
-            </a>
+            <button
+              className="btn btn-refresh folder-btn"
+              title="Open the models folder in your file explorer"
+              onClick={() => {
+                void fetch(`${API_BASE}/api/reveal-models`, { method: 'POST' })
+              }}
+            >
+              <svg
+                className="folder-ico" width="15" height="15" viewBox="0 0 24 24"
+                fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+              </svg>
+              open folder
+            </button>
           </div>
         )
       })()}

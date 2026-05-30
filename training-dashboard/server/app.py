@@ -12,6 +12,8 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import subprocess
+import sys
 from typing import Optional, Set
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
@@ -169,6 +171,28 @@ async def model_file(name: str):
         raise HTTPException(status_code=404, detail="not trained yet -- run it from the dashboard first")
     return FileResponse(path, media_type="application/octet-stream",
                         filename=f"heatwave-{name}.pkl")
+
+
+@app.post("/api/reveal-models")
+async def reveal_models() -> dict:
+    """Open the dashboard models folder in the OS file explorer.
+
+    Local dev convenience: the server IS the user's machine. The path is FIXED
+    (models/dashboard) -- never taken from the request -- so there is no path or
+    command injection surface.
+    """
+    folder = os.path.abspath(os.path.join("models", "dashboard"))
+    os.makedirs(folder, exist_ok=True)
+    try:
+        if sys.platform.startswith("win"):
+            os.startfile(folder)  # noqa: S606 -- fixed local path, Windows explorer
+        elif sys.platform == "darwin":
+            subprocess.Popen(["open", folder])
+        else:
+            subprocess.Popen(["xdg-open", folder])
+        return {"opened": folder}
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=f"could not open folder: {exc}")
 
 
 @app.websocket("/ws")

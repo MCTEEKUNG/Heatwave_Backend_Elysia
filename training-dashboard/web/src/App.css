@@ -307,7 +307,14 @@
 }
 .saved-banner .saved-check { color: var(--green); font-weight: 700; }
 .saved-banner code { font-family: var(--font-mono); color: var(--accent-2); font-size: 0.8rem; }
-.saved-banner a { margin-left: auto; }
+.saved-banner a,
+.saved-banner .folder-btn { margin-left: auto; }
+.folder-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.folder-ico { color: var(--accent-2); }
 
 /* leaderboard */
 .card-head {
