@@ -70,9 +70,37 @@ as a feature**. Add predicted Tmax/RH/sWBGT for `target_time` to the feature set
   | 7 d | 0.285 | 0.368 |
 
   Conclusion: **P0 is worth building.** Even a conservative forecast meaningfully
-  improves precision and short-lead skill. Next: replace the error model with
-  *real* archived forecasts from the Historical Forecast API (2022+ coverage →
-  train/val/test on 2022–25) and re-measure.
+  improves precision and short-lead skill.
+
+  **P0 REAL-DATA run** (`scripts/p0_forecast_real.py`). Replaced the noise model
+  with *real* archived forecasts (Open-Meteo Historical Forecast API, 20 provinces,
+  2022–25; train 2022–23 / val 2024 / test 2025):
+
+  | features | PR-AUC | F2 | precision | recall |
+  |----------|--------|----|-----------|--------|
+  | baseline (antecedent) | 0.310 | 0.549 | 0.217 | 0.889 |
+  | + REAL forecast covariates | **0.854** | **0.900** | 0.687 | 0.976 |
+
+  Near the oracle (0.877) — **but read it carefully.** The Historical Forecast API
+  returns one archived series per date (~analysis / short-lead quality), *not*
+  lead-specific forecasts, so per-horizon skill is almost flat (lead-1 0.872 →
+  lead-7 0.836). That is **optimistic at long leads** — a real day-7 forecast is
+  much worse than a day-1 forecast, which this data doesn't reflect.
+
+  **So the realizable gain is bracketed:**
+  | scenario | PR-AUC | F2 |
+  |----------|--------|----|
+  | baseline | 0.31–0.33 | 0.55 |
+  | noise model (lead-decaying, conservative) | 0.48 | 0.63 |
+  | real archived forecast (~uniform short-lead, optimistic) | 0.85 | 0.90 |
+  | oracle (perfect) | 0.88 | 0.92 |
+
+  Truth per horizon sits between the two middle rows: short leads (1–3 d) land
+  near the optimistic row (huge, real gain); long leads (5–7 d) closer to the
+  conservative row. **The lever is confirmed real with actual forecast data.**
+  The remaining correctness gap is *lead-specific* forecast quality: the proper
+  next step is reforecasts that preserve true day-k error (Open-Meteo previous-runs,
+  limited history; or ECMWF reforecasts) before wiring into the production pipeline.
 
 **P1 — Label fidelity: hourly → daily-max sWBGT.** The label is built from daily
 `Tmax` + daily-*mean* RH; physically the daily max temp coincides with min RH,
