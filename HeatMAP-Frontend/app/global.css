@@ -1,0 +1,27 @@
+/* Global CSS for Heatwave Forecast App */
+
+/* Leaflet CSS for OpenStreetMap */
+@import 'leaflet/dist/leaflet.css';
+
+/* Base styles */
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Ensure proper z-index for Leaflet map */
+.leaflet-container {
+  z-index: 1;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Fix for Leaflet default marker icons */
+.leaflet-default-icon-path {
+  background-image: url(https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png);
+}
