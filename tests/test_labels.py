@@ -22,3 +22,13 @@ def test_run_of_two_is_heatwave():
     })
     out = label_heatwave(df, _thr(), value_col="swbgt_max", min_run=2)
     assert out["heatwave"].tolist() == [1, 1, 0]
+
+
+import pandas as pd
+from src.labels import label_absolute
+
+def test_label_absolute_threshold():
+    df = pd.DataFrame({"heat_index_max": [40.9, 41.0, 41.1]})
+    out = label_absolute(df, value_col="heat_index_max", threshold=41.0)
+    assert list(out["heatwave"]) == [0, 1, 1]
+    assert list(out["is_hot"]) == [0, 1, 1]

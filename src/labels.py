@@ -21,3 +21,13 @@ def label_heatwave(df: pd.DataFrame, thresholds: pd.DataFrame,
     run_len = d.groupby(grp)["is_hot"].transform("size")
     d["heatwave"] = ((d["is_hot"] == 1) & (run_len >= min_run)).astype(int)
     return d.drop(columns=["doy"])
+
+
+def label_absolute(df, value_col="heat_index_max", threshold=41.0):
+    """Absolute-threshold label (backend's heat-index mode), forecasting-safe:
+    this only labels each day; the forecasting frame shifts it to t+k later."""
+    out = df.copy()
+    hot = (out[value_col] >= threshold).astype(int)
+    out["is_hot"] = hot
+    out["heatwave"] = hot
+    return out
