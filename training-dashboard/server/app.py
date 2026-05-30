@@ -114,18 +114,31 @@ async def healthz() -> dict:
 LEADERBOARD_PATH = "experiments/results/leaderboard.json"
 
 
-@app.get("/api/leaderboard")
-async def leaderboard() -> dict:
-    """Return the latest bake-off leaderboard, or available=False if none yet."""
-    if not os.path.exists(LEADERBOARD_PATH):
-        return {"available": False, "results": []}
+MODEL_REPORT_PATH = "experiments/results/model_report.json"
+
+
+def _read_json_artifact(path: str, empty: dict) -> dict:
+    if not os.path.exists(path):
+        return {"available": False, **empty}
     try:
-        with open(LEADERBOARD_PATH, encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             data = json.load(f)
         data["available"] = True
         return data
     except Exception as exc:  # noqa: BLE001 -- never 500 the dashboard
-        return {"available": False, "error": str(exc), "results": []}
+        return {"available": False, "error": str(exc), **empty}
+
+
+@app.get("/api/leaderboard")
+async def leaderboard() -> dict:
+    """Return the latest bake-off leaderboard, or available=False if none yet."""
+    return _read_json_artifact(LEADERBOARD_PATH, {"results": []})
+
+
+@app.get("/api/model-report")
+async def model_report() -> dict:
+    """Return the production-model deep-dive report, or available=False if none."""
+    return _read_json_artifact(MODEL_REPORT_PATH, {})
 
 
 @app.websocket("/ws")

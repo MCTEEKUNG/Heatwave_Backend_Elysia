@@ -1,18 +1,44 @@
 :root {
   color-scheme: dark;
-  --bg: #0e1117;
-  --panel: #161b22;
-  --panel-2: #1c2230;
-  --border: #2a3140;
-  --text: #e6edf3;
-  --muted: #8b949e;
-  --accent: #3b82f6;
-  --accent-2: #22d3ee;
-  --green: #2ea043;
-  --red: #f85149;
-  --yellow: #d29922;
-  font-family: ui-sans-serif, system-ui, 'Segoe UI', Roboto, Helvetica, Arial,
-    sans-serif;
+
+  /* Thermal-ink palette: deep warm black, paper-warm text, ember + gold accents.
+     Chosen for a heatwave instrument -- not the generic GitHub-blue-on-grey. */
+  --bg: #0b0a0d;
+  --bg-2: #100e12;
+  --panel: #16131a;
+  --panel-2: #1e1a23;
+  --border: #2c2733;
+  --border-soft: #221e29;
+  --text: #f1ece3; /* warm paper */
+  --muted: #9b9385;
+  --muted-2: #6f6a61;
+
+  /* accents */
+  --accent: #ff6a3d; /* ember */
+  --accent-2: #ffc24b; /* gold */
+  --accent-cool: #5ad1c8; /* contrast teal for calibration ideal-line etc. */
+
+  /* semantics */
+  --green: #56c08d;
+  --red: #ff5d5d;
+  --yellow: #f0b429;
+
+  /* performance heat ramp (bad -> good) */
+  --perf-bad: #ff5d5d;
+  --perf-mid: #f0b429;
+  --perf-good: #56c08d;
+
+  --font-display: 'Fraunces', Georgia, 'Times New Roman', serif;
+  --font-sans: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --radius: 12px;
+  --radius-sm: 8px;
+
+  font-family: var(--font-sans);
+  font-synthesis: none;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 * {
@@ -27,6 +53,37 @@ body,
 
 body {
   margin: 0;
-  background: var(--bg);
   color: var(--text);
+  background-color: var(--bg);
+  /* atmosphere: ember glow top-right + cool depth bottom-left, over ink */
+  background-image:
+    radial-gradient(60rem 40rem at 85% -10%, rgba(255, 106, 61, 0.1), transparent 60%),
+    radial-gradient(50rem 40rem at -10% 110%, rgba(90, 209, 200, 0.06), transparent 55%);
+  background-attachment: fixed;
+}
+
+/* numbers must align in tables/metrics */
+.tnum,
+.lb-table td,
+.metric-val {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+::selection {
+  background: rgba(255, 106, 61, 0.3);
+}
+
+/* refined scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+*::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 6px;
 }

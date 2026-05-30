@@ -16,6 +16,7 @@ import SpeedChart from './components/SpeedChart'
 import LogPanel from './components/LogPanel'
 import MetricsPanel from './components/MetricsPanel'
 import LeaderboardPanel from './components/LeaderboardPanel'
+import ModelReport from './components/ModelReport'
 import Toast, { type ToastMessage } from './components/Toast'
 
 type Action =
@@ -131,6 +132,8 @@ export default function App() {
       <LogPanel logs={state.logs} />
 
       <LeaderboardPanel />
+
+      <ModelReport />
 
       <Toast message={toast} />
     </div>
