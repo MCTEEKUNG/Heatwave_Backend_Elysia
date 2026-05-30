@@ -47,7 +47,17 @@ The build is **resumable** (one checkpoint part per province under
 **Tunable via env vars:**
 - `HEATWAVE_SLEEP` — seconds between successful requests (default 20)
 - `HEATWAVE_COOLDOWN` — seconds to wait after a 429 (default 75)
-- `HEATWAVE_STRIDE` — build a representative `provinces[::stride]` subset
+- `HEATWAVE_SUBSET=N` — build a **regionally-stratified** ~N-province subset
+  (recommended for a first training set: covers all 6 regions, ~one hourly window)
+- `HEATWAVE_WAIT_RESET=1` — poll gently until the hourly limit clears, then build
+  (lets you launch it and walk away)
+- `HEATWAVE_HOURLY=1` — derive a **correct daily-max sWBGT from hourly** data
+  (higher label accuracy; see §3.2). ~24× heavier requests — use for targeted
+  high-accuracy rebuilds, not the first full build.
+- `HEATWAVE_STRIDE` — alternative even-`provinces[::stride]` subset
+
+Example first build (stratified 20 provinces, self-starting):
+`$env:HEATWAVE_SUBSET=20; $env:HEATWAVE_WAIT_RESET=1; .\.venv\Scripts\python.exe scripts\build_full_dataset.py`
 
 Quick end-to-end sanity check on a few provinces (no disk writes):
 `.\.venv\Scripts\python.exe scripts\validate_data_seam.py`
@@ -59,13 +69,18 @@ Quick end-to-end sanity check on a few provinces (no disk writes):
    77-province build in one sitting. The builder paces + cools down, but a full
    build may need to run across more than one hourly window (it resumes). Error
    seen: *"Hourly API request limit exceeded."*
-2. **sWBGT_max label bias (highest-value accuracy fix).** sWBGT is computed from
-   daily `temperature_2m_max` + daily-**mean** RH. Physically, the daily *max*
-   temperature coincides with the daily *min* humidity, not the mean — so
-   `swbgt_max` is systematically biased. The #1 data improvement is to fetch
-   **hourly** temp+RH, compute hourly sWBGT, and take the daily max
-   (`src/openmeteo_client.py` already flags this). Affects label fidelity, not
-   the pipeline's correctness.
+2. **sWBGT_max label bias (highest-value accuracy fix) — fix now implemented,
+   off by default.** The default daily path computes sWBGT from daily
+   `temperature_2m_max` + daily-**mean** RH; physically the daily *max*
+   temperature coincides with the daily *min* humidity, so `swbgt_max` is
+   biased. The correct fix — fetch **hourly** temp+RH, compute hourly sWBGT, take
+   the daily max — is implemented (`openmeteo_client.fetch_history_hourly` +
+   `build_dataset.hourly_to_daily_swbgt`, enable with `HEATWAVE_HOURLY=1`). It is
+   **off by default** because it is ~24× heavier and collides with the hourly
+   rate limit. **Tension to weigh:** on the free tier you can have *broad daily
+   coverage* OR *hourly accuracy on a few provinces*, not both quickly — favor
+   coverage for the first training, hourly as a later accuracy pass (or a paid
+   tier / bulk ERA5 download for both).
 3. **Two data designs exist; we use the wired one.** `config.yaml` describes a
    heavier **ERA5 surface/upper + MODIS-NDVI (Google Earth Engine)** design with
    heat-index labeling. That path is **not wired** into `train_model`. This card

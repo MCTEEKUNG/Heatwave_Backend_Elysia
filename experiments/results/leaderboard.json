@@ -1,5 +1,6 @@
 {
   "dataset": "data/processed/dataset.parquet",
+  "n_provinces": 2,
   "n_test": 5054,
   "test_base_rate": 0.07202216066481995,
   "split": {
@@ -9,6 +10,20 @@
   },
   "ranked_by": "f2 then pr_auc",
   "results": [
+    {
+      "model": "mlp",
+      "pr_auc": 0.11488258964337951,
+      "mcc": 0.15346589136326216,
+      "f2": 0.3468826405867971,
+      "roc_auc": 0.6643050446355352,
+      "brier": 0.06553389959517562,
+      "threshold": 0.09191176470588236,
+      "n": 5054,
+      "n_pos": 364,
+      "base_rate": 0.07202216066481995,
+      "brier_skill_score": 0.0194668967688999,
+      "fit_seconds": 57.9
+    },
     {
       "model": "lightgbm",
       "pr_auc": 0.12239714807292452,
@@ -21,7 +36,7 @@
       "n_pos": 364,
       "base_rate": 0.07202216066481995,
       "brier_skill_score": 0.025503723912002618,
-      "fit_seconds": 3.8
+      "fit_seconds": 2.9
     },
     {
       "model": "random_forest",
@@ -35,7 +50,7 @@
       "n_pos": 364,
       "base_rate": 0.07202216066481995,
       "brier_skill_score": 0.020123610488465227,
-      "fit_seconds": 7.4
+      "fit_seconds": 4.4
     },
     {
       "model": "balanced_rf",
@@ -49,7 +64,21 @@
       "n_pos": 364,
       "base_rate": 0.07202216066481995,
       "brier_skill_score": 0.03167577452969794,
-      "fit_seconds": 3.7
+      "fit_seconds": 2.6
+    },
+    {
+      "model": "ensemble(lightgbm+xgboost+catboost)",
+      "pr_auc": 0.11642592957333414,
+      "mcc": 0.14996527170566595,
+      "f2": 0.32222222222222224,
+      "roc_auc": 0.6345723306544201,
+      "brier": 0.06558113205846326,
+      "threshold": 0.10609037328094302,
+      "n": 5054,
+      "n_pos": 364,
+      "base_rate": 0.07202216066481995,
+      "brier_skill_score": 0.01876019391607464,
+      "fit_seconds": 0.0
     },
     {
       "model": "xgboost",
@@ -63,7 +92,21 @@
       "n_pos": 364,
       "base_rate": 0.07202216066481995,
       "brier_skill_score": 0.007551733656160908,
-      "fit_seconds": 2.3
+      "fit_seconds": 1.7
+    },
+    {
+      "model": "catboost",
+      "pr_auc": 0.10740039066527537,
+      "mcc": 0.14035460250491544,
+      "f2": 0.3170906485130778,
+      "roc_auc": 0.5997589563954169,
+      "brier": 0.06651615664892813,
+      "threshold": 0.14285714285714285,
+      "n": 5054,
+      "n_pos": 364,
+      "base_rate": 0.07202216066481995,
+      "brier_skill_score": 0.004770143439154828,
+      "fit_seconds": 4.2
     }
   ]
 }

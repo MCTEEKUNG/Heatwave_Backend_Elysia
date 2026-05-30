@@ -20,14 +20,40 @@ from src.provinces import load_provinces
 BUILD_DAILY_VARS = ["temperature_2m_max", "relative_humidity_2m_mean"]
 
 
+def hourly_to_daily_swbgt(hourly: pd.DataFrame) -> pd.DataFrame:
+    """Collapse hourly temp+RH into a daily frame with a PHYSICALLY CORRECT
+    daily-max sWBGT: compute sWBGT each hour, then take the daily max. This
+    avoids the daily-Tmax + daily-mean-RH bias (max temp coincides with min RH).
+    Returns columns: time, temperature_2m_max, relative_humidity_2m_mean, swbgt_max.
+    """
+    d = hourly.copy()
+    d["swbgt"] = swbgt(d["temperature_2m"], d["relative_humidity_2m"])
+    d["date"] = pd.to_datetime(d["time"]).dt.floor("D")
+    out = d.groupby("date").agg(
+        temperature_2m_max=("temperature_2m", "max"),
+        relative_humidity_2m_mean=("relative_humidity_2m", "mean"),
+        swbgt_max=("swbgt", "max"),
+    ).reset_index().rename(columns={"date": "time"})
+    return out
+
+
 def build_for_provinces(provinces: pd.DataFrame, start: str, end: str,
-                        daily_vars: list | None = None):
+                        daily_vars: list | None = None, hourly: bool = False):
+    """Build per-province labeled frames + thresholds.
+
+    ``hourly=True`` uses the heavier hourly endpoint to derive a correct
+    daily-max sWBGT (higher label accuracy, ~24x the request weight).
+    """
     all_rows, all_thr = [], []
     for _, p in provinces.iterrows():
-        raw = openmeteo_client.fetch_history(
-            p["lat"], p["lon"], start, end, daily_vars=daily_vars or BUILD_DAILY_VARS)
-        raw["swbgt_max"] = swbgt(raw["temperature_2m_max"],
-                                 raw["relative_humidity_2m_mean"])
+        if hourly:
+            raw = hourly_to_daily_swbgt(
+                openmeteo_client.fetch_history_hourly(p["lat"], p["lon"], start, end))
+        else:
+            raw = openmeteo_client.fetch_history(
+                p["lat"], p["lon"], start, end, daily_vars=daily_vars or BUILD_DAILY_VARS)
+            raw["swbgt_max"] = swbgt(raw["temperature_2m_max"],
+                                     raw["relative_humidity_2m_mean"])
         thr = compute_doy_percentiles(raw, value_col="swbgt_max",
                                       window=7, baseline=(1991, 2020))
         labeled = label_heatwave(raw, thr, value_col="swbgt_max", min_run=2)

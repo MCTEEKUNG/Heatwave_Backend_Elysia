@@ -54,15 +54,30 @@ validate 2024, test 2025.
 split, isotonic calibration, and F2 tuning as production, then scores with
 `evaluation/heatwave_metrics` + a Brier Skill Score. Ranked by F2 on test-2025.
 
-**Preliminary (2 provinces — Bangkok + Samut Prakan; adjacent/central, low
-diversity → weak signal; refresh on expanded data):**
+Candidates: LightGBM, Balanced RF, Random Forest, XGBoost, **CatBoost**, an
+**MLP** reference, and a **soft-voting ensemble** of the strong GBDTs.
+**KAN is deliberately deferred** (heavy `pykan` dependency; the tabular evidence
+in §2 says it loses — not worth the integration cost now).
 
-| model | F2 | PR-AUC | BSS | ROC-AUC | Brier | MCC |
-|-------|----|--------|-----|---------|-------|-----|
-| **lightgbm** | **0.339** | 0.122 | 0.026 | 0.651 | 0.0651 | 0.167 |
-| random_forest | 0.324 | 0.122 | 0.020 | 0.668 | 0.0655 | 0.128 |
-| balanced_rf | 0.323 | 0.139 | 0.032 | 0.689 | 0.0647 | 0.173 |
-| xgboost | 0.320 | 0.107 | 0.008 | 0.613 | 0.0663 | 0.131 |
+**Preliminary (2 provinces — Bangkok + Samut Prakan; adjacent/central, low
+diversity → weak, noisy signal; refresh on the expanding multi-province data):**
+
+| model | F2 | PR-AUC | BSS | ROC-AUC | Brier | MCC | fit |
+|-------|----|--------|-----|---------|-------|-----|-----|
+| mlp (ref) | 0.347 | 0.115 | 0.019 | 0.664 | 0.0655 | 0.153 | 58s |
+| **lightgbm** | 0.339 | 0.122 | 0.026 | 0.651 | 0.0651 | 0.167 | 3s |
+| random_forest | 0.324 | 0.122 | 0.020 | 0.668 | 0.0655 | 0.128 | 4s |
+| balanced_rf | 0.323 | **0.139** | **0.032** | **0.689** | 0.0647 | 0.173 | 3s |
+| ensemble(lgbm+xgb+cat) | 0.322 | 0.116 | 0.019 | 0.635 | 0.0656 | 0.150 | — |
+| xgboost | 0.320 | 0.107 | 0.008 | 0.613 | 0.0663 | 0.131 | 2s |
+| catboost | 0.317 | 0.107 | 0.005 | 0.600 | 0.0665 | 0.140 | 4s |
+
+On just 2 adjacent provinces the models are within noise of each other and MLP's
+tiny F2 edge is not meaningful (it cost 20× the fit time and trails on PR-AUC /
+calibration). The GBDTs and balanced RF cluster together as expected; this run's
+purpose is to prove **all seven candidates + the ensemble train and score
+through one unified, calibrated pipeline**. Real separation needs the
+multi-province dataset (build in progress).
 
 On a more diverse 3-province validation (incl. a southern + a NE province),
 LightGBM reached **F2 0.58 / PR-AUC 0.30** vs an F2 0.54 base-rate baseline —
@@ -76,10 +91,12 @@ literature: the tree-ensemble family wins, deep nets are not needed.
 
 ## 4. Recommendation
 
-- **Primary model: LightGBM** (current). Keep **balanced random forest** as the
-  tracked alternative — it competes on ranking/calibration and is a useful
-  ensemble/robustness check. Keep XGBoost in the bake-off for completeness; do
-  not expect MLP/KAN to win.
+- **Primary model: LightGBM** (current). Track **balanced random forest** and
+  **CatBoost** as alternatives, and the **soft-voting ensemble** of the GBDTs as
+  a robustness option — pick the final model on the multi-province leaderboard by
+  F2 then PR-AUC, with calibration (BSS/Brier) as the tie-breaker. **XGBoost** is
+  kept for completeness; the **MLP** is a reference row only (slow, no edge);
+  **KAN is deferred**. Do not expect the deep models to win on this tabular data.
 - **Keep the imbalance/calibration design as-is**: unbalanced data +
   `scale_pos_weight`, isotonic calibration **pooled**, F2-tuned threshold.
 - **Add to evaluation**: Brier Skill Score vs climatology (done in `bakeoff.py`)

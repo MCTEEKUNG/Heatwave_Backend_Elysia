@@ -34,6 +34,53 @@ OUT_THR = "data/processed/province_thresholds.parquet"
 SLEEP_BETWEEN_S = float(os.environ.get("HEATWAVE_SLEEP", "20"))
 COOLDOWN_S = float(os.environ.get("HEATWAVE_COOLDOWN", "75"))
 STRIDE = int(os.environ.get("HEATWAVE_STRIDE", "1"))
+#   HEATWAVE_SUBSET=N   build a regionally-stratified subset of ~N provinces
+#   HEATWAVE_HOURLY=1   use the heavier hourly endpoint (correct daily-max sWBGT)
+#   HEATWAVE_WAIT_RESET=1  poll gently until the hourly rate limit clears, then build
+SUBSET = int(os.environ.get("HEATWAVE_SUBSET", "0"))
+HOURLY = os.environ.get("HEATWAVE_HOURLY", "0") == "1"
+WAIT_RESET = os.environ.get("HEATWAVE_WAIT_RESET", "0") == "1"
+
+
+def _stratified(provinces, n):
+    """Pick ~n provinces spread across regions (and within region by latitude)
+    so a subset still covers Thailand's climate diversity."""
+    import pandas as pd
+    if n <= 0 or n >= len(provinces):
+        return provinces
+    out = []
+    regions = list(provinces.groupby("region"))
+    per = max(1, n // max(1, len(regions)))
+    for _, grp in regions:
+        g = grp.sort_values("lat")
+        take = min(len(g), per)
+        idx = [int(round(i * (len(g) - 1) / max(1, take - 1))) for i in range(take)] if take > 1 else [0]
+        out.append(g.iloc[sorted(set(idx))])
+    sub = pd.concat(out).drop_duplicates("id").head(n).reset_index(drop=True)
+    return sub
+
+
+def _wait_for_reset():
+    """Poll a tiny request until the hourly limit clears (gentle: small probe
+    every 2 min, up to ~75 min). Avoids hammering the API with heavy requests."""
+    import requests
+    for _ in range(38):
+        try:
+            r = requests.get(
+                "https://archive-api.open-meteo.com/v1/archive",
+                params={"latitude": 13.7, "longitude": 100.5,
+                        "start_date": "2024-04-01", "end_date": "2024-04-02",
+                        "daily": "temperature_2m_max", "timezone": "Asia/Bangkok"},
+                timeout=30)
+            if r.status_code == 200:
+                print("rate limit clear -- starting build", flush=True)
+                return True
+            print("still rate-limited; waiting 120s ...", flush=True)
+        except Exception as exc:  # noqa: BLE001
+            print(f"probe error ({exc}); waiting 120s ...", flush=True)
+        time.sleep(120)
+    print("gave up waiting for rate-limit reset", flush=True)
+    return False
 
 
 def main():
@@ -45,10 +92,19 @@ def main():
         print("pyarrow is required (pip install -r requirements.txt). Aborting.")
         return 3
 
+    if WAIT_RESET and not _wait_for_reset():
+        return 4
+
     provinces = load_provinces("data/provinces.csv")
-    if STRIDE > 1:
+    if SUBSET > 0:
+        provinces = _stratified(provinces, SUBSET)
+        print(f"SUBSET={SUBSET} -> regionally-stratified {len(provinces)} provinces: "
+              f"{list(provinces['name_en'])}", flush=True)
+    elif STRIDE > 1:
         provinces = provinces.iloc[::STRIDE].reset_index(drop=True)
         print(f"STRIDE={STRIDE} -> representative subset of {len(provinces)} provinces", flush=True)
+    if HOURLY:
+        print("HOURLY=1 -> deriving daily-max sWBGT from hourly data (heavier requests)", flush=True)
     os.makedirs(PARTS_DIR, exist_ok=True)
     n = len(provinces)
     failed = []
@@ -62,7 +118,7 @@ def main():
             continue
         try:
             one = provinces.iloc[[i - 1]]
-            ds_i, thr_i = build_for_provinces(one, START, END)
+            ds_i, thr_i = build_for_provinces(one, START, END, hourly=HOURLY)
             ds_i.to_parquet(ds_part, index=False)
             thr_i.to_parquet(thr_part, index=False)
             print(f"[{i:3d}/{n}] id={pid:3d} {p['name_en']:<22} rows={len(ds_i):6d} "

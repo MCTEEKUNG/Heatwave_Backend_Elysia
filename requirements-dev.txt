@@ -2,5 +2,6 @@ fastapi
 uvicorn[standard]
 pytest
 websockets
-# ML bake-off comparator (LightGBM is in requirements.txt; RF via imbalanced-learn)
+# ML bake-off comparators (LightGBM in requirements.txt; RF via imbalanced-learn)
 xgboost>=2.0.0
+catboost>=1.2

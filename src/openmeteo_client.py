@@ -72,6 +72,29 @@ def fetch_history(lat: float, lon: float, start: str, end: str,
     return _daily_to_df(_get_with_retry(ARCHIVE_URL, params).json())
 
 
+HOURLY_VARS = ["temperature_2m", "relative_humidity_2m"]
+
+
+def fetch_history_hourly(lat: float, lon: float, start: str, end: str,
+                         hourly_vars: list | None = None) -> pd.DataFrame:
+    """Fetch HOURLY history (temp + RH). Used to compute a physically correct
+    daily-max sWBGT (max temp coincides with min humidity, not mean) -- the #1
+    label-accuracy fix. ~24x the data volume of the daily endpoint, so it is far
+    heavier against the rate limit; use for targeted/high-accuracy rebuilds."""
+    params = {
+        "latitude": lat,
+        "longitude": lon,
+        "start_date": start,
+        "end_date": end,
+        "hourly": ",".join(hourly_vars or HOURLY_VARS),
+        "timezone": "Asia/Bangkok",
+    }
+    payload = _get_with_retry(ARCHIVE_URL, params).json()
+    df = pd.DataFrame(payload["hourly"])
+    df["time"] = pd.to_datetime(df["time"])
+    return df
+
+
 def fetch_forecast(lat: float, lon: float, days: int = 16) -> pd.DataFrame:
     params = {
         "latitude": lat,
