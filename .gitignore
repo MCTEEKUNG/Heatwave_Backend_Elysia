@@ -46,6 +46,9 @@ Era5-data-2000-2026/
 ndvi/
 experiments/logs/
 experiments/runs.jsonl
+# Result artifacts are regenerated locally by bakeoff.py / model_report.py and
+# now mutated by dashboard training runs -- keep them out of git.
+experiments/results/*.json
 temp_*.csv
 
 # Local Models (artifacts are reproducible; never commit the blobs)
