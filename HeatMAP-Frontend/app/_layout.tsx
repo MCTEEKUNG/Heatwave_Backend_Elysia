@@ -6,15 +6,16 @@ import { View, ActivityIndicator, StyleSheet, Platform } from 'react-native';
 import { useFonts, OpenSans_300Light, OpenSans_400Regular, OpenSans_500Medium, OpenSans_600SemiBold, OpenSans_700Bold } from '@expo-google-fonts/open-sans';
 import 'react-native-reanimated';
 
-// Import global CSS for web (Leaflet)
-if (Platform.OS === 'web') {
-  require('./global.css');
-}
-
 import { Colors } from '@/constants/theme';
 import { SettingsProvider, useSettings } from '@/hooks/useSettings';
-import * as Notifications from 'expo-notifications';
 import { registerForPushNotificationsAsync } from '@/services/NotificationService';
+
+// Import global CSS for web (Leaflet). Must stay a conditional require so native
+// builds never resolve the web-only stylesheet.
+if (Platform.OS === 'web') {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require('./global.css');
+}
 
 export const unstable_settings = {
   anchor: '(tabs)',

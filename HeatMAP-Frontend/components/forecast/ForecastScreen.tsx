@@ -118,7 +118,7 @@ export default function ForecastScreen() {
       } else {
         setError(data.error || 'No forecast data available. Run a forecast first.');
       }
-    } catch (err: any) {
+    } catch {
       setError('Unable to connect to the forecast service. Please check your connection and try again.');
     } finally {
       setLoading(false);

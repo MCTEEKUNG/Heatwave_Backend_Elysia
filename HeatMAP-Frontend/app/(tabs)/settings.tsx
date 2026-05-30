@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { CustomSwitch } from '@/components/ui/CustomSwitch';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -7,7 +6,6 @@ import { Colors, DesignTokens, GlassStyle, BottomNavStyle, useResponsive } from 
 import { useSettings, Language, FontSize } from '@/hooks/useSettings';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { ScaledText } from '@/components/ui/ScaledText';
-import * as Notifications from 'expo-notifications';
 import { scheduleLocalNotification } from '@/services/NotificationService';
 
 export default function SettingsScreen() {
@@ -18,7 +16,6 @@ export default function SettingsScreen() {
     setLanguage, 
     fontSize, 
     setFontSize,
-    typography,
     t,
     pushNotifications,
     setPushNotifications,

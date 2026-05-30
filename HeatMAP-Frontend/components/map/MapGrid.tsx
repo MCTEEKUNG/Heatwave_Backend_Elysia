@@ -104,7 +104,6 @@ function generateMockSeverity(lat: number, lng: number, seed: number): Severity 
 
 // Generate mock temperature based on severity and location
 function generateMockTemperature(severity: Severity, lat: number, seed: number): number {
-  const baseTemp = 32; // Base temperature
   const rand = seededRandom(seed * 2) * 5;
   
   switch (severity) {
@@ -245,8 +244,11 @@ function WebLeafletMap({
   useEffect(() => {
     if (Platform.OS !== 'web') return;
     try {
+      // Web-only dynamic require: react-leaflet/leaflet must never be bundled for native.
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const ReactLeaflet = require('react-leaflet');
       const { MapContainer, TileLayer, Polygon, Marker, useMap } = ReactLeaflet;
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       setMapView({ MapContainer, TileLayer, Polygon, Marker, useMap, L: require('leaflet') });
     } catch (e) {
       console.log('Leaflet not available:', e);
@@ -389,6 +391,8 @@ function NativeMapView({
 
   useEffect(() => {
     try {
+      // Native-only dynamic require: react-native-maps is unavailable on web.
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       setMapModule(require('react-native-maps'));
     } catch (e) {
       console.log('react-native-maps not available:', e);
@@ -405,7 +409,7 @@ function NativeMapView({
     );
   }
 
-  const { default: MapView, Marker, Polygon, PROVIDER_GOOGLE } = mapModule;
+  const { default: MapView, Marker, Polygon } = mapModule;
 
   const initialRegion = userLocation 
     ? { 

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Linking, Platform } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, ScrollView, Linking, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Colors, DesignTokens, GlassStyle, BottomNavStyle } from '@/constants/theme';
@@ -40,7 +40,7 @@ const getChecklistItems = (t: (key: any) => string) => [
 ];
 
 export default function SafetyScreen() {
-  const { isDarkMode, language, fontScale, typography, t } = useSettings();
+  const { isDarkMode, t } = useSettings();
   const theme = Colors[isDarkMode ? 'dark' : 'light'];
   const checklistItems = getChecklistItems(t);
   const [checklist, setChecklist] = useState(checklistItems);

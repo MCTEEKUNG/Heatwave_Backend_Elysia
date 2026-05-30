@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import { Colors, DesignTokens, GlassStyle, BottomNavStyle, useResponsive } from '@/constants/theme';
 import { useSettings } from '@/hooks/useSettings';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { MapGrid, generateThailandGrid, type GridCell, type Severity } from '@/components/map';
-import useLocation from '@/hooks/useLocation';
+import { useLocation } from '@/hooks/useLocation';
 import { ScaledText } from '@/components/ui/ScaledText';
 import { useWeather } from '@/hooks/useWeather';
 import { getForecastMap, riskLevelToSeverity, formatGeneratedAt, type MapForecastPoint } from '@/services/forecastService';
@@ -59,10 +59,10 @@ export default function MapScreen() {
   const theme = Colors[isDarkMode ? 'dark' : 'light'];
   // Start with a neutral (uncoloured) grid — overwritten once forecast loads
   const [gridData, setGridData] = useState<GridCell[]>(generateThailandGrid());
-  const [isLoadingData, setIsLoadingData] = useState(true);
+  const [, setIsLoadingData] = useState(true);
   // "As of" timestamp from the model run (generated_at on /api/forecast/map)
   const [mapGeneratedAt, setMapGeneratedAt] = useState<string | null>(null);
-  const { isDesktop, isTablet, width } = useResponsive();
+  const { isDesktop, isTablet } = useResponsive();
 
   // ── Province selector state ──────────────────────────────────────────────
   const [provinces, setProvinces] = useState<Province[]>([]);
@@ -158,9 +158,6 @@ export default function MapScreen() {
   // Get current severity level (null if low/no risk)
   const currentSeverity = userGridCell?.severity || null;
 
-  // Check if any extreme severity exists
-  const hasExtreme = gridData.some(cell => cell.severity === 'extreme');
-  
   // Calculate responsive values
   const cardWidth = isDesktop ? 200 : isTablet ? 180 : 160;
   const fabRight = isDesktop ? 32 : 24;
@@ -184,6 +181,9 @@ export default function MapScreen() {
     if (locationStatus === 'idle') {
       getCurrentLocation();
     }
+    // Intentionally mount-only: re-running on locationStatus/getCurrentLocation
+    // changes would re-trigger permission prompts.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Get location coordinates for MapGrid
