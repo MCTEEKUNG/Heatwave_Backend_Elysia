@@ -44,8 +44,35 @@ as a feature**. Add predicted Tmax/RH/sWBGT for `target_time` to the feature set
 - *The trap (train/serve skew):* you must train on **archived forecasts /
   hindcasts** for the target days, NOT on ERA5/reanalysis actuals (that would
   train on information unavailable at serve time and collapse in production).
-  Source: Open-Meteo "previous runs"/historical-forecast API, or ECMWF
-  reforecasts. This is the real work — sourcing the data, not the modeling.
+  Source: Open-Meteo "previous runs"/historical-forecast API (probed — returns
+  archived forecasts, HTTP 200), or ECMWF reforecasts. This is the real work —
+  sourcing the data, not the modeling.
+
+  **P0 PROTOTYPE — realizable headroom measured** (`scripts/p0_forecast_prototype.py`).
+  The oracle (0.88) is a *perfect* forecast; real forecast error grows with lead.
+  Adding target-day weather degraded by a per-lead NWP-error model (≈1 °C day-1 →
+  ≈3 °C day-7) gives the realistic estimate:
+
+  | features | PR-AUC | F2 | precision | recall |
+  |----------|--------|----|-----------|--------|
+  | baseline (antecedent) | 0.332 | 0.556 | 0.229 | 0.864 |
+  | + perfect forecast (oracle) | 0.877 | 0.915 | 0.719 | 0.981 |
+  | **+ realistic forecast** | **0.481** | **0.632** | **0.316** | 0.843 |
+
+  Realistic forecast captures **~27% of the headroom**: **F2 0.556→0.632** and
+  **precision 0.229→0.316 (+38%)** at roughly equal recall — i.e. materially
+  fewer false alarms. Lift is concentrated at short leads (physics, as predicted):
+
+  | lead | base PR-AUC | + realistic |
+  |------|-------------|-------------|
+  | 1 d | 0.429 | **0.633** |
+  | 3 d | 0.330 | 0.488 |
+  | 7 d | 0.285 | 0.368 |
+
+  Conclusion: **P0 is worth building.** Even a conservative forecast meaningfully
+  improves precision and short-lead skill. Next: replace the error model with
+  *real* archived forecasts from the Historical Forecast API (2022+ coverage →
+  train/val/test on 2022–25) and re-measure.
 
 **P1 — Label fidelity: hourly → daily-max sWBGT.** The label is built from daily
 `Tmax` + daily-*mean* RH; physically the daily max temp coincides with min RH,
