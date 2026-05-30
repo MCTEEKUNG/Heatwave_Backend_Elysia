@@ -3,6 +3,21 @@ import { cors } from "@elysiajs/cors";
 import { spawn } from "child_process";
 import { readFileSync, writeFileSync, existsSync, unlinkSync, readdirSync, mkdirSync } from "fs";
 import { join, dirname } from "path";
+import {
+  getProvinces,
+  getProvinceForecast,
+  getForecastMap,
+  getThresholds,
+} from "./routes/forecast";
+
+// CORS whitelist from env (comma-separated). Falls back to a sensible local
+// default when ALLOWED_ORIGINS is unset so the app never crashes on boot.
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || "")
+  .split(",")
+  .map((o) => o.trim())
+  .filter(Boolean);
+const corsOrigin: string[] | boolean =
+  ALLOWED_ORIGINS.length > 0 ? ALLOWED_ORIGINS : ["http://localhost:3000"];
 
 const BACKEND_ROOT = join(__dirname, "..");
 const TRAIN_DIR = BACKEND_ROOT;
@@ -63,7 +78,7 @@ function readJsonFile(filePath: string): any {
 }
 
 const app = new Elysia()
-  .use(cors())
+  .use(cors({ origin: corsOrigin }))
   .get("/", () => ({
     service: "Heatwave AI Backend",
     version: "1.0.0",
@@ -294,6 +309,67 @@ const app = new Elysia()
       cycles: t.Optional(t.Number()),
       startDate: t.Optional(t.String())
     })
+  })
+
+  // --- Phase 3: Forecast Service API (private `heatwave` schema via postgres) ---
+
+  .get("/api/provinces", async ({ set }) => {
+    try {
+      const rows = await getProvinces();
+      return rows;
+    } catch (error: any) {
+      set.status = 503;
+      return { error: error.message };
+    }
+  })
+
+  .get("/api/forecast/province/:id", async ({ params, query, set }) => {
+    const id = Number(params.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      set.status = 400;
+      return { error: "Invalid province id" };
+    }
+    let days = Number(query.days ?? 7);
+    if (!Number.isInteger(days) || days <= 0) days = 7;
+    if (days > 16) days = 16;
+
+    try {
+      const rows = await getProvinceForecast(id, days);
+      return {
+        province_id: id,
+        days,
+        generated_at: rows.length > 0 ? rows[0].generated_at : null,
+        forecast: rows,
+      };
+    } catch (error: any) {
+      set.status = 503;
+      return { error: error.message };
+    }
+  })
+
+  .get("/api/forecast/map", async ({ set }) => {
+    try {
+      const rows = await getForecastMap();
+      return rows;
+    } catch (error: any) {
+      set.status = 503;
+      return { error: error.message };
+    }
+  })
+
+  .get("/api/thresholds/:id", async ({ params, set }) => {
+    const id = Number(params.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      set.status = 400;
+      return { error: "Invalid province id" };
+    }
+    try {
+      const rows = await getThresholds(id);
+      return { province_id: id, thresholds: rows };
+    } catch (error: any) {
+      set.status = 503;
+      return { error: error.message };
+    }
   })
 
   .listen(process.env.PORT || 3000);
