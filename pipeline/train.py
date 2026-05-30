@@ -33,11 +33,17 @@ def build_frames(dataset: pd.DataFrame, horizons=range(1, 8)) -> pd.DataFrame:
 
 
 def train_model(dataset: pd.DataFrame, horizons=range(1, 8),
-                train_end=2023, val_year=2024, test_year=2025):
+                train_end=2023, val_year=2024, test_year=2025,
+                progress_cb=None):
     """Train + calibrate + evaluate. Returns ``(bundle, report)``.
 
     ``dataset`` must carry province ``lat``/``lon`` (so features match the
     forecast job) plus the build_dataset columns.
+
+    ``progress_cb`` (optional) is a plain callable ``progress_cb(step, total,
+    message)`` invoked once per LightGBM boosting round. When ``None`` (the
+    default) behavior is identical to before -- no callback is created or
+    passed down to the LightGBM trainer.
     """
     frame = build_frames(dataset, horizons=horizons)
     feat_cols = feature_columns(frame)
@@ -51,7 +57,18 @@ def train_model(dataset: pd.DataFrame, horizons=range(1, 8),
             f"empty split (train={len(tr)}, val={len(va)}, test={len(te)}); "
             "dataset must span the training years through 2024 validation")
 
-    model = train_lgbm(tr[feat_cols], tr["y"].to_numpy())
+    lgbm_callback = None
+    if progress_cb is not None:
+        def lgbm_callback(env):
+            # env is a lightgbm.callback.CallbackEnv (fields: iteration,
+            # begin_iteration, end_iteration). Convert per-round progress
+            # into the plain progress_cb(step, total, message) contract.
+            total = int(env.end_iteration - env.begin_iteration)
+            step = int(env.iteration - env.begin_iteration + 1)
+            progress_cb(step, total, f"boosting round {step}/{total}")
+
+    model = train_lgbm(tr[feat_cols], tr["y"].to_numpy(),
+                       progress_cb=lgbm_callback)
 
     raw_val = predict_proba(model, va[feat_cols])
     calibrator = fit_calibrator(raw_val, va["y"].to_numpy())

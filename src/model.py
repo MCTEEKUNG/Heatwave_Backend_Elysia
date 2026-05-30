@@ -8,11 +8,16 @@ import numpy as np
 import lightgbm as lgb
 
 
-def train(X, y, scale_pos_weight=None, random_state=42, **kwargs):
+def train(X, y, scale_pos_weight=None, random_state=42, progress_cb=None, **kwargs):
     """Train a LightGBM classifier with class-imbalance handling.
 
     If ``scale_pos_weight`` is None it is derived as neg/pos; if there are no
     positives we fall back to ``is_unbalance=True``.
+
+    ``progress_cb`` (optional) is a LightGBM callback invoked once per boosting
+    round (it receives a ``lightgbm.callback.CallbackEnv``). When ``None``
+    (the default) behavior is identical to before: no callbacks are passed to
+    ``fit`` at all.
     """
     y = np.asarray(y)
     pos = int((y == 1).sum())
@@ -36,7 +41,10 @@ def train(X, y, scale_pos_weight=None, random_state=42, **kwargs):
     params.update(kwargs)
 
     model = lgb.LGBMClassifier(**params)
-    model.fit(X, y)
+    if progress_cb is not None:
+        model.fit(X, y, callbacks=[progress_cb])
+    else:
+        model.fit(X, y)
     return model
 
 
