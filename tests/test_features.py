@@ -128,3 +128,25 @@ def test_rolling_excludes_current_day():
     # the current-day value must NOT equal the feature (sanity: shift applied)
     assert not np.isclose(row["swbgt_max_mean_3d"].iloc[0],
                           df["swbgt_max"].iloc[oi - 2:oi + 1].mean())
+
+
+def test_era5_features_are_antecedent_and_not_leaky():
+    days = pd.date_range("2003-01-01", periods=120, freq="D")
+    df = pd.DataFrame({
+        "province_id": 1, "time": days, "lat": 13.7, "lon": 100.5,
+        "swbgt_max": 30.0, "heat_index_max": 32.0, "t2m_c_max": 34.0,
+        "rh_mean": 60.0, "wind_speed_max": 5.0, "sp_mean": 101000.0,
+        "ndvi": 0.4, "ndvi_lag1": 0.39, "ndvi_lag2": 0.38,
+        "p95": 33.0, "is_hot": 0, "heatwave": 0,
+    })
+    frame = make_forecasting_frame(df, horizons=range(1, 4))
+    cols = feature_columns(frame)
+    # raw truth columns must NOT be features
+    assert "heat_index_max" not in cols and "t2m_c_max" not in cols
+    # raw (current-month) NDVI is NOT knowable intra-month -> only completed-month lags
+    assert "ndvi" not in cols
+    # antecedent rolling forms + NDVI lags + wind must be present
+    assert "heat_index_max_mean_7d" in cols
+    assert "wind_speed_max_mean_7d" in cols
+    assert "ndvi_lag1" in cols and "ndvi_lag2" in cols
+    assert {"heat_index_max", "t2m_c_max", "rh_mean"} <= LEAKY_COLS

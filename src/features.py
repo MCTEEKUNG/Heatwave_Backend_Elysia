@@ -15,12 +15,15 @@ import numpy as np
 import pandas as pd
 
 # Source columns we derive antecedent/anomaly features from.
-_VALUE_COLS = ["swbgt_max", "temperature_2m_max", "relative_humidity_2m_mean"]
+_VALUE_COLS = ["swbgt_max", "heat_index_max", "t2m_c_max", "rh_mean",
+               "wind_speed_max", "sp_mean",
+               "temperature_2m_max", "relative_humidity_2m_mean"]
 _ROLL_WINDOWS = (3, 7, 14, 30)
 
 # Columns that encode the label / target-day truth -- must never appear raw as features.
 LEAKY_COLS = frozenset(
-    ["swbgt_max", "temperature_2m_max", "relative_humidity_2m_mean",
+    ["swbgt_max", "heat_index_max", "t2m_c_max", "t2m_c_mean", "rh_mean", "rh_min",
+     "wind_speed_max", "sp_mean", "temperature_2m_max", "relative_humidity_2m_mean",
      "is_hot", "heatwave"]
 )
 
@@ -73,6 +76,10 @@ def make_forecasting_frame(df_one_province: pd.DataFrame,
     for static_col in ("lat", "lon", "province_id"):
         if static_col in d.columns:
             ante[static_col] = d[static_col].to_numpy()
+
+    for ndvi_col in ("ndvi_lag1", "ndvi_lag2"):  # NOT raw "ndvi" (intra-month leak)
+        if ndvi_col in d.columns:
+            ante[ndvi_col] = d[ndvi_col].to_numpy()
 
     feature_cols = list(ante.columns)
 
