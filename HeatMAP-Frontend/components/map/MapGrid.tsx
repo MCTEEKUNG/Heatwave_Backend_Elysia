@@ -5,7 +5,8 @@
  * with vector-based square grid cells representing 
  * heatwave prediction severity by latitude/longitude bounding boxes.
  * 
- * Mock data simulates AI prediction results.
+ * Cells are coloured from real per-province AI forecast data fetched
+ * from the backend (/api/forecast/map); the grid starts neutral.
  * 
  * Grid System for Thailand:
  * - Covers full country boundaries (5.6°N to 20.5°N, 97.3°E to 105.6°E)
@@ -71,88 +72,22 @@ const DEFAULT_REGION = {
   longitudeDelta: 10,
 };
 
-// Seeded random for consistent mock data
-function seededRandom(seed: number): number {
-  const x = Math.sin(seed) * 10000;
-  return x - Math.floor(x);
-}
-
-// Generate severity based on location (simulating AI predictions)
-// Northern regions tend to be hotter in summer
-function generateMockSeverity(lat: number, lng: number, seed: number): Severity {
-  const rand = seededRandom(seed);
-  
-  // Simulate regional heat patterns
-  // Central plains (around Bangkok) tend to be hotter
-  const isCentral = lat > 12 && lat < 16 && lng > 98 && lng < 102;
-  // Northern region
-  const isNorth = lat > 17;
-  // Southern peninsula
-  const isSouth = lat < 10;
-  
-  let extremeChance = 0.1; // Base chance
-  if (isCentral) extremeChance = 0.3;
-  if (isNorth) extremeChance = 0.25;
-  if (isSouth) extremeChance = 0.15;
-  
-  const mediumChance = extremeChance + 0.35;
-  
-  if (rand < extremeChance) return 'extreme';
-  if (rand < mediumChance) return 'medium';
-  return 'low';
-}
-
-// Generate mock temperature based on severity and location
-function generateMockTemperature(severity: Severity, lat: number, seed: number): number {
-  const rand = seededRandom(seed * 2) * 5;
-  
-  switch (severity) {
-    case 'extreme':
-      return 40 + Math.floor(rand); // 40-45°C
-    case 'medium':
-      return 36 + Math.floor(rand); // 36-41°C
-    case 'low':
-      return 30 + Math.floor(rand + 2); // 32-37°C
-  }
-}
-
-// Generate mock probability based on severity
-function generateMockProbability(severity: Severity, seed: number): number {
-  const base = seededRandom(seed * 3) * 20;
-  switch (severity) {
-    case 'extreme':
-      return 85 + Math.floor(base); // 85-100%
-    case 'medium':
-      return 70 + Math.floor(base); // 70-90%
-    case 'low':
-      return 60 + Math.floor(base); // 60-80%
-  }
-}
-
 /**
- * Generate grid cells covering Thailand
- * This function can be replaced with API call for real AI data
- * 
+ * Generate the base Thailand grid cells.
+ * Cells start neutral (low severity, no colour) and are meant to be
+ * overwritten by real per-province AI forecast data from the backend.
+ *
  * @param cellSize - Size of each grid cell in degrees
  * @returns Array of GridCell objects
  */
-/**
- * Generate the base Thailand grid cells.
- * When `mockData` is false (default) cells are neutral (low severity, no colour)
- * and are meant to be overwritten by real AI forecast data from the backend.
- * Pass `mockData = true` only for Storybook / development previews.
- */
 export function generateThailandGrid(
   cellSize: number = GRID_CONFIG.cellSize,
-  mockData = false,
 ): GridCell[] {
   const cells: GridCell[] = [];
   const { north, south, east, west } = THAILAND_BOUNDS;
 
   const latSteps = Math.ceil((north - south) / cellSize);
   const lngSteps = Math.ceil((east - west) / cellSize);
-
-  let cellId = 0;
 
   for (let row = 0; row < latSteps; row++) {
     for (let col = 0; col < lngSteps; col++) {
@@ -164,16 +99,9 @@ export function generateThailandGrid(
       const centerLat = (cellNorth + cellSouth) / 2;
       const centerLng = (cellWest  + cellEast)  / 2;
 
-      let severity: Severity = 'low';
-      let temperature = 28;
-      let probability = 0;
-
-      if (mockData) {
-        const seed = Math.floor(centerLat * 1000) + Math.floor(centerLng * 1000) + cellId;
-        severity    = generateMockSeverity(centerLat, centerLng, seed) as Severity;
-        temperature = generateMockTemperature(severity as any, centerLat, seed);
-        probability = generateMockProbability(severity as any, seed);
-      }
+      const severity: Severity = 'low';
+      const temperature = 28;
+      const probability = 0;
 
       cells.push({
         id: `cell-${row}-${col}`,
@@ -190,16 +118,11 @@ export function generateThailandGrid(
         gridRow: row,
         gridCol: col,
       });
-
-      cellId++;
     }
   }
 
   return cells;
 }
-
-// Generate mock grid data for entire Thailand
-export const MOCK_GRID_DATA: GridCell[] = generateThailandGrid();
 
 // Hard-stop zone colours — NO gradient/blur (no alpha except low for visibility).
 // Thresholds match Rothfusz Heat Index breakpoints used in the model.
@@ -216,14 +139,11 @@ export const getSeverityColor = (severity: Severity): string => {
 // Get border color for severity level
 export const getSeverityBorderColor = (severity: Severity): string => {
   switch (severity) {
-    case 'extreme':
-      return 'rgba(239, 68, 68, 0.9)';
-    case 'medium':
-      return 'rgba(255, 165, 0, 0.9)';
-    case 'low':
-      return 'rgba(52, 197, 89, 0.7)';
-    default:
-      return 'transparent';
+    case 'extreme':  return 'rgba(239, 68, 68, 0.9)';
+    case 'high':     return 'rgba(249, 115, 22, 0.9)';
+    case 'moderate': return 'rgba(234, 179, 8, 0.9)';
+    case 'low':      return 'rgba(52, 197, 89, 0.7)';
+    default:         return 'transparent';
   }
 };
 
@@ -341,7 +261,7 @@ function WebLeafletMap({
       center={[initialRegion.latitude, initialRegion.longitude]}
       zoom={6}
       style={{ flex: 1, width: '100%', height: '100%' }}
-      zoomControl={false}
+      zoomControl={true}
     >
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
@@ -467,7 +387,7 @@ function NativeMapView({
 
 // Main component
 export function MapGrid({ 
-  gridData = MOCK_GRID_DATA,
+  gridData = generateThailandGrid(),
   userLocation = null,
   onUserLocationRequest,
   style,

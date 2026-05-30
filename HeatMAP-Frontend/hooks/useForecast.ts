@@ -100,7 +100,7 @@ function buildSummary(days: ForecastDay[]): ForecastSummary {
   const avgProbability = days.reduce((s, d) => s + d.heatwave_probability, 0) / days.length;
   const maxTemperature = Math.max(...days.map((d) => d.temperature_c));
   const avgTemperature = days.reduce((s, d) => s + d.temperature_c, 0) / days.length;
-  const avgHumidity    = days.reduce((s, d) => s + d.humidity_pct,   0) / days.length;
+  const avgHumidity    = days.reduce((s, d) => s + d.humidity_est,   0) / days.length;
 
   return {
     totalDays:    days.length,

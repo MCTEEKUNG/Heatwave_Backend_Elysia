@@ -339,12 +339,7 @@ export const app = new Elysia()
 
     try {
       const rows = await getProvinceForecast(id, days);
-      return {
-        province_id: id,
-        days,
-        generated_at: rows.length > 0 ? rows[0].generated_at : null,
-        forecast: rows,
-      };
+      return rows;
     } catch (error: any) {
       set.status = 503;
       return { error: error.message };

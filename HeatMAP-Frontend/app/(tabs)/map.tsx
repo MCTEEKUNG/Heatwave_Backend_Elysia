@@ -291,17 +291,6 @@ export default function MapScreen() {
               />
             )}
           </TouchableOpacity>
-          
-          {/* Zoom Controls */}
-          <View style={[styles.zoomControls, GlassStyle[isDarkMode ? 'dark' : 'light']]}>
-            <TouchableOpacity style={styles.zoomButton}>
-              <IconSymbol size={24} name="add" color={theme.textSecondary} />
-            </TouchableOpacity>
-            <View style={[styles.zoomDivider, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }]} />
-            <TouchableOpacity style={styles.zoomButton}>
-              <IconSymbol size={24} name="remove" color={theme.textSecondary} />
-            </TouchableOpacity>
-          </View>
         </View>
 
         {/* Location Status Indicator */}
@@ -510,19 +499,6 @@ const styles = StyleSheet.create({
   fabActive: {
     borderWidth: 2,
     borderColor: '#3b82f6',
-  },
-  zoomControls: {
-    borderRadius: DesignTokens.borderRadius.xl,
-    overflow: 'hidden',
-  },
-  zoomButton: {
-    width: 48,
-    height: 48,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  zoomDivider: {
-    height: 1,
   },
   locationStatus: {
     position: 'absolute',

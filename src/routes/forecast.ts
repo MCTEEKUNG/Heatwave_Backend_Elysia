@@ -49,12 +49,15 @@ export async function getProvinceForecast(provinceId: number, days: number) {
 export async function getForecastMap() {
   const sql = getSql();
   return sql`
-    SELECT DISTINCT ON (province_id)
-           province_id, target_date, generated_at, horizon_days,
-           probability, predicted_label, swbgt_pred, risk_level, model_version
-    FROM heatwave.forecasts
-    WHERE target_date >= current_date
-    ORDER BY province_id ASC, generated_at DESC, target_date ASC
+    SELECT DISTINCT ON (f.province_id)
+           f.province_id, p.lat, p.lon,
+           f.target_date, f.generated_at, f.horizon_days,
+           f.probability, f.predicted_label, f.swbgt_pred,
+           f.risk_level, f.model_version
+    FROM heatwave.forecasts f
+    JOIN heatwave.provinces p ON p.id = f.province_id
+    WHERE f.target_date >= current_date
+    ORDER BY f.province_id ASC, f.generated_at DESC, f.target_date ASC
   `;
 }
 
