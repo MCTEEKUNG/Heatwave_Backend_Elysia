@@ -44,3 +44,28 @@ def predict_proba(model, X):
     """Return P(heatwave) as a 1-D array in [0, 1]."""
     proba = model.predict_proba(X)
     return np.asarray(proba)[:, 1]
+
+
+class CalibratedModel:
+    """Serializable bundle: LightGBM model + isotonic calibrator + tuned threshold.
+
+    Exposes ``predict_proba(X) -> ndarray[:, 2]`` returning CALIBRATED
+    probabilities in column 1, so callers using ``predict_proba(model, X)``
+    (which slices ``[:, 1]``) get calibrated P(heatwave) transparently. Defined
+    in this module (not the training script) so ``joblib.load`` can resolve the
+    class at inference time.
+    """
+
+    def __init__(self, model, calibrator=None, threshold=0.5,
+                 feature_cols=None, model_version="lgbm-v1"):
+        self.model = model
+        self.calibrator = calibrator
+        self.threshold = threshold
+        self.feature_cols = feature_cols
+        self.model_version = model_version
+
+    def predict_proba(self, X):
+        raw = np.asarray(self.model.predict_proba(X))[:, 1]
+        cal = self.calibrator.predict(raw.astype(float)) if self.calibrator is not None else raw
+        cal = np.clip(np.asarray(cal, dtype=float), 0.0, 1.0)
+        return np.column_stack([1.0 - cal, cal])

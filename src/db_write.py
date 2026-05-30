@@ -96,3 +96,47 @@ def upsert_forecasts(rows, conn=None) -> int:
         if owns_conn:
             conn.close()
     return len(params)
+
+
+_THRESHOLD_COLUMNS = (
+    "province_id", "doy", "metric", "p90", "p95", "p975", "baseline_period",
+)
+
+THRESHOLD_UPSERT_SQL = """
+INSERT INTO heatwave.province_thresholds
+    (province_id, doy, metric, p90, p95, p975, baseline_period)
+VALUES
+    (%(province_id)s, %(doy)s, %(metric)s, %(p90)s, %(p95)s, %(p975)s,
+     %(baseline_period)s)
+ON CONFLICT (province_id, doy, metric) DO UPDATE SET
+    p90             = EXCLUDED.p90,
+    p95             = EXCLUDED.p95,
+    p975            = EXCLUDED.p975,
+    baseline_period = EXCLUDED.baseline_period,
+    updated_at      = now()
+"""
+
+
+def upsert_thresholds(rows, conn=None) -> int:
+    """Upsert per-province climatology ``rows`` into ``heatwave.province_thresholds``.
+
+    Conflict target matches PRIMARY KEY(province_id, doy, metric). Same lazy
+    connection / ``DATABASE_URL`` contract as ``upsert_forecasts``.
+    """
+    rows = list(rows)
+    if not rows:
+        return 0
+
+    params = [{c: r[c] for c in _THRESHOLD_COLUMNS} for r in rows]
+
+    owns_conn = conn is None
+    if owns_conn:
+        conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.executemany(THRESHOLD_UPSERT_SQL, params)
+        conn.commit()
+    finally:
+        if owns_conn:
+            conn.close()
+    return len(params)
