@@ -47,9 +47,10 @@ ndvi/
 experiments/logs/
 temp_*.csv
 
-# Local Models
+# Local Models (artifacts are reproducible; never commit the blobs)
 models/*.pkl
 models/model_card.json
+models/dashboard/
 
 # Built datasets (large; reproducible via scripts/build_full_dataset.py)
 data/processed/

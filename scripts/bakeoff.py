@@ -37,36 +37,7 @@ BASE_MODELS = ["lightgbm", "balanced_rf", "random_forest", "xgboost", "catboost"
 ENSEMBLE_MEMBERS = ["lightgbm", "xgboost", "catboost"]  # strong GBDTs; uses whatever fit
 
 
-def _make(name, spw):
-    if name == "balanced_rf":
-        from imblearn.ensemble import BalancedRandomForestClassifier
-        return BalancedRandomForestClassifier(
-            n_estimators=200, max_depth=15, random_state=42, n_jobs=-1,
-            replacement=True, sampling_strategy="auto", bootstrap=True)
-    if name == "random_forest":
-        from sklearn.ensemble import RandomForestClassifier
-        return RandomForestClassifier(
-            n_estimators=200, max_depth=15, class_weight="balanced",
-            random_state=42, n_jobs=-1)
-    if name == "xgboost":
-        from xgboost import XGBClassifier
-        return XGBClassifier(
-            n_estimators=300, max_depth=6, learning_rate=0.1, subsample=0.8,
-            colsample_bytree=0.8, random_state=42, n_jobs=-1,
-            eval_metric="logloss", tree_method="hist", scale_pos_weight=spw)
-    if name == "catboost":
-        from catboost import CatBoostClassifier
-        return CatBoostClassifier(
-            iterations=300, depth=6, learning_rate=0.1, random_seed=42,
-            auto_class_weights="Balanced", verbose=0, allow_writing_files=False)
-    if name == "mlp":
-        from sklearn.neural_network import MLPClassifier
-        from sklearn.pipeline import make_pipeline
-        from sklearn.preprocessing import StandardScaler
-        return make_pipeline(StandardScaler(), MLPClassifier(
-            hidden_layer_sizes=(256, 128, 64), alpha=1e-4, learning_rate_init=1e-3,
-            max_iter=60, early_stopping=True, n_iter_no_change=8, random_state=42))
-    raise ValueError(name)
+from src.model_zoo import make_model as _make  # single source of truth for model defs
 
 
 def _proba(model, X):

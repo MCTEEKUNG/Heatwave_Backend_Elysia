@@ -28,6 +28,7 @@ class LgbmTrainer(Trainer):
         # without pulling in pandas / lightgbm unless a real run is requested.
         import pandas as pd
         from pipeline.train import train_model
+        from .saving import save_dashboard_model
 
         if not os.path.exists(DATASET_PATH):
             raise FileNotFoundError(
@@ -65,4 +66,7 @@ class LgbmTrainer(Trainer):
 
         report = dict(report)
         report["trainer"] = "lgbm"
+        # Persist the calibrated bundle to the dashboard models dir (separate
+        # from the curated production artifact models/heatwave_model.pkl).
+        report["saved"] = save_dashboard_model("lgbm", bundle, report)
         return report

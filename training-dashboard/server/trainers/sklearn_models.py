@@ -15,51 +15,17 @@ from __future__ import annotations
 
 import os
 
+from src.model_zoo import SUPPORTED, make_model
+
 from .base import ProgressCb, ShouldStop, Trainer
+from .saving import save_dashboard_model
 
 DATASET_PATH = "data/processed/dataset.parquet"
 PROVINCES_PATH = "data/provinces.csv"
 
-# Registry-facing names -> human labels are defined on the web side.
-SUPPORTED = ("balanced_rf", "random_forest", "xgboost", "catboost", "mlp")
-
 
 class _StopTraining(Exception):
     """Internal: raised at a phase boundary to abort cooperatively."""
-
-
-def _make(name: str, scale_pos_weight: float):
-    """Build an (unfitted) estimator exposing predict_proba; matches bakeoff.py."""
-    if name == "balanced_rf":
-        from imblearn.ensemble import BalancedRandomForestClassifier
-        return BalancedRandomForestClassifier(
-            n_estimators=200, max_depth=15, random_state=42, n_jobs=-1,
-            replacement=True, sampling_strategy="auto", bootstrap=True)
-    if name == "random_forest":
-        from sklearn.ensemble import RandomForestClassifier
-        return RandomForestClassifier(
-            n_estimators=200, max_depth=15, class_weight="balanced",
-            random_state=42, n_jobs=-1)
-    if name == "xgboost":
-        from xgboost import XGBClassifier
-        return XGBClassifier(
-            n_estimators=300, max_depth=6, learning_rate=0.1, subsample=0.8,
-            colsample_bytree=0.8, random_state=42, n_jobs=-1,
-            eval_metric="logloss", tree_method="hist",
-            scale_pos_weight=scale_pos_weight)
-    if name == "catboost":
-        from catboost import CatBoostClassifier
-        return CatBoostClassifier(
-            iterations=300, depth=6, learning_rate=0.1, random_seed=42,
-            auto_class_weights="Balanced", verbose=0, allow_writing_files=False)
-    if name == "mlp":
-        from sklearn.neural_network import MLPClassifier
-        from sklearn.pipeline import make_pipeline
-        from sklearn.preprocessing import StandardScaler
-        return make_pipeline(StandardScaler(), MLPClassifier(
-            hidden_layer_sizes=(256, 128, 64), alpha=1e-4, learning_rate_init=1e-3,
-            max_iter=60, early_stopping=True, n_iter_no_change=8, random_state=42))
-    raise ValueError(f"unsupported model: {name!r}")
 
 
 class ModelTrainer(Trainer):
@@ -74,6 +40,7 @@ class ModelTrainer(Trainer):
         from pipeline.train import build_frames
         from src.features import feature_columns
         from src.calibration import fit_calibrator, calibrate, tune_threshold
+        from src.model import CalibratedModel
         from evaluation.heatwave_metrics import compute_metrics
 
         if not os.path.exists(DATASET_PATH):
@@ -108,7 +75,7 @@ class ModelTrainer(Trainer):
             check_stop()
 
             progress_cb(3, TOTAL, f"fitting {self.name} (this can take a while)")
-            model = _make(self.name, spw)
+            model = make_model(self.name, spw)
             model.fit(Xtr, ytr)
             check_stop()
 
@@ -129,7 +96,12 @@ class ModelTrainer(Trainer):
             report["threshold"] = thr
             report["n_provinces"] = int(ds["province_id"].nunique())
 
-            progress_cb(6, TOTAL, "done")
+            # Wrap in the production CalibratedModel format and persist (separate
+            # from the curated production artifact).
+            progress_cb(6, TOTAL, "saving model")
+            bundle = CalibratedModel(model, calibrator=cal, threshold=thr,
+                                     feature_cols=list(feats), model_version=self.name)
+            report["saved"] = save_dashboard_model(self.name, bundle, report)
             return report
         except _StopTraining:
             return {"trainer": self.name, "stopped": True}

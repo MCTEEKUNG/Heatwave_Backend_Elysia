@@ -14,11 +14,13 @@ import json
 import os
 from typing import Optional, Set
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 
 from . import protocol
 from .runner import Runner
+from .trainers import available as available_trainers
 
 app = FastAPI(title="Heatwave Training Dashboard", version="1.0.0")
 
@@ -146,6 +148,27 @@ async def model_report() -> dict:
 async def model_card() -> dict:
     """Return the trained-artifact provenance card, or available=False if none."""
     return _read_json_artifact(MODEL_CARD_PATH, {})
+
+
+# Trainers whose dashboard runs persist a downloadable .pkl (everything except
+# the synthetic 'simulated' trainer). Used as a strict whitelist below.
+_SAVABLE_TRAINERS = set(available_trainers()) - {"simulated"}
+
+
+@app.get("/api/model-file/{name}")
+async def model_file(name: str):
+    """Download a dashboard-trained model bundle (models/dashboard/<name>.pkl).
+
+    ``name`` is validated against a fixed whitelist of trainer names -- the
+    request string is never interpolated into a filesystem path.
+    """
+    if name not in _SAVABLE_TRAINERS:
+        raise HTTPException(status_code=404, detail="unknown model")
+    path = os.path.join("models", "dashboard", f"{name}.pkl")
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="not trained yet -- run it from the dashboard first")
+    return FileResponse(path, media_type="application/octet-stream",
+                        filename=f"heatwave-{name}.pkl")
 
 
 @app.websocket("/ws")

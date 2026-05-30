@@ -28,6 +28,8 @@ function appReducer(state: UiState, action: Action): UiState {
   return reduce(state, action.event)
 }
 
+const API_BASE = 'http://127.0.0.1:8000'
+
 const CONNECTION_LABEL: Record<ConnectionState, string> = {
   connecting: 'connecting…',
   open: 'connected',
@@ -128,6 +130,24 @@ export default function App() {
         <SpeedChart history={state.speedHistory} current={state.speed_per_sec} />
         <MetricsPanel metrics={state.metrics} />
       </div>
+
+      {(() => {
+        const saved = state.metrics?.saved as
+          | { name: string; file: string; path: string; size_kb: number }
+          | undefined
+        if (state.state !== 'done' || !saved) return null
+        return (
+          <div className="saved-banner">
+            <span className="saved-check" aria-hidden="true">✓</span>
+            <span>
+              saved model <code>{saved.path}</code> ({saved.size_kb} KB)
+            </span>
+            <a className="btn btn-refresh" href={`${API_BASE}/api/model-file/${saved.name}`}>
+              download .pkl
+            </a>
+          </div>
+        )
+      })()}
 
       <LogPanel logs={state.logs} />
 
