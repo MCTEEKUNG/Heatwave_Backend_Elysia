@@ -16,12 +16,18 @@ This is the synthesis of the diagnostics in
 | 🟡 PARTIAL | Data coverage = 77 provinces | **20/77** built; resumable |
 | 🟡 PARTIAL | Hourly-sWBGT label fidelity | daily-aggregate in use; `HEATWAVE_HOURLY=1` available |
 | 🟡 PARTIAL | Alarm precision acceptable | 0.23 at recall 0.86 — product sign-off needed |
-| 🔴 BLOCKED | Live serving wired | needs `DATABASE_URL`, live fetch, deploy infra |
+| ✅ DONE | Supabase wired + live write path proven | `DATABASE_URL` connects (smoke: 77 provinces); real Open-Meteo → model → upsert into `heatwave.forecasts` verified (Bangkok/Chiang Rai/Narathiwat, queryable via the Elysia API SQL) |
+| 🟡 PARTIAL | Daily job at full scale | proven on a 3-province subset; full 77-province daily run needs rate-limit-friendly batching/scheduling (cron) |
 
-**Verdict: production-READY as a candidate.** The model is trained, evaluated,
-calibrated, diagnosed, saved, and its consumption path is verified. The
-remaining items are coverage/fidelity improvements and external infrastructure —
-named below, not silently assumed done.
+**Verdict: production-READY, and now LIVE-WIRED.** The model is trained,
+evaluated, calibrated, diagnosed, saved, its consumption path verified, AND the
+real serving path runs end-to-end into Supabase. Remaining work is
+coverage/fidelity improvements and operationalizing the daily job at full scale
+(scheduling + rate-limit batching) — named below, not silently assumed done.
+
+**Supabase project:** `heatwave-forecaster` (org Heatwave-AI, ref
+`qpvvvwgfnucypzxhytmy`, region ap-southeast-1). Schema applied from
+`supabase/migrations/0001_heatwave_schema.sql`.
 
 ## Development plan (prioritized)
 
@@ -37,18 +43,21 @@ named below, not silently assumed done.
   compare on the leaderboard.
 - **P2 — Per-horizon decay** (F2 0.62 → 0.53 across lead 1→7): horizon-specific
   calibration/threshold or separate long-lead handling.
-- **P2 — Wire live serving.**
+- **P2 — Scale the daily job to all provinces + schedule it (cron).**
 
-## Going live (the BLOCKED gate, concretely)
+## Going live
 
 1. `models/heatwave_model.pkl` — produced by `scripts/train_production.py`. ✅
-2. Set `DATABASE_URL` (Supabase Postgres pooler) so `pipeline/run_forecast.main()`
-   can upsert predictions.
-3. Run `pipeline/run_forecast.main()` (or schedule it daily) — fetches the
-   Open-Meteo forecast, builds rows via the verified path, writes to the
-   `heatwave` schema.
-4. The Elysia backend (`src/index.ts`, `/api/...`) serves those rows to the
-   mobile app.
-
-Steps 2–4 require credentials/infrastructure not available in this workspace —
-hence BLOCKED here, not done.
+2. `DATABASE_URL` (Supabase pooler, transaction mode 6543) in `.env`. ✅ — verified by
+   `bun run smoke` (reads `heatwave.provinces` = 77).
+3. Real forecast write — **proven** via `scripts/run_forecast_live.py` (3-province
+   subset): live Open-Meteo → model → upsert into `heatwave.forecasts`. ✅
+4. Schema applied from `supabase/migrations/0001_heatwave_schema.sql`
+   (`scripts/db_apply.py`); 77 provinces seeded with Thai + English names. ✅
+5. **Remaining (ops):**
+   - Run the daily job for **all 77 provinces** (`pipeline/run_forecast.main()`),
+     batched to respect the Open-Meteo hourly limit (the 3-province subset is the
+     proof; full scale needs throttling). Schedule via cron.
+   - Run the **Elysia backend** (`src/index.ts`, `/api/...`) with the same
+     `DATABASE_URL` and point the mobile app at it (deploy/hosting).
+   - Reset the Supabase DB password (it was shared in chat during setup).

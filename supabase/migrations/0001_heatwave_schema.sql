@@ -15,7 +15,7 @@ create table if not exists heatwave.forecasts (
   probability double precision not null,
   predicted_label boolean not null,
   swbgt_pred double precision,
-  risk_level text not null check (risk_level in (''low'',''moderate'',''high'',''extreme'')),
+  risk_level text not null check (risk_level in ('low','moderate','high','extreme')),
   model_version text not null,
   created_at timestamptz not null default now(),
   primary key (province_id, target_date, generated_at)
