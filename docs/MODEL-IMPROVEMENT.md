@@ -175,3 +175,43 @@ shrank history and (b) antecedent features hit the same ceiling P0 was designed 
 - **P0 remains the real lever:** forecast covariates (genuine lead-k forecasts) — the
   only thing the oracle showed can reach the headroom. ERA5 reanalysis ≠ forecast.
 - NDVI ablation deferred: a slow antecedent feature won't recover a history/​shift deficit.
+
+### Trustworthy evaluation: rolling-origin CV (`scripts/cv_era5.py`)
+
+The single-split numbers above are volatile (year-to-year base rate swings 3%→13%).
+The honest read is rolling-origin CV (test 2021–2025, train on all prior years),
+with **threshold-independent primary metrics** and a **fixed operating point**
+(threshold set on val to hit recall ≈ 0.80, NOT per-year F2-max — that removes the
+threshold-transfer artifact):
+
+| fold (test) | train yrs | ROC | PR-AUC lift (×prev) | prec @rec≈.80 |
+|---|---|---|---|---|
+| 2021 | 4 | 0.500 | 1.0× | 0.05 |
+| 2022 | 5 | 0.564 | 1.2× | 0.03 |
+| 2023 | 6 | 0.639 | 1.6× | 0.09 |
+| 2024 | 7 | 0.579 | 1.2× | 0.15 |
+| 2025 | 8 | 0.719 | 2.5× | 0.04 |
+| **mean ± std** | | **0.601 ± 0.083** | **1.49× ± 0.60** | **0.074 ± 0.05** |
+
+**Verdict (decisive): the clean antecedent model is a weak ranker (mean ROC ≈ 0.60,
+PR-AUC only ~1.5× the no-skill floor).** The 0.72 fold was optimistic; averaged
+honestly it is near-chance. One real signal stands out: **skill rises monotonically
+with training history (ROC 0.50 at 4 yrs → 0.72 at 8 yrs)** — but the humidity
+requirement caps ERA5 history at 2016. HP tuning and richer antecedent variables
+(wind/pressure/NDVI) cannot cross the ceiling the oracle already measured
+(PR-AUC 0.33→0.88 ONLY when target-day weather enters).
+
+### Conclusion of the clean antecedent track → the data fork (needs the user)
+
+The clean-data rebuild is complete and correct, and it has now answered its question:
+**antecedent-only features — however clean, rich, or well-evaluated — cannot reach
+production-grade skill for this rare-event task.** Production requires **forecast
+covariates** (genuine lead-k forecasts of the target day), which need forecast
+**hindcast** data we do not have cleanly. The three honest paths are all external-data
+decisions only the user can make:
+1. **Forward-collect** real Open-Meteo forecasts daily from now → clean hindcast in ~2–3 months (free, correct, but waits).
+2. **ECMWF reforecasts** → multi-year true lead-k forecasts now (CDS account + ingestion engineering).
+3. **User supplies** an archived-forecast dataset.
+
+Until one is chosen, the model cannot cross ROC ≈ 0.6–0.76. This is a genuine
+external-data blocker, not an algorithmic one.
