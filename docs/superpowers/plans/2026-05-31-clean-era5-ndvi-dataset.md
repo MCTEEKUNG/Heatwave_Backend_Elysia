@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Rebuild the heatwave training dataset from **real** ERA5 reanalysis (hourly, 2000–2025, from the `MCTEEKUNG/Heatwave_Backend_Elysia` repo) + **NASA MODIS NDVI**, as a strictly **leakage-safe k-day-ahead forecasting** dataset over all 77 provinces — and make this dataset the single source of truth for all future training.
+**Goal:** Rebuild the heatwave training dataset from **real** ERA5 reanalysis (6-hourly, **2016–2025** — the years that carry humidity/wind; from the `MCTEEKUNG/Heatwave_Backend_Elysia` repo) + **NASA MODIS NDVI**, as a strictly **leakage-safe k-day-ahead forecasting** dataset over all 77 provinces — and make this dataset the single source of truth for all future training.
 
 **Architecture:** Ingest gridded ERA5 NetCDF + NDVI, sample at the 77 province centroids, aggregate hourly→daily (computing the *correct* daily-max heat index), then feed the existing leakage-safe forecasting machinery (`src/features.make_forecasting_frame`: antecedent-only features via `.shift(1).rolling`, target `y = heatwave.shift(-k)`) with a **temporal** train/val/test split. We take the backend's **data**, not its **methodology**.
 
@@ -29,6 +29,23 @@ These exist because the source backend project violated them and produced a mean
 | Random stratified split | ❌ REJECT → temporal split |
 | Same-day HI≥41 label from same-day features | ❌ REJECT → forecasting frame (`y = heatwave(t+k)`) |
 | Their leaderboard / 0.99 scores | ❌ REJECT (leakage artifacts) |
+
+### Data reality (VERIFIED by opening the actual `.nc` files)
+
+The ERA5 archive is **heterogeneous** — confirmed by inspecting `era5_surface_2003.nc` and `era5_surface_2020.nc`:
+
+| Era | Temporal res | Variables present | Coord |
+|---|---|---|---|
+| **2000–2015** (~3 MB/yr) | **daily** (24 h step) | only `t2m`, `swvl1` (soil water) | `valid_time` |
+| **2016–2025** (~27 MB/yr) | **6-hourly** (6 h step) | `t2m, d2m, sp, u10, v10` | `valid_time` |
+
+Both eras use coord name **`valid_time`** (CDS-Beta) and carry extra `number`/`expver` dims that must be squeezed.
+
+**Consequences (baked into this plan):**
+- The heat-index label needs humidity (`d2m`), which exists **only 2016–2025**. → **The canonical v2 dataset is scoped to 2016–2025** (10 years). Split: train 2016–2021 / val 2022–2023 / test 2024–2025.
+- 2016–2025 is **6-hourly**, not hourly: daily-max heat index is the max over 4 samples/day (00/06/12/18 UTC; 06 UTC ≈ 13:00 ICT, near afternoon peak). This is a real improvement over daily-mean labeling — state it honestly as 6-hourly, not hourly.
+- 2000–2015 (daily `t2m`+`swvl1`) is **out of scope for v2**; documented as a future t2m/soil-moisture extension, not mixed in.
+- Ingestion code MUST: use `valid_time`, squeeze `number`/`expver`, and **assert sub-daily spacing** (fail loudly if handed a daily file) so a daily file can never be silently averaged into the label.
 
 ---
 
@@ -263,39 +280,52 @@ git commit -m "feat: Magnus RH + Rothfusz heat index physics"
 
 Open one ERA5 surface `.nc` with xarray, select the nearest grid cell to each province centroid (from `data/provinces.csv` via `src.provinces.load_provinces`), convert K→°C, compute hourly RH + hourly heat index, then aggregate to **daily**: `t2m_c_max`, `rh_mean`, `heat_index_max` (the correct daily-max — fixes the documented sWBGT bias), `wind_speed_max`, `sp_mean`.
 
-- [ ] **Step 1: Write the failing test** (uses a tiny synthetic xarray Dataset, no network)
+- [ ] **Step 1: Write the failing test** (synthetic Dataset matching the REAL schema: `valid_time` coord, `number`/`expver` dims, 6-hourly)
 ```python
 # tests/test_era5_ingest.py
 import numpy as np
 import pandas as pd
+import pytest
 import xarray as xr
-from src.era5_ingest import daily_from_hourly, nearest_cell
+from src.era5_ingest import daily_from_subdaily, nearest_cell
 
-def _toy_hourly():
-    times = pd.date_range("2003-04-01", periods=48, freq="h")
+def _toy_6hourly():
+    times = pd.date_range("2020-04-01", periods=8, freq="6h")  # 2 days x 4
     lat = np.array([13.5, 14.0]); lon = np.array([100.5, 101.0])
     shape = (len(times), len(lat), len(lon))
     def k(c): return np.full(shape, c + 273.15)
-    return xr.Dataset(
-        {"t2m": (("time","latitude","longitude"), k(30.0)),
-         "d2m": (("time","latitude","longitude"), k(24.0)),
-         "sp":  (("time","latitude","longitude"), np.full(shape, 101325.0)),
-         "u10": (("time","latitude","longitude"), np.full(shape, 3.0)),
-         "v10": (("time","latitude","longitude"), np.full(shape, 4.0))},
-        coords={"time": times, "latitude": lat, "longitude": lon})
+    ds = xr.Dataset(
+        {"t2m": (("valid_time","latitude","longitude"), k(30.0)),
+         "d2m": (("valid_time","latitude","longitude"), k(24.0)),
+         "sp":  (("valid_time","latitude","longitude"), np.full(shape, 101325.0)),
+         "u10": (("valid_time","latitude","longitude"), np.full(shape, 3.0)),
+         "v10": (("valid_time","latitude","longitude"), np.full(shape, 4.0))},
+        coords={"valid_time": times, "latitude": lat, "longitude": lon})
+    return ds.expand_dims({"number": [0], "expver": [1]})  # extra dims to squeeze
+
+def _toy_daily():
+    times = pd.date_range("2003-04-01", periods=3, freq="D")
+    lat = np.array([13.5]); lon = np.array([100.5])
+    shape = (3, 1, 1)
+    return xr.Dataset({"t2m": (("valid_time","latitude","longitude"), np.full(shape, 303.15))},
+                      coords={"valid_time": times, "latitude": lat, "longitude": lon})
 
 def test_nearest_cell_picks_closest():
-    ds = _toy_hourly()
+    ds = _toy_6hourly()
     la, lo = nearest_cell(ds, 13.7563, 100.5018)
     assert la == 13.5 and lo == 100.5
 
-def test_daily_aggregates_shape_and_units():
-    ds = _toy_hourly()
-    df = daily_from_hourly(ds, province_id=1, lat=13.7563, lon=100.5018)
-    assert list(df["time"]) == [pd.Timestamp("2003-04-01"), pd.Timestamp("2003-04-02")]
+def test_daily_aggregates_units_and_squeeze():
+    df = daily_from_subdaily(_toy_6hourly(), province_id=1, lat=13.7563, lon=100.5018)
+    assert list(df["time"]) == [pd.Timestamp("2020-04-01"), pd.Timestamp("2020-04-02")]
     assert abs(df["t2m_c_max"].iloc[0] - 30.0) < 1e-6      # K->C
-    assert abs(df["wind_speed_max"].iloc[0] - 5.0) < 1e-6  # sqrt(3^2+4^2)
+    assert abs(df["wind_speed_max"].iloc[0] - 5.0) < 1e-6  # hypot(3,4)
     assert (df["heat_index_max"] >= df["t2m_c_max"] - 5).all()
+
+def test_daily_file_is_rejected_loudly():
+    # a daily file must NOT be silently averaged into the label
+    with pytest.raises(ValueError, match="sub-daily"):
+        daily_from_subdaily(_toy_daily(), province_id=1, lat=13.5, lon=100.5)
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -303,13 +333,14 @@ def test_daily_aggregates_shape_and_units():
 Run: `.\.venv\Scripts\python.exe -m pytest tests/test_era5_ingest.py -v`
 Expected: FAIL (module not found).
 
-- [ ] **Step 3: Implement**
+- [ ] **Step 3: Implement** (real CDS-Beta schema: `valid_time`, squeeze `number`/`expver`, 6-hourly→daily-max, reject daily files)
 ```python
 # src/era5_ingest.py
-"""ERA5 hourly NetCDF -> per-province DAILY aggregates (leakage-safe inputs).
+"""ERA5 6-hourly NetCDF (2016-2025) -> per-province DAILY aggregates.
 
-Daily-max heat index (computed hourly THEN maxed) is the physically-correct
-intensity the project's DATA.md flags as the #1 label-accuracy fix.
+Daily-max heat index (computed per 6-hourly step THEN maxed over the day) is the
+physically-correct intensity DATA.md flags as the #1 label-accuracy fix. A daily
+file (2000-2015, t2m-only) is REJECTED loudly so it can never be silently averaged.
 """
 import numpy as np
 import pandas as pd
@@ -317,11 +348,26 @@ import xarray as xr
 
 from src.heat_index import rh_from_dewpoint, heat_index_c
 
+_REQUIRED_VARS = ("t2m", "d2m", "sp", "u10", "v10")
+
+
+def _tname(ds: xr.Dataset) -> str:
+    return "valid_time" if "valid_time" in ds.coords else "time"
+
 
 def _coord_names(ds: xr.Dataset):
     lat = "latitude" if "latitude" in ds.coords else "lat"
     lon = "longitude" if "longitude" in ds.coords else "lon"
     return lat, lon
+
+
+def _squeeze_extra_dims(ds: xr.Dataset) -> xr.Dataset:
+    for d in ("number", "expver"):
+        if d in ds.dims:
+            ds = ds.isel({d: 0}, drop=True)
+        elif d in ds.coords:
+            ds = ds.reset_coords(d, drop=True)
+    return ds
 
 
 def nearest_cell(ds: xr.Dataset, lat: float, lon: float):
@@ -331,16 +377,27 @@ def nearest_cell(ds: xr.Dataset, lat: float, lon: float):
     return la, lo
 
 
-def daily_from_hourly(ds: xr.Dataset, province_id: int, lat: float, lon: float) -> pd.DataFrame:
+def daily_from_subdaily(ds: xr.Dataset, province_id: int, lat: float, lon: float) -> pd.DataFrame:
+    ds = _squeeze_extra_dims(ds)
+    tname = _tname(ds)
+    times = pd.to_datetime(ds[tname].values)
+    # GUARD: refuse daily data (would make heat_index_max a daily-mean bias)
+    if len(times) >= 2 and np.median(np.diff(times)).astype("timedelta64[h]") >= np.timedelta64(24, "h"):
+        raise ValueError(f"sub-daily data required; got daily spacing in this file "
+                         f"(vars={list(ds.data_vars)}) — out of scope for v2")
+    missing = [v for v in _REQUIRED_VARS if v not in ds.data_vars]
+    if missing:
+        raise ValueError(f"missing required vars {missing}; not a full surface file")
+
     laname, loname = _coord_names(ds)
     pt = ds.sel({laname: lat, loname: lon}, method="nearest")
     df = pd.DataFrame({
-        "time": pd.to_datetime(pt["time"].values),
-        "t2m_c": pt["t2m"].values - 273.15,
-        "d2m_c": pt["d2m"].values - 273.15,
-        "sp": pt["sp"].values,
-        "u10": pt["u10"].values,
-        "v10": pt["v10"].values,
+        "time": times,
+        "t2m_c": np.asarray(pt["t2m"].values) - 273.15,
+        "d2m_c": np.asarray(pt["d2m"].values) - 273.15,
+        "sp": np.asarray(pt["sp"].values),
+        "u10": np.asarray(pt["u10"].values),
+        "v10": np.asarray(pt["v10"].values),
     })
     df["rh"] = rh_from_dewpoint(df["t2m_c"], df["d2m_c"])
     df["heat_index"] = heat_index_c(df["t2m_c"], df["rh"])
@@ -360,9 +417,9 @@ def daily_from_hourly(ds: xr.Dataset, province_id: int, lat: float, lon: float) 
 
 
 def ingest_year(nc_path: str, provinces: pd.DataFrame) -> pd.DataFrame:
-    """All provinces for one ERA5 surface file -> stacked daily frame."""
+    """All provinces for one full (2016-2025) ERA5 surface file -> daily frame."""
     with xr.open_dataset(nc_path, engine="netcdf4") as ds:
-        frames = [daily_from_hourly(ds, int(p["id"]), float(p["lat"]), float(p["lon"]))
+        frames = [daily_from_subdaily(ds, int(p["id"]), float(p["lat"]), float(p["lon"]))
                   for _, p in provinces.iterrows()]
     return pd.concat(frames, ignore_index=True)
 ```
@@ -372,11 +429,11 @@ def ingest_year(nc_path: str, provinces: pd.DataFrame) -> pd.DataFrame:
 Run: `.\.venv\Scripts\python.exe -m pytest tests/test_era5_ingest.py -v`
 Expected: PASS.
 
-- [ ] **Step 5: Smoke test on a real file** (one downloaded year)
+- [ ] **Step 5: Smoke test on a real file** (a 2016+ full-variable year; 2000–2015 are daily/t2m-only and will correctly raise `ValueError`)
 ```bash
-.\.venv\Scripts\python.exe -c "from src.provinces import load_provinces; from src.era5_ingest import ingest_year; df=ingest_year('data/raw/era5/era5_surface_2003.nc', load_provinces()); print(df.shape); print(df.groupby('province_id').size().head())"
+.\.venv\Scripts\python.exe -c "from src.provinces import load_provinces; from src.era5_ingest import ingest_year; df=ingest_year('data/raw/era5/era5_surface_2020.nc', load_provinces()); print(df.shape); print(df.groupby('province_id').size().head())"
 ```
-Expected: ~77 provinces × ~365 days, columns include `t2m_c_max, rh_mean, heat_index_max, wind_speed_max, sp_mean`.
+Expected: ~77 provinces × ~366 days, columns include `t2m_c_max, rh_mean, heat_index_max, wind_speed_max, sp_mean`.
 
 - [ ] **Step 6: Commit**
 ```bash
@@ -685,8 +742,10 @@ def attach_climatology_label(df, mode="absolute", abs_threshold=41.0,
 
 def main(mode="absolute", abs_threshold=41.0):
     provinces = load_provinces()
-    years = sorted(int(f.split("_")[-1].split(".")[0])
+    # v2 scope: 2016-2025 only (earlier years are daily + t2m-only, no humidity).
+    years = sorted(y for y in (int(f.split("_")[-1].split(".")[0])
                    for f in os.listdir(RAW_ERA5) if f.startswith("era5_surface_"))
+                   if y >= 2016)
     frames = [ingest_year(os.path.join(RAW_ERA5, f"era5_surface_{y}.nc"), provinces)
               for y in years]
     daily = pd.concat(frames, ignore_index=True)
@@ -757,10 +816,12 @@ def test_era5_features_are_antecedent_and_not_leaky():
     cols = feature_columns(frame)
     # raw truth columns must NOT be features
     assert "heat_index_max" not in cols and "t2m_c_max" not in cols
-    # antecedent rolling forms + ndvi + wind must be present
+    # raw (current-month) NDVI is NOT knowable intra-month -> only completed-month lags
+    assert "ndvi" not in cols
+    # antecedent rolling forms + NDVI lags + wind must be present
     assert "heat_index_max_mean_7d" in cols
     assert "wind_speed_max_mean_7d" in cols
-    assert "ndvi" in cols
+    assert "ndvi_lag1" in cols and "ndvi_lag2" in cols
     assert {"heat_index_max", "t2m_c_max", "rh_mean"} <= LEAKY_COLS
 ```
 
@@ -784,9 +845,9 @@ LEAKY_COLS = frozenset(
      "is_hot", "heatwave"]
 )
 ```
-In `make_forecasting_frame`, after the static `p95`/`lat`/`lon`/`province_id` block (after line 75), add NDVI as antecedent static-per-row (known at origin):
+In `make_forecasting_frame`, after the static `p95`/`lat`/`lon`/`province_id` block (after line 75), add NDVI **lags only** as antecedent static-per-row. The raw current-month `ndvi` is excluded: MOD13A3 is a *monthly composite*, so the origin month's value isn't available intra-month — only completed months (`lag1`/`lag2`) are knowable at decision time.
 ```python
-    for ndvi_col in ("ndvi", "ndvi_lag1", "ndvi_lag2"):
+    for ndvi_col in ("ndvi_lag1", "ndvi_lag2"):  # NOT raw "ndvi" (intra-month leak)
         if ndvi_col in d.columns:
             ante[ndvi_col] = d[ndvi_col].to_numpy()
 ```
@@ -813,7 +874,7 @@ git commit -m "feat: leakage-safe ERA5/NDVI antecedent features in forecasting f
 - Create: `scripts/train_era5.py`
 - Test: `tests/test_train_era5.py`
 
-Train LightGBM (production model, `src.model.train` + isotonic calibration + F2 threshold from `src/calibration.py`) on the ERA5 frame with a **temporal** split (train 2000–2021 / val 2022–2023 / test 2024–2025), report `evaluation.heatwave_metrics.compute_metrics`, and run `evaluation.cv.rolling_origin_folds` for mean±std. Upsert to the leaderboard via `pipeline.leaderboard.upsert_model` under name `era5_lgbm` so it sits beside the current model — **never overwriting** the old row, so the clean-vs-old comparison is visible.
+Train LightGBM (production model, `src.model.train` + isotonic calibration + F2 threshold from `src/calibration.py`) on the ERA5 frame with a **temporal** split (train 2016–2021 / val 2022–2023 / test 2024–2025), report `evaluation.heatwave_metrics.compute_metrics`, and run `evaluation.cv.rolling_origin_folds` for mean±std. Upsert to the leaderboard via `pipeline.leaderboard.upsert_model` under name `era5_lgbm` so it sits beside the current model — **never overwriting** the old row, so the clean-vs-old comparison is visible.
 
 - [ ] **Step 1: Write the failing test**
 ```python
@@ -823,7 +884,7 @@ from scripts.train_era5 import year_split
 
 def test_year_split_is_temporal():
     df = pd.DataFrame({"origin_time": pd.to_datetime(
-        ["2001-06-01", "2022-06-01", "2024-06-01"])})
+        ["2017-06-01", "2022-06-01", "2024-06-01"])})
     tr, va, te = year_split(df)
     assert len(tr) == 1 and len(va) == 1 and len(te) == 1
     assert tr["origin_time"].dt.year.iloc[0] <= 2021
@@ -919,7 +980,9 @@ git commit -m "docs: ERA5+NDVI dataset is the canonical training source"
 
 ## Self-Review
 
-**Spec coverage:** Real-data sourcing (Task 0.2, 2.1) ✓; ERA5 hourly→daily-max label fix (1.2) ✓; NASA NDVI (2.1) ✓; leakage-safe forecasting frame (5.1) ✓; temporal split (6.1) ✓; label-after-profiling (Phase 3) ✓; 77 provinces (1.2/4.1 use full `load_provinces()`) ✓; reject backend methodology (Principles, 6.1 sanity gate) ✓; single source of truth (Phase 7) ✓.
+**Spec coverage:** Real-data sourcing (Task 0.2, 2.1) ✓; ERA5 6-hourly→daily-max label fix (1.2) ✓; NASA NDVI (2.1) ✓; leakage-safe forecasting frame (5.1) ✓; temporal split (6.1) ✓; label-after-profiling (Phase 3) ✓; 77 provinces (1.2/4.1 use full `load_provinces()`) ✓; reject backend methodology (Principles, 6.1 sanity gate) ✓; single source of truth (Phase 7) ✓.
+
+**Schema VERIFIED (not assumed):** opened `era5_surface_2003.nc` (daily, t2m+swvl1, `valid_time`) and `era5_surface_2020.nc` (6-hourly, full 5 vars, `valid_time`+`number`/`expver`). Plan scoped to 2016–2025 accordingly; ingestion handles `valid_time`, squeezes extra dims, and rejects daily files loudly (test `test_daily_file_is_rejected_loudly`). NDVI raw current-month dropped (intra-month leak) — lags only.
 
 **Placeholder scan:** No TBD/TODO; every code step has complete code; tests have real assertions.
 
