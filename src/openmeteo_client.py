@@ -1,31 +1,70 @@
 # src/openmeteo_client.py
-"""Open-Meteo client (no API key). History (ERA5) for training, forecast for inference.
+"""Open-Meteo client. History (ERA5) for training, forecast for inference.
 
-NOTE: For production accuracy, daily sWBGT_max should be computed from HOURLY data
-(hourly sWBGT then daily max). The daily aggregates here are a scaffold; verify the
-exact daily variable names against https://open-meteo.com/en/docs/historical-weather-api
+Fetches ONLY the variables the pipeline consumes (daily Tmax + mean RH → sWBGT),
+retries on HTTP 429 (free-tier rate limit), and optionally uses an API key
+(OPENMETEO_API_KEY env) to hit the higher-limit commercial endpoints.
+
+Free-tier limits are weighted by data volume (~600/min, 5000/hour, 10000/day),
+so wide multi-decade requests are "heavy" — callers should also throttle between
+locations (see pipeline.build_dataset).
 """
+import os
+import time
+
 import pandas as pd
 import requests
 
-ARCHIVE_URL = "https://archive-api.open-meteo.com/v1/archive"
-FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
+# Only the variables actually used downstream: sWBGT needs Tmax + mean RH.
+# (Fetching fewer variables also cuts the Open-Meteo request weight ~3x.)
+DAILY_VARS = ["temperature_2m_max", "relative_humidity_2m_mean"]
 
-DAILY_VARS = [
-    "temperature_2m_max",
-    "temperature_2m_min",
-    "temperature_2m_mean",
-    "relative_humidity_2m_mean",
-    "wind_speed_10m_max",
-    "shortwave_radiation_sum",
-]
+_FREE_ARCHIVE = "https://archive-api.open-meteo.com/v1/archive"
+_FREE_FORECAST = "https://api.open-meteo.com/v1/forecast"
+_PAID_ARCHIVE = "https://customer-archive-api.open-meteo.com/v1/archive"
+_PAID_FORECAST = "https://customer-api.open-meteo.com/v1/forecast"
+
+
+def _api_key():
+    return os.environ.get("OPENMETEO_API_KEY") or None
+
+
+def _archive_url() -> str:
+    return _PAID_ARCHIVE if _api_key() else _FREE_ARCHIVE
+
+
+def _forecast_url() -> str:
+    return _PAID_FORECAST if _api_key() else _FREE_FORECAST
 
 
 def _daily_to_df(payload: dict) -> pd.DataFrame:
-    daily = payload["daily"]
-    df = pd.DataFrame(daily)
+    if isinstance(payload, dict) and payload.get("error"):
+        raise RuntimeError(f"Open-Meteo error: {payload.get('reason')}")
+    df = pd.DataFrame(payload["daily"])
     df["time"] = pd.to_datetime(df["time"])
     return df
+
+
+def _get_json(url: str, params: dict, timeout: int = 60, max_retries: int = 6) -> dict:
+    """GET with retry on HTTP 429. Honors Retry-After; otherwise backs off in
+    ~minute steps since Open-Meteo's per-minute window resets each minute."""
+    key = _api_key()
+    if key:
+        params = {**params, "apikey": key}
+    last = None
+    for attempt in range(max_retries + 1):
+        r = requests.get(url, params=params, timeout=timeout)
+        if getattr(r, "status_code", None) == 429 and attempt < max_retries:
+            ra = r.headers.get("Retry-After") if hasattr(r, "headers") else None
+            wait = int(ra) if (ra and str(ra).isdigit()) else min(60 * (attempt + 1), 300)
+            time.sleep(wait)
+            last = r
+            continue
+        r.raise_for_status()
+        return r.json()
+    if last is not None:
+        last.raise_for_status()
+    raise RuntimeError("Open-Meteo: retries exhausted")
 
 
 def fetch_history(lat: float, lon: float, start: str, end: str) -> pd.DataFrame:
@@ -37,9 +76,7 @@ def fetch_history(lat: float, lon: float, start: str, end: str) -> pd.DataFrame:
         "daily": ",".join(DAILY_VARS),
         "timezone": "Asia/Bangkok",
     }
-    r = requests.get(ARCHIVE_URL, params=params, timeout=60)
-    r.raise_for_status()
-    return _daily_to_df(r.json())
+    return _daily_to_df(_get_json(_archive_url(), params))
 
 
 def fetch_forecast(lat: float, lon: float, days: int = 16) -> pd.DataFrame:
@@ -50,6 +87,4 @@ def fetch_forecast(lat: float, lon: float, days: int = 16) -> pd.DataFrame:
         "forecast_days": days,
         "timezone": "Asia/Bangkok",
     }
-    r = requests.get(FORECAST_URL, params=params, timeout=60)
-    r.raise_for_status()
-    return _daily_to_df(r.json())
+    return _daily_to_df(_get_json(_forecast_url(), params))

@@ -5,6 +5,8 @@ Real runs need `pip install pyarrow` for parquet output. Tests exercise
 `build_for_provinces` with mocked fetch and do not touch disk.
 """
 import os
+import time
+
 import pandas as pd
 
 from src import openmeteo_client
@@ -14,9 +16,14 @@ from src.labels import label_heatwave
 from src.provinces import load_provinces
 
 
-def build_for_provinces(provinces: pd.DataFrame, start: str, end: str):
+def build_for_provinces(provinces: pd.DataFrame, start: str, end: str,
+                        request_delay: float = 1.5):
+    """Fetch + label every province. ``request_delay`` seconds are slept between
+    Open-Meteo calls to respect free-tier rate limits (the client also retries
+    on HTTP 429)."""
     all_rows, all_thr = [], []
-    for _, p in provinces.iterrows():
+    n = len(provinces)
+    for i, (_, p) in enumerate(provinces.iterrows()):
         raw = openmeteo_client.fetch_history(p["lat"], p["lon"], start, end)
         raw["swbgt_max"] = swbgt(raw["temperature_2m_max"],
                                  raw["relative_humidity_2m_mean"])
@@ -27,18 +34,32 @@ def build_for_provinces(provinces: pd.DataFrame, start: str, end: str):
         thr["province_id"] = p["id"]
         all_rows.append(labeled)
         all_thr.append(thr)
+        if request_delay and i < n - 1:
+            time.sleep(request_delay)
     return (pd.concat(all_rows, ignore_index=True),
             pd.concat(all_thr, ignore_index=True))
 
 
 def main():
+    # Open-Meteo free tier is volume-limited (~10k weighted calls/day). The
+    # default range fits comfortably; the climatology auto-uses whatever years
+    # are fetched. For the full WMO 30-yr baseline (1991-2020), set an
+    # OPENMETEO_API_KEY (paid) and OPENMETEO_START_YEAR=1991.
+    start_year = int(os.environ.get("OPENMETEO_START_YEAR", "2010"))
+    end_year = int(os.environ.get("OPENMETEO_END_YEAR", "2025"))
+    delay = float(os.environ.get("OPENMETEO_REQUEST_DELAY", "3.0"))
+
     provinces = load_provinces("data/provinces.csv")
-    ds, thr = build_for_provinces(provinces, "1991-01-01", "2025-12-31")
+    print(f"Fetching {len(provinces)} provinces, {start_year}-{end_year}, "
+          f"delay={delay}s, api_key={'yes' if os.environ.get('OPENMETEO_API_KEY') else 'no'} ...")
+    ds, thr = build_for_provinces(
+        provinces, f"{start_year}-01-01", f"{end_year}-12-31", request_delay=delay)
+
     os.makedirs("data/processed", exist_ok=True)
     ds.to_parquet("data/processed/dataset.parquet", index=False)
     thr.to_parquet("data/processed/province_thresholds.parquet", index=False)
     print(f"dataset rows={len(ds)} provinces={ds['province_id'].nunique()} "
-          f"heatwave_rate={ds['heatwave'].mean():.4f}")
+          f"years={start_year}-{end_year} heatwave_rate={ds['heatwave'].mean():.4f}")
 
 
 if __name__ == "__main__":
