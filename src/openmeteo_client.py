@@ -23,6 +23,7 @@ DAILY_VARS = [
     "relative_humidity_2m_mean",
     "soil_moisture_0_to_7cm_mean",
     "soil_moisture_7_to_28cm_mean",
+    "soil_moisture_28_to_100cm_mean",
     "soil_temperature_0_to_7cm_mean",
     "precipitation_sum",
     "et0_fao_evapotranspiration",

@@ -28,6 +28,7 @@ def _synth_dataset(seed=0):
             # research-backed driver columns + ENSO
             "soil_moisture_0_to_7cm_mean": np.clip(0.30 + rng.normal(0, 0.05, n), 0, 1),
             "soil_moisture_7_to_28cm_mean": np.clip(0.35 + rng.normal(0, 0.04, n), 0, 1),
+            "soil_moisture_28_to_100cm_mean": np.clip(0.38 + rng.normal(0, 0.03, n), 0, 1),
             "soil_temperature_0_to_7cm_mean": tmax - 2 + rng.normal(0, 1, n),
             "precipitation_sum": np.clip(rng.normal(2, 5, n), 0, None),
             "et0_fao_evapotranspiration": np.clip(4 + rng.normal(0, 1, n), 0, None),
@@ -35,6 +36,7 @@ def _synth_dataset(seed=0):
             "shortwave_radiation_sum": np.clip(20 + rng.normal(0, 3, n), 0, None),
             "wind_speed_10m_max": np.clip(10 + rng.normal(0, 3, n), 0, None),
             "nino34": np.sin(np.arange(n) / 365.0),
+            "ndvi": np.clip(0.5 + 0.1 * np.sin(np.arange(n) / 60.0), 0, 1),
         }))
     return pd.concat(parts, ignore_index=True)
 

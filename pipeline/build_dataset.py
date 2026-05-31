@@ -64,6 +64,19 @@ def main():
     except Exception as exc:
         print(f"WARNING: ENSO attach skipped ({exc}); nino34 feature absent")
 
+    # vegetation predictor (NDVI from Google Earth Engine) — attached if cached
+    try:
+        from src.gee_ndvi import load_ndvi, attach_ndvi
+        ndvi = load_ndvi()
+        if ndvi is not None and len(ndvi):
+            ds = attach_ndvi(ds, ndvi)
+            print(f"attached NDVI ({len(ndvi)} province-months)")
+        else:
+            print("NDVI cache not found; run `python -m pipeline.build_ndvi` "
+                  "(needs GEE auth) to add the NDVI feature")
+    except Exception as exc:
+        print(f"WARNING: NDVI attach skipped ({exc}); ndvi feature absent")
+
     # data-quality: report any column with >1% missing values
     na = ds.isna().mean()
     bad = {c: round(float(v), 4) for c, v in na.items() if v > 0.01}

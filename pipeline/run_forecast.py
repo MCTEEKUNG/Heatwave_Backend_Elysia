@@ -155,7 +155,8 @@ def _bangkok_today():
     return (datetime.now(timezone.utc) + timedelta(hours=7)).date()
 
 
-def _real_frame_builder(end, history_days, forecast_days, thresholds=None, enso=None):
+def _real_frame_builder(end, history_days, forecast_days, thresholds=None,
+                        enso=None, ndvi=None):
     """Build the real Open-Meteo-backed per-province frame builder for ``main``.
 
     ``end`` is the Bangkok-local 'today' (the origin day); history covers
@@ -181,6 +182,9 @@ def _real_frame_builder(end, history_days, forecast_days, thresholds=None, enso=
             daily = d.drop(columns=["doy"])
         if enso is not None:
             daily = attach_nino34(daily, enso)
+        if ndvi is not None:
+            from src.gee_ndvi import attach_ndvi
+            daily = attach_ndvi(daily, ndvi)
         return daily
 
     return builder
@@ -214,6 +218,13 @@ def main():
     except Exception as exc:
         print(f"WARNING: ENSO not available ({exc}); nino34 feature absent")
 
+    ndvi = None
+    try:
+        from src.gee_ndvi import load_ndvi
+        ndvi = load_ndvi()
+    except Exception:
+        ndvi = None
+
     horizons = range(1, 8)
     generated_at = datetime.now(timezone.utc)   # real UTC stamp for the DB column
     origin = _bangkok_today()                   # origin aligned to Open-Meteo TZ
@@ -223,7 +234,7 @@ def main():
     forecast_days = max(horizons) + 1
     builder = _real_frame_builder(origin, history_days=45,
                                   forecast_days=forecast_days,
-                                  thresholds=thresholds, enso=enso)
+                                  thresholds=thresholds, enso=enso, ndvi=ndvi)
     rows = build_forecast_rows(provinces, model, generated_at,
                                history_days=45, horizons=horizons,
                                frame_builder=builder, origin_date=origin)

@@ -22,6 +22,7 @@ _CORE_WINDOWS = (3, 7, 14, 30)
 # feature set (lag-1 + 7/30-day means) adds signal without exploding dimensions.
 _DRIVER_COLS = [
     "soil_moisture_0_to_7cm_mean", "soil_moisture_7_to_28cm_mean",
+    "soil_moisture_28_to_100cm_mean",  # root-zone (slow, lagged control)
     "soil_temperature_0_to_7cm_mean", "precipitation_sum",
     "et0_fao_evapotranspiration", "surface_pressure_mean",
     "shortwave_radiation_sum", "wind_speed_10m_max",
@@ -91,9 +92,11 @@ def make_forecasting_frame(df_one_province: pd.DataFrame,
         if static_col in d.columns:
             ante[static_col] = d[static_col].to_numpy()
 
-    # --- teleconnection: previous-month Nino-3.4 (already lagged, known at t) ---
+    # --- teleconnection + vegetation (already lagged to the previous month) ---
     if "nino34" in d.columns:
         ante["nino34"] = d["nino34"].to_numpy()
+    if "ndvi" in d.columns:
+        ante["ndvi"] = d["ndvi"].to_numpy()
 
     feature_cols = list(ante.columns)
 
