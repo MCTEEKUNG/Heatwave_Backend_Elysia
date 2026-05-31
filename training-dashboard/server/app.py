@@ -229,6 +229,7 @@ async def gefs_start(body: Optional[dict] = None) -> dict:
         creationflags=creationflags,
         start_new_session=not sys.platform.startswith("win"),
     )
+    logf.close()
     with open(GEFS_PID_FILE, "w") as f:
         f.write(str(proc.pid))
     return {"pid": proc.pid, "years": years}

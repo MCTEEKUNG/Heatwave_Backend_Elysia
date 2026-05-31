@@ -61,7 +61,8 @@ class StageJob:
             argv, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
             text=True, bufsize=1, env={**os.environ, "PYTHONUNBUFFERED": "1"},
         )
-        assert self._proc.stdout is not None
+        if self._proc.stdout is None:
+            raise RuntimeError("subprocess produced no stdout pipe")
         yield from self._proc.stdout
 
     def run(self, config: dict, progress_cb, should_stop,

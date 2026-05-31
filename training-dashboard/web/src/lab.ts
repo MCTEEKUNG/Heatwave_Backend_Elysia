@@ -12,13 +12,13 @@ export interface GefsStatus {
 
 export interface P0Run {
   ts: number
-  origin_years: number[]
-  matched_rows: number
-  pos_rate: number
   a_roc: number
-  b_roc: number
-  a_lift: number
-  b_lift: number
+  origin_years?: number[]
+  matched_rows?: number
+  pos_rate?: number
+  b_roc?: number
+  a_lift?: number
+  b_lift?: number
 }
 
 export function gefsPercent(s: GefsStatus): number {

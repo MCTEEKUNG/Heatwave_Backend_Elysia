@@ -28,7 +28,7 @@ export default function LabPanel({ connected }: { connected: boolean }) {
   }, [])
 
   const latest = runs.length ? runs[runs.length - 1] : undefined
-  const gate = latest ? p0Gate(latest.a_roc, latest.b_roc) : null
+  const gate = latest ? p0Gate(latest.a_roc, latest.b_roc ?? latest.a_roc) : null
 
   return (
     <div className="lab">
@@ -68,13 +68,13 @@ export default function LabPanel({ connected }: { connected: boolean }) {
             <table className="lab-table">
               <thead><tr><th>model</th><th>ROC</th><th>PR-AUC lift</th></tr></thead>
               <tbody>
-                <tr><td>A antecedent</td><td>{latest.a_roc.toFixed(3)}</td><td>{latest.a_lift.toFixed(2)}×</td></tr>
-                <tr><td>B + GEFS forecast</td><td>{latest.b_roc.toFixed(3)}</td><td>{latest.b_lift.toFixed(2)}×</td></tr>
+                <tr><td>A antecedent</td><td>{latest.a_roc.toFixed(3)}</td><td>{latest.a_lift?.toFixed(2) ?? '—'}×</td></tr>
+                <tr><td>B + GEFS forecast</td><td>{latest.b_roc?.toFixed(3) ?? '—'}</td><td>{latest.b_lift?.toFixed(2) ?? '—'}×</td></tr>
               </tbody>
             </table>
             <div className={`lab-gate gate-${gate.tone}`}>{gate.text}</div>
             <p className="lab-meta">matched {latest.matched_rows?.toLocaleString?.() ?? '—'} rows ·
-              years {latest.origin_years?.join(', ')} · pos {(latest.pos_rate * 100).toFixed(1)}%</p>
+              years {latest.origin_years?.join(', ') ?? '—'} · pos {latest.pos_rate != null ? (latest.pos_rate * 100).toFixed(1) : '—'}%</p>
           </>
         ) : <p className="subtitle">No P0 run yet — click "Run P0".</p>}
       </section>
