@@ -1,0 +1,225 @@
+/* ForecastPanel.css — Forecast tab styles */
+
+/* ── Layout ─────────────────────────────────────────────────────────────── */
+
+.forecast-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem;
+  color: #0b0a0d;
+}
+
+/* ── Controls bar ────────────────────────────────────────────────────────── */
+
+.forecast-controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.forecast-controls label {
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.forecast-lead-select {
+  padding: 0.3rem 0.6rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: var(--paper, #f1ece3);
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.forecast-meta {
+  font-size: 0.78rem;
+  color: #666;
+  margin-left: auto;
+}
+
+/* ── Banners ─────────────────────────────────────────────────────────────── */
+
+.forecast-banner {
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.forecast-banner--warning {
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  color: #856404;
+}
+
+.forecast-banner--error {
+  background: #fdecea;
+  border: 1px solid #f44336;
+  color: #c62828;
+}
+
+.forecast-banner--info {
+  background: #e3f2fd;
+  border: 1px solid #2196f3;
+  color: #0d47a1;
+}
+
+/* ── Loading ─────────────────────────────────────────────────────────────── */
+
+.forecast-loading {
+  font-size: 0.9rem;
+  color: #666;
+  padding: 0.5rem 0;
+}
+
+/* ── Main area: grid + detail side-by-side ───────────────────────────────── */
+
+.forecast-body {
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+/* ── Province grid ───────────────────────────────────────────────────────── */
+
+.forecast-grid {
+  flex: 1;
+  min-width: 0;
+}
+
+.forecast-region-group {
+  margin-bottom: 1.25rem;
+}
+
+.forecast-region-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #555;
+  margin: 0 0 0.4rem;
+  border-bottom: 1px solid #ddd;
+  padding-bottom: 0.2rem;
+}
+
+.forecast-cells {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.forecast-cell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 80px;
+  height: 42px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.62rem;
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.2;
+  padding: 2px 4px;
+  color: #fff;
+  transition: transform 0.1s, box-shadow 0.1s;
+  border: 2px solid transparent;
+  word-break: break-word;
+  user-select: none;
+}
+
+.forecast-cell:hover {
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+}
+
+.forecast-cell--selected {
+  border-color: #0b0a0d;
+  box-shadow: 0 0 0 2px #ff6a3d;
+}
+
+/* ── Detail panel ────────────────────────────────────────────────────────── */
+
+.forecast-detail {
+  width: 260px;
+  flex-shrink: 0;
+  background: var(--paper, #f1ece3);
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.forecast-detail h3 {
+  margin: 0 0 0.75rem;
+  font-size: 0.95rem;
+  color: #0b0a0d;
+}
+
+.forecast-detail-empty {
+  font-size: 0.82rem;
+  color: #888;
+}
+
+.forecast-detail-loading {
+  font-size: 0.82rem;
+  color: #666;
+}
+
+.forecast-series {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.forecast-series-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.forecast-series-label {
+  font-size: 0.72rem;
+  color: #555;
+  display: flex;
+  justify-content: space-between;
+}
+
+.forecast-series-bar-track {
+  height: 10px;
+  background: #e0e0e0;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.forecast-series-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+/* ── Legend ──────────────────────────────────────────────────────────────── */
+
+.forecast-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  font-size: 0.75rem;
+  align-items: center;
+}
+
+.forecast-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.forecast-legend-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  display: inline-block;
+  flex-shrink: 0;
+}

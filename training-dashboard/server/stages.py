@@ -118,6 +118,12 @@ def read_p0_runs() -> list[dict]:
     return out
 
 
+def parse_last_line(lines: list[str]) -> dict:
+    """Return the last non-empty stdout line as ``{"summary": ...}``."""
+    nonempty = [ln.strip() for ln in lines if ln.strip()]
+    return {"summary": nonempty[-1]} if nonempty else {}
+
+
 STAGE_REGISTRY: dict[str, StageSpec] = {
     "train_p0": StageSpec(
         name="train_p0",
@@ -125,6 +131,12 @@ STAGE_REGISTRY: dict[str, StageSpec] = {
         progress_regex=None,
         summary_parser=parse_p0_summary,
         on_complete=append_p0_run,
+    ),
+    "build_dataset": StageSpec(
+        name="build_dataset",
+        argv=[sys.executable, "-u", "-m", "pipeline.build_dataset"],
+        progress_regex=None,
+        summary_parser=parse_last_line,
     ),
 }
 

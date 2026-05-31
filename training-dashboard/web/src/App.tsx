@@ -12,7 +12,9 @@ import {
 import TabBar, { type TabKey } from './components/TabBar'
 import TrainTab from './tabs/TrainTab'
 import LabPanel from './tabs/LabPanel'
-import StubTab from './tabs/StubTab'
+import PipelinePanel from './tabs/PipelinePanel'
+import ForecastPanel from './tabs/ForecastPanel'
+import OpsPanel from './tabs/OpsPanel'
 import Toast, { type ToastMessage } from './components/Toast'
 
 type Action =
@@ -49,12 +51,15 @@ export default function App() {
     client.connect()
     const runP0 = () => client.startStage('train_p0')
     window.addEventListener('lab-run-p0', runP0)
+    const runStage = (e: Event) => client.startStage((e as CustomEvent).detail.name)
+    window.addEventListener('cockpit-run-stage', runStage)
     return () => {
       offEvent()
       offConn()
       client.close()
       clientRef.current = null
       window.removeEventListener('lab-run-p0', runP0)
+      window.removeEventListener('cockpit-run-stage', runStage)
     }
   }, [])
 
@@ -122,9 +127,9 @@ export default function App() {
         />
       )}
       {tab === 'lab' && <LabPanel connected={connected} />}
-      {tab === 'pipeline' && <StubTab title="Pipeline" />}
-      {tab === 'forecast' && <StubTab title="Forecast" />}
-      {tab === 'ops' && <StubTab title="Ops" />}
+      {tab === 'pipeline' && <PipelinePanel connected={connected} />}
+      {tab === 'forecast' && <ForecastPanel />}
+      {tab === 'ops' && <OpsPanel connected={connected} />}
 
       <Toast message={toast} />
     </div>

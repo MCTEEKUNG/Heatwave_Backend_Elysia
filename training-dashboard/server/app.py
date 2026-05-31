@@ -23,6 +23,7 @@ from fastapi.responses import FileResponse
 from pipeline.run_log import read_runs
 
 from . import protocol
+from . import pipeline_api, forecast_api, ops_api
 from .gefs_status import gefs_status
 from .runner import Runner
 from .stages import read_p0_runs
@@ -37,6 +38,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Cockpit tab routers (Pipeline / Forecast / Ops), one APIRouter per tab module.
+app.include_router(pipeline_api.router)
+app.include_router(forecast_api.router)
+app.include_router(ops_api.router)
 
 
 class ConnectionManager:

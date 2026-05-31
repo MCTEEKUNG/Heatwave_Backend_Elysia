@@ -1,0 +1,295 @@
+/* OpsPanel — Heatwave Cockpit Ops tab */
+
+.ops {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+/* ── Section headings ─────────────────────────────────────────────────────── */
+.ops-section-title {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  color: var(--muted, #8a8070);
+  margin: 0 0 12px;
+}
+
+/* ── Production banner ────────────────────────────────────────────────────── */
+.ops-prod-banner {
+  background: linear-gradient(135deg,
+    color-mix(in srgb, #ff6a3d 12%, var(--panel, #1e1b16)),
+    color-mix(in srgb, #ffc24b 6%, var(--panel, #1e1b16))
+  );
+  border: 1px solid color-mix(in srgb, #ff6a3d 35%, var(--border, #33291f));
+  border-radius: 8px;
+  padding: 14px 16px;
+}
+
+.ops-prod-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.ops-prod-name {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #ffc24b;
+  font-family: var(--font-mono, monospace);
+}
+
+.ops-prod-meta {
+  font-size: 0.78rem;
+  color: var(--muted, #8a8070);
+  margin: 4px 0 0;
+}
+
+.ops-prod-metrics {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.ops-prod-metric {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.ops-metric-label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--muted, #8a8070);
+  line-height: 1.2;
+}
+
+.ops-metric-value {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text, #f1ece3);
+  line-height: 1.3;
+}
+
+.ops-metric-value.ops-metric-hot {
+  color: #ff6a3d;
+}
+
+/* ── Model cards grid ─────────────────────────────────────────────────────── */
+.ops-model-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.ops-model-card {
+  background: var(--panel, #1e1b16);
+  border: 1px solid var(--border, #33291f);
+  border-radius: 8px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ops-model-card:hover {
+  border-color: color-mix(in srgb, #ff6a3d 50%, var(--border, #33291f));
+}
+
+.ops-model-card.ops-model-missing {
+  opacity: 0.55;
+}
+
+.ops-model-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ops-model-name {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text, #f1ece3);
+}
+
+.ops-model-size {
+  font-size: 0.72rem;
+  color: var(--muted, #8a8070);
+  white-space: nowrap;
+}
+
+.ops-model-metrics {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+/* ── Promote inline confirm ───────────────────────────────────────────────── */
+.ops-promote-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.ops-confirm-input {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 8px;
+  font-size: 0.8rem;
+  font-family: var(--font-mono, monospace);
+  border: 1px solid var(--border, #33291f);
+  border-radius: 5px;
+  background: var(--bg-2, #0b0a0d);
+  color: var(--text, #f1ece3);
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.ops-confirm-input:focus {
+  border-color: #ffc24b;
+}
+
+.ops-confirm-input:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.ops-confirm-input::placeholder {
+  color: var(--muted, #8a8070);
+  opacity: 0.6;
+}
+
+.btn-promote {
+  padding: 4px 14px;
+  font-size: 0.82rem;
+  background: #ff6a3d;
+  border: 1px solid #ff6a3d;
+  border-radius: 5px;
+  color: #18080280;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.06s ease;
+}
+
+.btn-promote:not(:disabled):hover {
+  background: #ff7f58;
+  box-shadow: 0 0 0 1px #ff6a3d, 0 6px 20px -8px #ff6a3d;
+}
+
+.btn-promote:not(:disabled):active {
+  transform: translateY(1px);
+}
+
+.btn-promote:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.btn-promote-dark {
+  color: #1a0a04;
+}
+
+/* ── Success / error notices ─────────────────────────────────────────────── */
+.ops-notice {
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+}
+
+.ops-notice-success {
+  background: color-mix(in srgb, #5ad18a 15%, var(--panel, #1e1b16));
+  border: 1px solid color-mix(in srgb, #5ad18a 40%, var(--border, #33291f));
+  color: #5ad18a;
+}
+
+.ops-notice-error {
+  background: color-mix(in srgb, #e55454 12%, var(--panel, #1e1b16));
+  border: 1px solid color-mix(in srgb, #e55454 35%, var(--border, #33291f));
+  color: #e55454;
+}
+
+/* ── Loading / empty ─────────────────────────────────────────────────────── */
+.ops-loading,
+.ops-empty {
+  font-size: 0.85rem;
+  color: var(--muted, #8a8070);
+  padding: 8px 0;
+}
+
+.ops-missing-badge {
+  font-size: 0.7rem;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: color-mix(in srgb, #e55454 18%, transparent);
+  color: #e55454;
+  border: 1px solid color-mix(in srgb, #e55454 35%, transparent);
+}
+
+/* ── Runs table ──────────────────────────────────────────────────────────── */
+.ops-runs-wrap {
+  overflow-x: auto;
+  border-radius: 6px;
+  border: 1px solid var(--border, #33291f);
+}
+
+.ops-runs-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.ops-runs-table th {
+  text-align: left;
+  padding: 7px 10px;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--muted, #8a8070);
+  background: var(--bg-2, #0b0a0d);
+  border-bottom: 1px solid var(--border, #33291f);
+  white-space: nowrap;
+}
+
+.ops-runs-table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border, #33291f) 50%, transparent);
+  font-family: var(--font-mono, monospace);
+  color: var(--text, #f1ece3);
+  white-space: nowrap;
+}
+
+.ops-runs-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.ops-runs-table tbody tr:hover td {
+  background: color-mix(in srgb, #ff6a3d 4%, transparent);
+}
+
+.ops-run-ts {
+  color: var(--muted, #8a8070);
+  font-size: 0.74rem;
+}
+
+.ops-run-trainer {
+  color: #ffc24b;
+}
+
+.ops-run-metric {
+  color: #5ad18a;
+}
+
+.ops-run-metric-na {
+  color: var(--muted, #8a8070);
+  opacity: 0.5;
+}
