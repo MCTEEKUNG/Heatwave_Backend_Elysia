@@ -60,25 +60,50 @@ function normalize(s: string): string {
   return s.trim().toLowerCase().replace(/\s+/g, "");
 }
 
-/** Find a province whose Thai or English name matches the text (loose). */
+const MIN_PREFIX_LEN = 3;
+
+/**
+ * Find the province a user means from free text. Conservative on purpose: a
+ * wrong match silently shows the wrong province's forecast, so we prefer "no
+ * match" (ask the user to clarify) over a risky guess.
+ *
+ * Order: (1) exact normalized name; (2) the query CONTAINS a full province name
+ * (anchored on the name, e.g. "จังหวัดเชียงใหม่" / "chiang mai province");
+ * (3) prefix match, but ONLY for queries ≥ 3 chars and ONLY when exactly one
+ * province name starts with the query (ambiguous prefixes → null). The old
+ * `name.includes(query)` direction is dropped — a short substring could match
+ * the wrong province.
+ */
 export function matchProvinceByName(
   text: string,
   provinces: ProvinceRow[]
 ): ProvinceRow | null {
   const q = normalize(text);
   if (!q) return null;
-  // Exact (normalized) match first.
+
+  // 1) exact normalized match
   for (const p of provinces) {
     if (normalize(p.name_th) === q || normalize(p.name_en) === q) return p;
   }
-  // Then containment either direction (e.g. "จังหวัดเชียงใหม่" / "chiang mai province").
+
+  // 2) query contains a full province name (the name is the anchor → safe)
   for (const p of provinces) {
     const th = normalize(p.name_th);
     const en = normalize(p.name_en);
-    if (q.includes(th) || th.includes(q) || q.includes(en) || en.includes(q)) {
+    if ((th.length >= MIN_PREFIX_LEN && q.includes(th)) ||
+        (en.length >= MIN_PREFIX_LEN && q.includes(en))) {
       return p;
     }
   }
+
+  // 3) unambiguous prefix match (≥3 chars, exactly one hit)
+  if (q.length >= MIN_PREFIX_LEN) {
+    const hits = provinces.filter((p) =>
+      normalize(p.name_th).startsWith(q) || normalize(p.name_en).startsWith(q)
+    );
+    if (hits.length === 1) return hits[0];
+  }
+
   return null;
 }
 

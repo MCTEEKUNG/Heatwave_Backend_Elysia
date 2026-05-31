@@ -68,7 +68,7 @@ def _province_daily_frame(province, history_df, forecast_df):
 def build_forecast_rows(provinces, model, generated_at,
                         history_days=40, horizons=range(1, 8),
                         frame_builder=None, model_version=DEFAULT_MODEL_VERSION,
-                        label_threshold=LABEL_THRESHOLD, origin_date=None):
+                        label_threshold=None, origin_date=None):
     """Return a list of forecast row dicts. Pure: no network, no DB.
 
     Parameters
@@ -86,6 +86,11 @@ def build_forecast_rows(provinces, model, generated_at,
         supply synthetic data with no network. ``main`` wires the real fetch.
     """
     horizons = list(horizons)
+    # Use the model's tuned (F2-calibrated) threshold for predicted_label when the
+    # caller doesn't override it. CalibratedModel carries `.threshold`; fall back
+    # to 0.5 for a bare classifier. risk_level is independent (prob_to_risk bands).
+    if label_threshold is None:
+        label_threshold = float(getattr(model, "threshold", LABEL_THRESHOLD))
     if origin_date is None:
         origin_date = generated_at.date() if isinstance(generated_at, datetime) \
             else generated_at

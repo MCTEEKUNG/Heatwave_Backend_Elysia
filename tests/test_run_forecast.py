@@ -160,6 +160,33 @@ def test_feature_matrix_has_no_leaky_columns():
         assert leaky not in feats
 
 
+class StubModelWithThreshold(StubModel):
+    """Stub carrying a tuned decision threshold, like CalibratedModel."""
+    threshold = 0.25
+
+
+def test_predicted_label_uses_model_threshold():
+    """predicted_label should use the model's tuned threshold, not a hardcoded 0.5."""
+    provinces = _provinces(1)
+    gen_at = datetime(2025, 6, 1, 6, 0, tzinfo=timezone.utc)
+    rows = build_forecast_rows(provinces, StubModelWithThreshold(), gen_at,
+                               frame_builder=_builder_factory())
+    for r in rows:
+        assert r["predicted_label"] == (r["probability"] >= 0.25)
+    labels = [r["predicted_label"] for r in rows]
+    # rising stub probs (0.05..0.65) straddle 0.25 → some True, some False
+    assert any(labels) and not all(labels)
+
+
+def test_explicit_label_threshold_overrides_model():
+    provinces = _provinces(1)
+    gen_at = datetime(2025, 6, 1, 6, 0, tzinfo=timezone.utc)
+    rows = build_forecast_rows(provinces, StubModelWithThreshold(), gen_at,
+                               frame_builder=_builder_factory(), label_threshold=0.6)
+    for r in rows:
+        assert r["predicted_label"] == (r["probability"] >= 0.6)
+
+
 def test_requires_frame_builder():
     with pytest.raises(ValueError):
         build_forecast_rows(_provinces(1), StubModel(),

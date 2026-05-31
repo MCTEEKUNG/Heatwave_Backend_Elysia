@@ -28,16 +28,53 @@ export interface LatestForecastResponse {
   error?: string;
 }
 
-export function runForecast(
-  model: string,
-  days: number = 7,   // max 16 (Open-Meteo real-data limit)
-): Promise<ForecastResponse> {
-  return api.post<ForecastResponse>('/api/forecast', { model, days });
+/**
+ * Default province (Bangkok, id 1) for the legacy whole-app forecast/alerts
+ * screens, which predate the per-province selector. These adapters keep those
+ * screens working while the np.random spawn-Python backend endpoints
+ * (POST /api/forecast, /api/forecast/latest) are retired — data now comes from
+ * the real per-province forecast in the DB (GET /api/forecast/province/:id).
+ */
+const DEFAULT_PROVINCE_ID = 1;
+
+function toLegacyForecastDays(rows: ProvinceForecastDay[]): ForecastDay[] {
+  return rows.map((r) => {
+    const isHeatwave =
+      typeof r.predicted_label === 'boolean'
+        ? r.predicted_label
+        : Number(r.predicted_label) > 0;
+    const swbgt = Number(r.swbgt_pred);
+    return {
+      date: r.target_date,
+      predicted_heatwave: isHeatwave ? 1 : 0,
+      heatwave_probability: Number(r.probability),
+      forecast_cycle: 1,
+      temperature_c: swbgt, // sWBGT (°C) reused for the legacy temperature field
+      humidity_pct: 0,
+      heat_index_c: swbgt,
+      data_source: 'model',
+      forecast_generated: r.generated_at,
+    };
+  });
 }
 
-export function getLatestForecast(): Promise<LatestForecastResponse> {
-  // 45s timeout — Render free tier can take 30s+ to wake from sleep
-  return api.get<LatestForecastResponse>('/api/forecast/latest', { timeoutMs: 45_000 });
+export async function getLatestForecast(): Promise<LatestForecastResponse> {
+  const rows = await getProvinceForecast(DEFAULT_PROVINCE_ID, 7);
+  const forecast = toLegacyForecastDays(rows);
+  return { forecast, totalDays: forecast.length };
+}
+
+/**
+ * Forecast generation is now a scheduled server-side job over real Open-Meteo
+ * data; the client just reads the latest stored forecast. Kept for API
+ * compatibility with the legacy ForecastScreen "generate" button.
+ */
+export async function runForecast(
+  _model: string,
+  _days: number = 7,
+): Promise<ForecastResponse> {
+  const latest = await getLatestForecast();
+  return { success: true, forecast: latest.forecast, totalDays: latest.totalDays };
 }
 
 // ─── Per-province forecast (spec §7 / Phase 5) ────────────────────────────────

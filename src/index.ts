@@ -1,8 +1,7 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
 import { cors } from "@elysiajs/cors";
-import { spawn } from "child_process";
-import { readFileSync, writeFileSync, existsSync, unlinkSync, readdirSync, mkdirSync } from "fs";
-import { join, dirname } from "path";
+import { readFileSync, existsSync, readdirSync } from "fs";
+import { join } from "path";
 import {
   getProvinces,
   getProvinceForecast,
@@ -24,57 +23,7 @@ const corsOrigin: string[] | boolean =
   ALLOWED_ORIGINS.length > 0 ? ALLOWED_ORIGINS : ["http://localhost:3000"];
 
 const BACKEND_ROOT = join(__dirname, "..");
-const TRAIN_DIR = BACKEND_ROOT;
-const MODELS_DIR = join(BACKEND_ROOT, "models");
 const RESULTS_DIR = join(BACKEND_ROOT, "experiments", "results");
-const FORECASTS_DIR = join(BACKEND_ROOT, "experiments", "forecasts");
-const CONFIG_PATH = join(BACKEND_ROOT, "config.yaml");
-
-interface PredictionRequest {
-  model: string;
-  inputData: string;
-  includeProba?: boolean;
-}
-
-interface PredictionResult {
-  success: boolean;
-  predictions: Record<string, string>[];
-  model: string;
-  log?: string;
-  error?: string;
-}
-
-function runPythonScript(script: string, args: string[]): Promise<{ stdout: string; stderr: string }> {
-  return new Promise((resolve, reject) => {
-    const pythonCmd = process.platform === "win32" ? "python" : "python3";
-    const python = spawn(pythonCmd, [script, ...args], {
-      cwd: TRAIN_DIR
-    });
-
-    let stdout = "";
-    let stderr = "";
-
-    python.stdout.on("data", (data) => {
-      stdout += data.toString();
-    });
-
-    python.stderr.on("data", (data) => {
-      stderr += data.toString();
-    });
-
-    python.on("close", (code) => {
-      if (code === 0) {
-        resolve({ stdout, stderr });
-      } else {
-        reject(new Error(`Python script exited with code ${code}: ${stderr}`));
-      }
-    });
-
-    python.on("error", (err) => {
-      reject(err);
-    });
-  });
-}
 
 function readJsonFile(filePath: string): any {
   if (!existsSync(filePath)) return null;
@@ -150,172 +99,13 @@ export const app = new Elysia()
     return result;
   })
 
-  .get("/api/predict/models", () => ({
-    availableModels: ["balanced_rf"]
-  }))
-
-  .get("/api/predict/status", async () => {
-    try {
-      const configPath = join(TRAIN_DIR, "config", "config.yaml");
-      if (!existsSync(configPath)) {
-        return { available: false, message: "Configuration not found" };
-      }
-
-      const modelsDir = join(TRAIN_DIR, "experiments", "models");
-      if (!existsSync(modelsDir)) {
-        return { available: false, message: "Models directory not found" };
-      }
-
-      const models = readdirSync(modelsDir).filter(f => f.endsWith(".pkl"));
-      return {
-        available: true,
-        trainedModels: models
-      };
-    } catch (error: any) {
-      return { available: false, message: error.message };
-    }
-  })
-
-  .post("/api/predict", async ({ body }) => {
-    const { model = "balanced_rf", inputData, includeProba = false } = body as PredictionRequest;
-    const inputPath = join(TRAIN_DIR, "temp_input.csv");
-    const outputPath = join(TRAIN_DIR, "temp_output.csv");
-
-    try {
-      writeFileSync(inputPath, inputData);
-
-      const args = [
-        "--model", model,
-        "--input", inputPath,
-        "--output", outputPath,
-        "--config", join(TRAIN_DIR, "config", "config.yaml")
-      ];
-
-      if (includeProba) {
-        args.push("--proba");
-      }
-
-      await runPythonScript(join(TRAIN_DIR, "prediction", "predict.py"), args);
-
-      const output = readFileSync(outputPath, "utf-8");
-      const lines = output.trim().split("\n");
-      const headers = lines[0].split(",").map(h => h.trim());
-      const predictions = lines.slice(1).map(line => {
-        const values = line.split(",");
-        return headers.reduce((obj, header, i) => {
-          obj[header] = values[i]?.trim() || "";
-          return obj;
-        }, {} as Record<string, string>);
-      });
-
-      return {
-        success: true,
-        predictions,
-        model
-      } as PredictionResult;
-    } catch (error: any) {
-      return {
-        success: false,
-        predictions: [],
-        model,
-        error: error.message
-      } as PredictionResult;
-    } finally {
-      if (existsSync(inputPath)) unlinkSync(inputPath);
-      if (existsSync(outputPath)) unlinkSync(outputPath);
-    }
-  }, {
-    body: t.Object({
-      model: t.String(),
-      inputData: t.String(),
-      includeProba: t.Optional(t.Boolean())
-    })
-  })
-
-  .get("/api/forecast/latest", () => {
-    if (!existsSync(FORECASTS_DIR)) {
-      return { error: "No forecasts available" };
-    }
-
-    const files = readdirSync(FORECASTS_DIR)
-      .filter(f => f.endsWith(".json"))
-      .sort()
-      .reverse();
-
-    if (files.length === 0) {
-      return { error: "No forecast files found" };
-    }
-
-    const data = readJsonFile(join(FORECASTS_DIR, files[0]));
-    return {
-      filename: files[0],
-      forecast: data,
-      totalDays: Array.isArray(data) ? data.length : 0
-    };
-  })
-
-  .post("/api/forecast", async ({ body }) => {
-    const { model, days = 30, cycles = 1, startDate } = body as {
-      model: string;
-      days?: number;
-      cycles?: number;
-      startDate?: string;
-    };
-
-    if (!existsSync(FORECASTS_DIR)) {
-      mkdirSync(FORECASTS_DIR, { recursive: true });
-    }
-
-    const args = [
-      "--model", model,
-      "--days", String(days),
-      "--cycles", String(cycles),
-      "--config", join(TRAIN_DIR, "config", "config.yaml")
-    ];
-
-    if (startDate) {
-      args.push("--start-date", startDate);
-    }
-
-    try {
-      const result = await runPythonScript(join(TRAIN_DIR, "prediction", "forecast.py"), args);
-
-      const files = readdirSync(FORECASTS_DIR)
-        .filter(f => f.endsWith(".json"))
-        .sort()
-        .reverse();
-
-      if (files.length > 0) {
-        const data = readJsonFile(join(FORECASTS_DIR, files[0]));
-        return {
-          success: true,
-          filename: files[0],
-          forecast: data,
-          totalDays: Array.isArray(data) ? data.length : 0,
-          log: result.stdout
-        };
-      }
-
-      return {
-        success: false,
-        error: "Forecast generated but no output file found"
-      };
-    } catch (error: any) {
-      return {
-        success: false,
-        error: error.message
-      };
-    }
-  }, {
-    body: t.Object({
-      model: t.String(),
-      days: t.Optional(t.Number()),
-      cycles: t.Optional(t.Number()),
-      startDate: t.Optional(t.String())
-    })
-  })
-
   // --- Phase 3: Forecast Service API (private `heatwave` schema via postgres) ---
+  //
+  // NOTE: the legacy spawn-Python endpoints (/api/predict, /api/predict/status,
+  // /api/predict/models, POST /api/forecast, /api/forecast/latest) were removed.
+  // They shelled out to predict.py/forecast.py with a non-existent config path,
+  // and the latter fabricated weather with np.random. Real forecasts are now
+  // produced by the scheduled job (pipeline/run_forecast.py) and served below.
 
   .get("/api/provinces", async ({ set }) => {
     try {
@@ -381,7 +171,7 @@ export const app = new Elysia()
   // LINE signs the RAW request body with HMAC-SHA256 (channel secret). We must
   // verify against the exact bytes received, so a per-route `parse` hook returns
   // the body as a raw string (this does NOT affect the JSON parsing of other
-  // POST routes such as /api/predict or /api/forecast).
+  // routes).
   //
   // Returns 401 only on signature mismatch. For valid requests we always return
   // 200 quickly (even if individual event handling errors) so LINE does not

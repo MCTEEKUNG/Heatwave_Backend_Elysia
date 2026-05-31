@@ -89,6 +89,39 @@ describe("matchProvinceByName", () => {
   });
 });
 
+describe("matchProvinceByName — ambiguity & min-length safety", () => {
+  const MANY = [
+    { id: 1, name_th: "กรุงเทพมหานคร", name_en: "Bangkok", lat: 0, lon: 0 },
+    { id: 2, name_th: "เชียงใหม่", name_en: "Chiang Mai", lat: 0, lon: 0 },
+    { id: 3, name_th: "เชียงราย", name_en: "Chiang Rai", lat: 0, lon: 0 },
+    { id: 4, name_th: "นครราชสีมา", name_en: "Nakhon Ratchasima", lat: 0, lon: 0 },
+    { id: 5, name_th: "นครสวรรค์", name_en: "Nakhon Sawan", lat: 0, lon: 0 },
+  ];
+
+  it("returns null for an ambiguous Thai prefix", () => {
+    expect(matchProvinceByName("เชียง", MANY)).toBeNull(); // ใหม่ vs ราย
+    expect(matchProvinceByName("นคร", MANY)).toBeNull();   // ราชสีมา vs สวรรค์
+  });
+
+  it("returns null for an ambiguous English prefix", () => {
+    expect(matchProvinceByName("chiang", MANY)).toBeNull(); // mai vs rai
+  });
+
+  it("matches an unambiguous prefix", () => {
+    expect(matchProvinceByName("เชียงให", MANY)?.id).toBe(2);
+  });
+
+  it("does not prefix-match below the min length (avoids wrong guess)", () => {
+    // "ba" uniquely prefixes Bangkok, but is too short → null, not a risky guess.
+    expect(matchProvinceByName("ba", MANY)).toBeNull();
+  });
+
+  it("still resolves exact names within the ambiguous set", () => {
+    expect(matchProvinceByName("นครสวรรค์", MANY)?.id).toBe(5);
+    expect(matchProvinceByName("Chiang Rai", MANY)?.id).toBe(3);
+  });
+});
+
 describe("handleEvents", () => {
   it("greets and upserts user on follow", async () => {
     const { sql, calls } = makeMockSql();
