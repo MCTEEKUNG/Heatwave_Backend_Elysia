@@ -294,6 +294,17 @@ class TestPerHorizonThresholds:
         result = per_horizon_thresholds(df, target_recall=0.80)
         assert result[1] > result[3]
 
+    def test_higher_skill_horizon_has_higher_precision(self):
+        """Directly verify the spec's stated property: higher-skill horizon yields
+        higher precision at its selected threshold vs the lower-skill horizon."""
+        df = self._make_df()
+        result = per_horizon_thresholds(df, target_recall=0.80)
+        h1 = df[df.horizon_k == 1]
+        h3 = df[df.horizon_k == 3]
+        p1, _ = _metrics_at(h1["prob"].values, h1["y"].values, result[1])
+        p3, _ = _metrics_at(h3["prob"].values, h3["y"].values, result[3])
+        assert p1 > p3, f"Expected horizon-1 precision {p1} > horizon-3 precision {p3}"
+
     def test_custom_column_names(self):
         df = pd.DataFrame({
             "p":    [0.2, 0.8, 0.3, 0.7],
