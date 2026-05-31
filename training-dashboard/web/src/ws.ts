@@ -232,6 +232,10 @@ export class WsClient {
     return this.send(config ? { command: 'start', trainer, config } : { command: 'start', trainer })
   }
 
+  startStage(name: string): boolean {
+    return this.send({ command: 'start', trainer: name, kind: 'stage' })
+  }
+
   stop(): boolean {
     return this.send({ command: 'stop' })
   }

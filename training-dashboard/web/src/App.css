@@ -793,3 +793,20 @@
   box-shadow: inset 0 -2px 0 #ff6a3d; }
 
 .stub-tab { padding: 48px 8px; text-align: center; opacity: .8; }
+
+.lab { display: flex; flex-direction: column; gap: 16px; }
+.lab-card { padding: 16px; }
+.lab-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.lab-actions { display: flex; gap: 8px; }
+.lab-progress { height: 8px; border-radius: 6px; background: rgba(241,236,227,.1); overflow: hidden; margin: 10px 0; }
+.lab-bar { height: 100%; background: linear-gradient(90deg,#ff6a3d,#ffc24b); transition: width .4s; }
+.lab-stat { margin: 4px 0; } .lab-years { opacity: .6; font-family: var(--mono, monospace); font-size: 12px; }
+.lab-log { background: #0b0a0d; border: 1px solid rgba(241,236,227,.1); border-radius: 8px; padding: 8px;
+  font-size: 11px; max-height: 140px; overflow: auto; white-space: pre-wrap; }
+.lab-table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+.lab-table th, .lab-table td { text-align: left; padding: 4px 8px; border-bottom: 1px solid rgba(241,236,227,.08); }
+.lab-gate { border-radius: 8px; padding: 10px 12px; margin: 8px 0; font-weight: 600; }
+.gate-good { background: rgba(90,209,138,.16); border: 1px solid #5ad18a; }
+.gate-null { background: rgba(255,194,75,.14); border: 1px solid #ffc24b; }
+.gate-broken { background: rgba(229,84,84,.16); border: 1px solid #e55454; }
+.lab-meta { opacity: .65; font-size: 12px; }

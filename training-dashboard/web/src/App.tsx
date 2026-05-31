@@ -47,11 +47,14 @@ export default function App() {
       dispatch({ kind: 'connection', connection }),
     )
     client.connect()
+    const runP0 = () => client.startStage('train_p0')
+    window.addEventListener('lab-run-p0', runP0)
     return () => {
       offEvent()
       offConn()
       client.close()
       clientRef.current = null
+      window.removeEventListener('lab-run-p0', runP0)
     }
   }, [])
 

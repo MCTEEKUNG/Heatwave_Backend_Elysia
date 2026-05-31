@@ -21,7 +21,8 @@ export type LogLevel = 'info' | 'warn' | 'error'
 // Client -> server frames
 export interface StartCommand {
   command: 'start'
-  trainer: TrainerKind
+  trainer: string
+  kind?: 'trainer' | 'stage'
   config?: {
     total_steps?: number
     speed_per_sec?: number
