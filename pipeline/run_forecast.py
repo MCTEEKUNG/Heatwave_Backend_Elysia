@@ -27,6 +27,7 @@ import pandas as pd
 
 from src import features as features_mod
 from src import openmeteo_client
+from src.enso import load_enso, attach_nino34
 from src.model import predict_proba
 from src.risk import prob_to_risk
 from src.swbgt import swbgt
@@ -154,11 +155,13 @@ def _bangkok_today():
     return (datetime.now(timezone.utc) + timedelta(hours=7)).date()
 
 
-def _real_frame_builder(end, history_days, forecast_days, thresholds=None):
+def _real_frame_builder(end, history_days, forecast_days, thresholds=None, enso=None):
     """Build the real Open-Meteo-backed per-province frame builder for ``main``.
 
     ``end`` is the Bangkok-local 'today' (the origin day); history covers
-    ``end - history_days .. end`` and the forecast supplies the future tail.
+    ``end - history_days .. end`` and the forecast supplies the future tail. The
+    richer Open-Meteo variables (soil moisture, ET, precip, ...) flow through
+    automatically; ``enso`` attaches the previous-month Nino-3.4 to match training.
     """
     start = end - pd.Timedelta(days=history_days)
 
@@ -176,6 +179,8 @@ def _real_frame_builder(end, history_days, forecast_days, thresholds=None):
             thr = thresholds[thresholds["province_id"] == province["id"]]
             d = d.merge(thr[["doy", "p95"]], on="doy", how="left")
             daily = d.drop(columns=["doy"])
+        if enso is not None:
+            daily = attach_nino34(daily, enso)
         return daily
 
     return builder
@@ -203,17 +208,24 @@ def main():
         print("WARNING: province_thresholds.parquet not found; p95 features "
               "will be missing and prediction may fail on feature mismatch.")
 
+    enso = None
+    try:
+        enso = load_enso()
+    except Exception as exc:
+        print(f"WARNING: ENSO not available ({exc}); nino34 feature absent")
+
     horizons = range(1, 8)
     generated_at = datetime.now(timezone.utc)   # real UTC stamp for the DB column
     origin = _bangkok_today()                   # origin aligned to Open-Meteo TZ
     # forecast must extend to origin + max(horizon); Open-Meteo includes 'today',
     # so request max(horizon)+1 days (extra days are trimmed by make_forecasting_frame).
+    # history_days >= 31 so the 30-day driver/core rolling features resolve.
     forecast_days = max(horizons) + 1
-    builder = _real_frame_builder(origin, history_days=40,
+    builder = _real_frame_builder(origin, history_days=45,
                                   forecast_days=forecast_days,
-                                  thresholds=thresholds)
+                                  thresholds=thresholds, enso=enso)
     rows = build_forecast_rows(provinces, model, generated_at,
-                               history_days=40, horizons=horizons,
+                               history_days=45, horizons=horizons,
                                frame_builder=builder, origin_date=origin)
     n = upsert_forecasts(rows)
     print(f"upserted {n} forecast rows "

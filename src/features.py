@@ -14,9 +14,19 @@ Input row schema (from pipeline.build_dataset.build_for_provinces):
 import numpy as np
 import pandas as pd
 
-# Source columns we derive antecedent/anomaly features from.
-_VALUE_COLS = ["swbgt_max", "temperature_2m_max", "relative_humidity_2m_mean"]
-_ROLL_WINDOWS = (3, 7, 14, 30)
+# Core columns (the heat signal): full rolling stats + p95 anomaly.
+_CORE_COLS = ["swbgt_max", "temperature_2m_max", "relative_humidity_2m_mean"]
+_CORE_WINDOWS = (3, 7, 14, 30)
+
+# Research-backed driver columns (land-surface / synoptic state). A lighter
+# feature set (lag-1 + 7/30-day means) adds signal without exploding dimensions.
+_DRIVER_COLS = [
+    "soil_moisture_0_to_7cm_mean", "soil_moisture_7_to_28cm_mean",
+    "soil_temperature_0_to_7cm_mean", "precipitation_sum",
+    "et0_fao_evapotranspiration", "surface_pressure_mean",
+    "shortwave_radiation_sum", "wind_speed_10m_max",
+]
+_DRIVER_WINDOWS = (7, 30)
 
 # Columns that encode the label / target-day truth -- must never appear raw as features.
 LEAKY_COLS = frozenset(
@@ -26,23 +36,30 @@ LEAKY_COLS = frozenset(
 
 
 def _antecedent_features(d: pd.DataFrame) -> pd.DataFrame:
-    """Rolling mean/max + climatology anomaly of past-only values.
+    """Rolling mean/max + climatology anomaly of PAST-only values.
 
-    All rolling stats operate on ``.shift(1)`` so the current day's value is
-    never part of its own feature (no same-day leakage).
+    Every stat operates on ``.shift(1)`` so day t's own value is never part of
+    its own feature (no same-day leakage).
     """
     feats = {}
-    for col in _VALUE_COLS:
+    for col in _CORE_COLS:
         if col not in d.columns:
             continue
         past = d[col].shift(1)  # values strictly before day t
-        for w in _ROLL_WINDOWS:
+        for w in _CORE_WINDOWS:
             roll = past.rolling(window=w, min_periods=w)
             feats[f"{col}_mean_{w}d"] = roll.mean()
             feats[f"{col}_max_{w}d"] = roll.max()
-        # anomaly of yesterday's value vs the static per-doy p95 climatology
         if "p95" in d.columns:
             feats[f"{col}_anom_lag1"] = past - d["p95"]
+
+    for col in _DRIVER_COLS:
+        if col not in d.columns:
+            continue
+        past = d[col].shift(1)
+        feats[f"{col}_lag1"] = past
+        for w in _DRIVER_WINDOWS:
+            feats[f"{col}_mean_{w}d"] = past.rolling(window=w, min_periods=w).mean()
 
     return pd.DataFrame(feats, index=d.index)
 
@@ -73,6 +90,10 @@ def make_forecasting_frame(df_one_province: pd.DataFrame,
     for static_col in ("lat", "lon", "province_id"):
         if static_col in d.columns:
             ante[static_col] = d[static_col].to_numpy()
+
+    # --- teleconnection: previous-month Nino-3.4 (already lagged, known at t) ---
+    if "nino34" in d.columns:
+        ante["nino34"] = d["nino34"].to_numpy()
 
     feature_cols = list(ante.columns)
 

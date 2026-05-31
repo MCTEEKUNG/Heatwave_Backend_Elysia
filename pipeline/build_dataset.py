@@ -14,6 +14,7 @@ from src.swbgt import swbgt
 from src.climatology import compute_doy_percentiles
 from src.labels import label_heatwave
 from src.provinces import load_provinces
+from src.enso import load_enso, attach_nino34
 
 
 def build_for_provinces(provinces: pd.DataFrame, start: str, end: str,
@@ -54,6 +55,19 @@ def main():
           f"delay={delay}s, api_key={'yes' if os.environ.get('OPENMETEO_API_KEY') else 'no'} ...")
     ds, thr = build_for_provinces(
         provinces, f"{start_year}-01-01", f"{end_year}-12-31", request_delay=delay)
+
+    # teleconnection predictor: attach previous-month Nino-3.4 (ENSO)
+    try:
+        enso = load_enso()
+        ds = attach_nino34(ds, enso)
+        print(f"attached ENSO Nino-3.4 ({int(enso['year'].min())}-{int(enso['year'].max())})")
+    except Exception as exc:
+        print(f"WARNING: ENSO attach skipped ({exc}); nino34 feature absent")
+
+    # data-quality: report any column with >1% missing values
+    na = ds.isna().mean()
+    bad = {c: round(float(v), 4) for c, v in na.items() if v > 0.01}
+    print("data-quality: columns >1% missing:", bad or "none")
 
     os.makedirs("data/processed", exist_ok=True)
     ds.to_parquet("data/processed/dataset.parquet", index=False)

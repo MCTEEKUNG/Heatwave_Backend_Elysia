@@ -15,9 +15,21 @@ import time
 import pandas as pd
 import requests
 
-# Only the variables actually used downstream: sWBGT needs Tmax + mean RH.
-# (Fetching fewer variables also cuts the Open-Meteo request weight ~3x.)
-DAILY_VARS = ["temperature_2m_max", "relative_humidity_2m_mean"]
+# Variables consumed downstream. Tmax + mean RH define the sWBGT label; the rest
+# are research-backed predictors (soil moisture = #2 heatwave predictor; ET /
+# precip = drought signal; pressure/radiation/wind = synoptic/surface state).
+DAILY_VARS = [
+    "temperature_2m_max",
+    "relative_humidity_2m_mean",
+    "soil_moisture_0_to_7cm_mean",
+    "soil_moisture_7_to_28cm_mean",
+    "soil_temperature_0_to_7cm_mean",
+    "precipitation_sum",
+    "et0_fao_evapotranspiration",
+    "surface_pressure_mean",
+    "shortwave_radiation_sum",
+    "wind_speed_10m_max",
+]
 
 _FREE_ARCHIVE = "https://archive-api.open-meteo.com/v1/archive"
 _FREE_FORECAST = "https://api.open-meteo.com/v1/forecast"

@@ -64,6 +64,17 @@ def train_model(dataset: pd.DataFrame, horizons=range(1, 8),
         "n_train": int(len(tr)), "n_val": int(len(va)), "n_test": int(len(te)),
         "threshold": float(threshold), "features": feat_cols,
     }
+
+    # Feature importance (LightGBM gain): a sanity check that the model leans on
+    # physically meaningful drivers (sWBGT/soil moisture/etc.), not noise.
+    importances = getattr(model, "feature_importances_", None)
+    if importances is not None:
+        order = np.argsort(importances)[::-1]
+        report["top_features"] = [
+            {"feature": feat_cols[i], "importance": int(importances[i])}
+            for i in order[:15]
+        ]
+
     if len(te) > 0:
         cal_test = bundle.predict_proba(te[feat_cols])[:, 1]
         y_test = te["y"].to_numpy()
@@ -90,9 +101,15 @@ def main():
     os.makedirs("models", exist_ok=True)
     joblib.dump(bundle, MODEL_PATH)
 
-    printable = {k: v for k, v in report.items() if k != "features"}
+    printable = {k: v for k, v in report.items() if k not in ("features", "top_features")}
     print(json.dumps(printable, indent=2, default=str))
-    print(f"saved {MODEL_PATH} (threshold={report['threshold']:.3f}, "
+
+    if report.get("top_features"):
+        print("\nTop predictive features (LightGBM gain):")
+        for f in report["top_features"]:
+            print(f"  {f['importance']:>8}  {f['feature']}")
+
+    print(f"\nsaved {MODEL_PATH} (threshold={report['threshold']:.3f}, "
           f"version={MODEL_VERSION}, features={len(report['features'])})")
 
 
