@@ -9,16 +9,10 @@ import {
   type ConnectionState,
   type UiState,
 } from './ws'
-import Controls from './components/Controls'
-import ProgressBar from './components/ProgressBar'
-import Eta from './components/Eta'
-import SpeedChart from './components/SpeedChart'
-import LogPanel from './components/LogPanel'
-import MetricsPanel from './components/MetricsPanel'
-import LeaderboardPanel from './components/LeaderboardPanel'
-import RunHistory from './components/RunHistory'
-import ModelReport from './components/ModelReport'
-import FolderIcon from './components/FolderIcon'
+import TabBar, { type TabKey } from './components/TabBar'
+import TrainTab from './tabs/TrainTab'
+import LabPanel from './tabs/LabPanel'
+import StubTab from './tabs/StubTab'
 import Toast, { type ToastMessage } from './components/Toast'
 
 type Action =
@@ -29,8 +23,6 @@ function appReducer(state: UiState, action: Action): UiState {
   if (action.kind === 'connection') return setConnection(state, action.connection)
   return reduce(state, action.event)
 }
-
-const API_BASE = 'http://127.0.0.1:8000'
 
 const CONNECTION_LABEL: Record<ConnectionState, string> = {
   connecting: 'connecting…',
@@ -99,74 +91,37 @@ export default function App() {
     clientRef.current?.stop()
   }
 
+  const [tab, setTab] = useState<TabKey>(
+    (window.location.hash.replace('#', '') as TabKey) || 'train',
+  )
+  function selectTab(k: TabKey) {
+    setTab(k)
+    window.location.hash = k
+  }
+
   return (
     <div className="app">
       <header className="app-header">
-        <h1>Heatwave Training Dashboard</h1>
+        <h1>Heatwave Cockpit</h1>
         <div className={`conn-indicator ${indicatorClass}`}>
-          <span className="conn-dot" aria-hidden="true">
-            ●
-          </span>
+          <span className="conn-dot" aria-hidden="true">●</span>
           <span className="conn-text">{CONNECTION_LABEL[state.connection]}</span>
         </div>
       </header>
 
-      <Controls
-        trainer={trainer}
-        onTrainerChange={setTrainer}
-        onStart={handleStart}
-        onStop={handleStop}
-        running={running}
-        connected={connected}
-      />
+      <TabBar active={tab} onSelect={selectTab} />
 
-      <ProgressBar progress={state.progress} step={state.step} total={state.total_steps} />
-
-      <div className="status-row">
-        <Eta seconds={state.eta_seconds} />
-        <span className="status-state" data-state={state.state}>
-          state: {state.state}
-        </span>
-        {state.message ? <span className="status-message">{state.message}</span> : null}
-      </div>
-
-      <div className="panels">
-        <SpeedChart history={state.speedHistory} current={state.speed_per_sec} />
-        <MetricsPanel metrics={state.metrics} />
-      </div>
-
-      {(() => {
-        const saved = state.metrics?.saved as
-          | { name: string; file: string; path: string; size_kb: number }
-          | undefined
-        if (state.state !== 'done' || !saved) return null
-        return (
-          <div className="saved-banner">
-            <span className="saved-check" aria-hidden="true">✓</span>
-            <span>
-              saved model <code>{saved.path}</code> ({saved.size_kb} KB)
-            </span>
-            <button
-              className="btn btn-refresh folder-btn"
-              title="Open the models folder in your file explorer"
-              onClick={() => {
-                void fetch(`${API_BASE}/api/reveal-models`, { method: 'POST' })
-              }}
-            >
-              <FolderIcon />
-              open folder
-            </button>
-          </div>
-        )
-      })()}
-
-      <LogPanel logs={state.logs} />
-
-      <LeaderboardPanel refreshSignal={refreshSignal} />
-
-      <RunHistory refreshSignal={refreshSignal} />
-
-      <ModelReport />
+      {tab === 'train' && (
+        <TrainTab
+          state={state} trainer={trainer} setTrainer={setTrainer}
+          onStart={handleStart} onStop={handleStop}
+          connected={connected} running={running} refreshSignal={refreshSignal}
+        />
+      )}
+      {tab === 'lab' && <LabPanel connected={connected} />}
+      {tab === 'pipeline' && <StubTab title="Pipeline" />}
+      {tab === 'forecast' && <StubTab title="Forecast" />}
+      {tab === 'ops' && <StubTab title="Ops" />}
 
       <Toast message={toast} />
     </div>
