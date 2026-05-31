@@ -156,7 +156,7 @@ def _bangkok_today():
 
 
 def _real_frame_builder(end, history_days, forecast_days, thresholds=None,
-                        enso=None, ndvi=None):
+                        enso=None, ndvi=None, geo=None):
     """Build the real Open-Meteo-backed per-province frame builder for ``main``.
 
     ``end`` is the Bangkok-local 'today' (the origin day); history covers
@@ -185,6 +185,9 @@ def _real_frame_builder(end, history_days, forecast_days, thresholds=None,
         if ndvi is not None:
             from src.gee_ndvi import attach_ndvi
             daily = attach_ndvi(daily, ndvi)
+        if geo is not None:
+            from src.cds_geopotential import attach_geopotential
+            daily = attach_geopotential(daily, geo)
         return daily
 
     return builder
@@ -225,6 +228,13 @@ def main():
     except Exception:
         ndvi = None
 
+    geo = None
+    try:
+        from src.cds_geopotential import load_geopotential
+        geo = load_geopotential()
+    except Exception:
+        geo = None
+
     horizons = range(1, 8)
     generated_at = datetime.now(timezone.utc)   # real UTC stamp for the DB column
     origin = _bangkok_today()                   # origin aligned to Open-Meteo TZ
@@ -234,7 +244,7 @@ def main():
     forecast_days = max(horizons) + 1
     builder = _real_frame_builder(origin, history_days=45,
                                   forecast_days=forecast_days,
-                                  thresholds=thresholds, enso=enso, ndvi=ndvi)
+                                  thresholds=thresholds, enso=enso, ndvi=ndvi, geo=geo)
     rows = build_forecast_rows(provinces, model, generated_at,
                                history_days=45, horizons=horizons,
                                frame_builder=builder, origin_date=origin)

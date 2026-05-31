@@ -77,6 +77,19 @@ def main():
     except Exception as exc:
         print(f"WARNING: NDVI attach skipped ({exc}); ndvi feature absent")
 
+    # synoptic predictor (ERA5 500 hPa geopotential from CDS) — attached if cached
+    try:
+        from src.cds_geopotential import load_geopotential, attach_geopotential
+        geo = load_geopotential()
+        if geo is not None and len(geo):
+            ds = attach_geopotential(ds, geo)
+            print(f"attached geopotential 500hPa ({len(geo)} province-months)")
+        else:
+            print("geopotential cache not found; run `python -m pipeline.build_geopotential` "
+                  "(needs CDS key) to add the #1 predictor")
+    except Exception as exc:
+        print(f"WARNING: geopotential attach skipped ({exc}); hpa500 feature absent")
+
     # data-quality: report any column with >1% missing values
     na = ds.isna().mean()
     bad = {c: round(float(v), 4) for c, v in na.items() if v > 0.01}

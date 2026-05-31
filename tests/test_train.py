@@ -37,6 +37,7 @@ def _synth_dataset(seed=0):
             "wind_speed_10m_max": np.clip(10 + rng.normal(0, 3, n), 0, None),
             "nino34": np.sin(np.arange(n) / 365.0),
             "ndvi": np.clip(0.5 + 0.1 * np.sin(np.arange(n) / 60.0), 0, 1),
+            "hpa500": 5875 + 10 * np.sin(np.arange(n) / 180.0),
         }))
     return pd.concat(parts, ignore_index=True)
 

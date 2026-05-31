@@ -97,6 +97,8 @@ def make_forecasting_frame(df_one_province: pd.DataFrame,
         ante["nino34"] = d["nino34"].to_numpy()
     if "ndvi" in d.columns:
         ante["ndvi"] = d["ndvi"].to_numpy()
+    if "hpa500" in d.columns:  # ERA5 500 hPa geopotential height (circulation)
+        ante["hpa500"] = d["hpa500"].to_numpy()
 
     feature_cols = list(ante.columns)
 
