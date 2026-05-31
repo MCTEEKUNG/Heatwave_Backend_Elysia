@@ -23,6 +23,7 @@ from fastapi.responses import FileResponse
 from pipeline.run_log import read_runs
 
 from . import protocol
+from .gefs_status import gefs_status
 from .runner import Runner
 from .trainers import available as available_trainers
 
@@ -163,6 +164,80 @@ async def model_card() -> dict:
 # Trainers whose dashboard runs persist a downloadable .pkl (everything except
 # the synthetic 'simulated' trainer). Used as a strict whitelist below.
 _SAVABLE_TRAINERS = set(available_trainers()) - {"simulated"}
+
+
+# --- GEFS detached pull control (Lab tab) ----------------------------------- #
+GEFS_PID_FILE = "data/processed/gefs_pull.pid"
+GEFS_LOG = "data/processed/gefs_build_log.txt"
+
+
+def _pid_alive(pid: int) -> bool:
+    # NB: on Windows os.kill(pid, 0) does NOT probe — any non-CTRL signal calls
+    # TerminateProcess and would KILL the pull. Use OpenProcess+GetExitCodeProcess.
+    if sys.platform.startswith("win"):
+        import ctypes
+        PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+        STILL_ACTIVE = 259
+        h = ctypes.windll.kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+        if not h:
+            return False
+        code = ctypes.c_ulong()
+        ok = ctypes.windll.kernel32.GetExitCodeProcess(h, ctypes.byref(code))
+        ctypes.windll.kernel32.CloseHandle(h)
+        return bool(ok) and code.value == STILL_ACTIVE
+    try:
+        os.kill(pid, 0)  # POSIX: signal 0 = existence check (raises if dead)
+        return True
+    except (OSError, ProcessLookupError):
+        return False
+
+
+def _gefs_running_pid() -> Optional[int]:
+    if not os.path.exists(GEFS_PID_FILE):
+        return None
+    try:
+        pid = int(open(GEFS_PID_FILE).read().strip())
+    except Exception:
+        return None
+    return pid if _pid_alive(pid) else None
+
+
+@app.get("/api/gefs/status")
+async def gefs_status_endpoint() -> dict:
+    st = gefs_status()
+    st["running"] = _gefs_running_pid() is not None
+    return st
+
+
+@app.post("/api/gefs/start")
+async def gefs_start(body: Optional[dict] = None) -> dict:
+    """Launch (or resume) the detached GEFS pull. Idempotent: refuses if alive."""
+    if _gefs_running_pid() is not None:
+        raise HTTPException(status_code=409, detail="GEFS pull already running")
+    years = (body or {}).get("years") or [2016, 2017]
+    argv = [sys.executable, "scripts/build_gefs_store.py", *[str(int(y)) for y in years]]
+    creationflags = 0x00000008 if sys.platform.startswith("win") else 0  # DETACHED_PROCESS
+    logf = open(GEFS_LOG, "ab")
+    proc = subprocess.Popen(
+        argv, stdout=logf, stderr=subprocess.STDOUT,
+        creationflags=creationflags,
+        start_new_session=not sys.platform.startswith("win"),
+    )
+    with open(GEFS_PID_FILE, "w") as f:
+        f.write(str(proc.pid))
+    return {"pid": proc.pid, "years": years}
+
+
+@app.post("/api/gefs/stop")
+async def gefs_stop() -> dict:
+    pid = _gefs_running_pid()
+    if pid is None:
+        return {"stopped": False, "reason": "not running"}
+    try:
+        os.kill(pid, getattr(__import__("signal"), "SIGTERM", 15))
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=f"could not stop: {exc}")
+    return {"stopped": True, "pid": pid}
 
 
 @app.get("/api/model-file/{name}")
