@@ -7,10 +7,12 @@ progress; the spec's summary_parser turns the captured stdout into the result.
 """
 from __future__ import annotations
 
+import json
 import os
 import re
 import subprocess
 import sys
+import time
 from dataclasses import dataclass
 from typing import Callable, Optional
 
@@ -22,6 +24,7 @@ class StageSpec:
     progress_regex: Optional[str]          # one capture group -> current step
     summary_parser: Callable[[list[str]], dict]
     total_steps: int = 0                   # 0 => indeterminate progress
+    on_complete: Optional[Callable[[dict], None]] = None
 
 
 _P0_A = re.compile(r"A antecedent only\s+ROC=([\d.]+)\s+PR-AUC=([\d.]+)\s+lift=([\d.]+)x")
@@ -81,7 +84,37 @@ class StageJob:
             if p is not None:
                 p.terminate()
             return {"stopped": True}
-        return self.spec.summary_parser(captured)
+        report = self.spec.summary_parser(captured)
+        if self.spec.on_complete:
+            self.spec.on_complete(report)
+        return report
+
+
+P0_HISTORY = "data/processed/p0_runs.jsonl"
+
+
+def append_p0_run(report: dict) -> None:
+    if not report or "a_roc" not in report:
+        return
+    row = {"ts": time.time(), **report}
+    os.makedirs(os.path.dirname(P0_HISTORY), exist_ok=True)
+    with open(P0_HISTORY, "a", encoding="utf-8") as f:
+        f.write(json.dumps(row) + "\n")
+
+
+def read_p0_runs() -> list[dict]:
+    if not os.path.exists(P0_HISTORY):
+        return []
+    out = []
+    with open(P0_HISTORY, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                try:
+                    out.append(json.loads(line))
+                except Exception:
+                    pass
+    return out
 
 
 STAGE_REGISTRY: dict[str, StageSpec] = {
@@ -90,6 +123,7 @@ STAGE_REGISTRY: dict[str, StageSpec] = {
         argv=[sys.executable, "-u", "scripts/train_p0.py"],
         progress_regex=None,
         summary_parser=parse_p0_summary,
+        on_complete=append_p0_run,
     ),
 }
 

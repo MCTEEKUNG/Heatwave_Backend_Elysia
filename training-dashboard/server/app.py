@@ -25,6 +25,7 @@ from pipeline.run_log import read_runs
 from . import protocol
 from .gefs_status import gefs_status
 from .runner import Runner
+from .stages import read_p0_runs
 from .trainers import available as available_trainers
 
 app = FastAPI(title="Heatwave Training Dashboard", version="1.0.0")
@@ -147,6 +148,11 @@ async def leaderboard() -> dict:
 async def runs() -> dict:
     """Most-recent-first run history (last 100)."""
     return {"runs": list(reversed(read_runs()))[:100]}
+
+
+@app.get("/api/p0/runs")
+async def p0_runs() -> dict:
+    return {"runs": read_p0_runs()}
 
 
 @app.get("/api/model-report")
