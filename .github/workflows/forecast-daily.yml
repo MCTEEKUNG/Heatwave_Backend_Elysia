@@ -1,0 +1,74 @@
+name: Daily forecast + LINE alerts
+
+# Runs every day: pull the trained model from Hugging Face, generate the next
+# 7-day per-province forecast into Supabase, then push LINE alerts to
+# subscribers whose area crosses their risk threshold.
+#
+# Required repository secrets:
+#   DATABASE_URL                 — Supabase Session-pooler connection string
+#   HF_TOKEN                     — Hugging Face token (read; needed if repo is private)
+#   LINE_CHANNEL_ACCESS_TOKEN    — LINE Messaging API channel access token (for the push)
+# Optional repository variable:
+#   HF_REPO_ID                   — Hugging Face model repo (default: MCTEEKUNG123/Heatwave-AI)
+#
+# Run `Train model` at least once first so the model exists on Hugging Face.
+# Scheduled runs only fire from the DEFAULT branch (merge to master first).
+
+on:
+  schedule:
+    # 23:17 UTC = 06:17 Asia/Bangkok (UTC+7). Off-:00 minute on purpose.
+    - cron: "17 23 * * *"
+  workflow_dispatch:
+
+jobs:
+  forecast:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      HF_REPO_ID: ${{ vars.HF_REPO_ID || 'MCTEEKUNG123/Heatwave-AI' }}
+      LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt pyarrow "psycopg[binary]" huggingface_hub
+
+      - name: Download model + thresholds from Hugging Face
+        run: |
+          python - <<'PY'
+          import os, shutil, pathlib
+          from huggingface_hub import hf_hub_download
+          repo = os.environ["HF_REPO_ID"]
+          tok = os.environ.get("HF_TOKEN") or None
+          m = hf_hub_download(repo, "models/heatwave_model.pkl", token=tok)
+          t = hf_hub_download(repo, "data/province_thresholds.parquet", token=tok)
+          pathlib.Path("models").mkdir(exist_ok=True)
+          pathlib.Path("data/processed").mkdir(parents=True, exist_ok=True)
+          shutil.copy(m, "models/heatwave_model.pkl")
+          shutil.copy(t, "data/processed/province_thresholds.parquet")
+          print("downloaded model + thresholds from", repo)
+          PY
+
+      - name: Generate forecasts into Supabase
+        run: python -m pipeline.run_forecast
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install Bun dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Send LINE alerts
+        # push.run.ts self-guards: exits 0 with guidance if the token is unset.
+        # NOTE (verify when LINE is live): run_forecast uses Asia/Bangkok "today"
+        # as the origin, while the push query targets DB current_date + 1 (UTC).
+        # Confirm the date alignment so tomorrow's rows match.
+        if: ${{ env.LINE_CHANNEL_ACCESS_TOKEN != '' }}
+        run: bun run src/line/push.run.ts

@@ -1,0 +1,78 @@
+name: Train model
+
+# One-off / on-demand: build the dataset from real Open-Meteo data, train +
+# calibrate the model, write thresholds + a fresh forecast batch to Supabase,
+# and publish the model to Hugging Face for the daily forecast job to consume.
+#
+# Required repository secrets (Settings → Secrets and variables → Actions):
+#   DATABASE_URL  — Supabase Session-pooler connection string (port 5432)
+#   HF_TOKEN      — Hugging Face WRITE token
+# Optional repository variable:
+#   HF_REPO_ID    — Hugging Face model repo (default: MCTEEKUNG123/Heatwave-AI)
+#
+# NOTE: scheduled/dispatch workflows only run once this file is on the DEFAULT
+# branch (master). Merge the feature branch first (M5).
+
+on:
+  workflow_dispatch:
+    inputs:
+      upload_to_hf:
+        description: "Upload model + thresholds to Hugging Face"
+        type: boolean
+        default: true
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      HF_REPO_ID: ${{ vars.HF_REPO_ID || 'MCTEEKUNG123/Heatwave-AI' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt pyarrow "psycopg[binary]" huggingface_hub
+
+      - name: Build dataset (real Open-Meteo, 77 provinces)
+        run: python -m pipeline.build_dataset
+
+      - name: Train + calibrate + evaluate (quality gate — read metrics in logs)
+        run: python -m pipeline.train
+
+      - name: Load thresholds into Supabase
+        run: python -m pipeline.load_thresholds
+
+      - name: Generate forecasts into Supabase
+        run: python -m pipeline.run_forecast
+
+      - name: Upload model + thresholds to Hugging Face
+        if: ${{ inputs.upload_to_hf }}
+        run: |
+          python - <<'PY'
+          import os
+          from huggingface_hub import HfApi
+          api = HfApi(token=os.environ["HF_TOKEN"])
+          repo = os.environ["HF_REPO_ID"]
+          api.upload_file(path_or_fileobj="models/heatwave_model.pkl",
+                          path_in_repo="models/heatwave_model.pkl", repo_id=repo)
+          api.upload_file(path_or_fileobj="data/processed/province_thresholds.parquet",
+                          path_in_repo="data/province_thresholds.parquet", repo_id=repo)
+          print("uploaded model + thresholds to", repo)
+          PY
+
+      - name: Upload model as build artifact (backup)
+        uses: actions/upload-artifact@v4
+        with:
+          name: heatwave-model
+          path: |
+            models/heatwave_model.pkl
+            data/processed/province_thresholds.parquet
+          if-no-files-found: warn
+          retention-days: 14
