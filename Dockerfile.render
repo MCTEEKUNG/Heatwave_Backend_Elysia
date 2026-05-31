@@ -1,39 +1,20 @@
+# Pure-Bun backend image.
+#
+# The backend now only serves the API by reading forecasts/thresholds from
+# Supabase (DATABASE_URL). The old spawn-Python predict/forecast endpoints, the
+# model download, and the Python runtime were removed — the training and daily
+# forecast jobs run in GitHub Actions (.github/workflows/), not in this container.
+
 FROM oven/bun:1-slim
 
 WORKDIR /app
 
-# Install Python, pip, venv, and wget
-RUN apt-get update && apt-get install -y \
-    python3 \
-    python3-pip \
-    python3-venv \
-    wget \
-    && rm -rf /var/lib/apt/lists/*
-
-# Create virtual environment and install dependencies
-RUN python3 -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
-
-COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Install Bun dependencies
+# Install dependencies first (better layer caching)
 COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile
 
-# Copy application code
+# Application code (TypeScript)
 COPY src/ ./src/
-COPY models/ ./models/
-COPY prediction/ ./prediction/
-COPY utils/ ./utils/
-COPY experiments/ ./experiments/
-COPY config.yaml ./
-
-# Download large model binaries from Hugging Face
-RUN mkdir -p models && \
-    wget -q -O models/balanced_random_forest_model.pkl https://huggingface.co/MCTEEKUNG123/Heatwave-AI/resolve/main/models/balanced_random_forest_model.pkl && \
-    wget -q -O models/scaler.pkl https://huggingface.co/MCTEEKUNG123/Heatwave-AI/resolve/main/models/scaler.pkl && \
-    wget -q -O models/feature_names.pkl https://huggingface.co/MCTEEKUNG123/Heatwave-AI/resolve/main/models/feature_names.pkl
 
 EXPOSE 10000
 
