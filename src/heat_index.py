@@ -15,6 +15,20 @@ def rh_from_dewpoint(t2m_c, d2m_c):
     return np.clip(rh, 0.0, 100.0)
 
 
+def rh_from_specific_humidity(q_kgkg, t2m_c, p_hpa=1013.0):
+    """Relative humidity (%) from specific humidity (kg/kg), air temp, pressure.
+
+    e  = q*P / (0.622 + 0.378*q)              # actual vapor pressure (hPa)
+    es = 6.112 * exp(17.67*T / (T + 243.5))   # saturation vapor pressure (hPa)
+    RH = 100 * e / es
+    """
+    q = np.asarray(q_kgkg, dtype=float)
+    t = np.asarray(t2m_c, dtype=float)
+    e = q * p_hpa / (0.622 + 0.378 * q)
+    es = 6.112 * np.exp(17.67 * t / (t + 243.5))
+    return np.clip(100.0 * e / es, 0.0, 100.0)
+
+
 def heat_index_c(t2m_c, rh_pct):
     """NWS Rothfusz heat index (degC). Computed in degF then converted back."""
     t = np.asarray(t2m_c, dtype=float)

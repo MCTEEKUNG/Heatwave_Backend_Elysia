@@ -1,5 +1,12 @@
 import numpy as np
-from src.heat_index import rh_from_dewpoint, heat_index_c
+from src.heat_index import rh_from_dewpoint, heat_index_c, rh_from_specific_humidity
+
+
+def test_rh_from_specific_humidity_plausible():
+    rh = rh_from_specific_humidity(0.018, 30.0)   # ~18 g/kg at 30C
+    assert 55 <= rh <= 85
+    assert rh_from_specific_humidity(0.008, 30.0) < rh  # drier -> lower RH
+
 
 def test_rh_humid_bangkok():
     # t2m 35C, dewpoint ~32C -> high RH

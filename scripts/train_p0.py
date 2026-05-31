@@ -17,6 +17,7 @@ from sklearn.metrics import average_precision_score, roc_auc_score
 from pipeline.frame_cache import cached_build_frames
 from src.features import feature_columns
 from src.model import train as lgbm_train
+from src.heat_index import rh_from_specific_humidity, heat_index_c
 
 DATASET = "data/processed/dataset_era5.parquet"
 GEFS = "data/processed/gefs_forecast_store.parquet"
@@ -28,9 +29,11 @@ def join_forecast(frame: pd.DataFrame, store: pd.DataFrame) -> pd.DataFrame:
     f = frame.copy()
     f["origin_d"] = pd.to_datetime(f["origin_time"]).dt.date.astype(str)
     f["target_d"] = pd.to_datetime(f["target_time"]).dt.date.astype(str)
+    keep = ["province_id", "origin_d", "target_d", "horizon_k", "fc_tmax"]
+    if "fc_spfh" in store.columns:
+        keep.append("fc_spfh")
     s = store.rename(columns={"issue_date": "origin_d", "target_date": "target_d",
-                              "lead_k": "horizon_k"})[
-        ["province_id", "origin_d", "target_d", "horizon_k", "fc_tmax"]]
+                              "lead_k": "horizon_k"})[keep]
     merged = f.merge(s, on=["province_id", "origin_d", "target_d", "horizon_k"], how="inner")
     return merged
 
@@ -53,6 +56,14 @@ def main():
     base_feats = feature_columns(frame)
     store = pd.read_parquet(GEFS)
     merged = join_forecast(frame, store)
+    # forecast heat-index covariate (humidity-inclusive — matches label + oracle signal)
+    covariates = ["fc_tmax"]
+    if "fc_spfh" in merged.columns and merged["fc_spfh"].notna().any():
+        merged["fc_rh"] = rh_from_specific_humidity(merged["fc_spfh"], merged["fc_tmax"])
+        merged["fc_heat_index"] = heat_index_c(merged["fc_tmax"], merged["fc_rh"])
+        covariates = ["fc_tmax", "fc_rh", "fc_heat_index"]
+        merged = merged.dropna(subset=["fc_heat_index"])
+    print(f"P0 covariates: {covariates}", flush=True)
     yr = pd.to_datetime(merged["origin_time"]).dt.year
     print(f"matched rows={len(merged)} (covered by real forecasts) "
           f"years={sorted(yr.unique().tolist())} pos_rate={merged['y'].mean():.3f}", flush=True)
@@ -71,7 +82,7 @@ def main():
     print(f"split: train origin<{split} (n={len(tr)}), test origin>={split} (n={len(te)})\n", flush=True)
 
     a = _evaluate(tr, te, base_feats, "A antecedent only")
-    b = _evaluate(tr, te, base_feats + ["fc_tmax"], "B + GEFS forecast (P0)")
+    b = _evaluate(tr, te, base_feats + covariates, "B + GEFS forecast (P0)")
     if a and b:
         print(f"\nREAL P0 lift on identical rows: ROC {a['roc']:.3f} -> {b['roc']:.3f} "
               f"(+{b['roc']-a['roc']:.3f}), PR-AUC lift {a['lift']:.2f}x -> {b['lift']:.2f}x", flush=True)
