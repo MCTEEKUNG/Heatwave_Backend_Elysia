@@ -160,6 +160,18 @@ def test_feature_matrix_has_no_leaky_columns():
         assert leaky not in feats
 
 
+def test_missing_monthly_external_feature_does_not_drop_rows():
+    """A source range mismatch (e.g. geopotential covers only later years) must
+    NOT silently drop rows -- the external feature is left NaN for LightGBM."""
+    daily = _synthetic_daily(province_id=1).copy()
+    daily["hpa500"] = np.nan  # external feature entirely missing
+    frame = make_forecasting_frame(daily, horizons=range(1, 4))
+    assert "hpa500" in feature_columns(frame)
+    assert len(frame) > 0  # rows kept despite all-NaN hpa500
+    # antecedent features are still required -> their start-of-series NaNs are gone
+    assert frame["swbgt_max_mean_30d"].notna().all()
+
+
 class StubModelWithThreshold(StubModel):
     """Stub carrying a tuned decision threshold, like CalibratedModel."""
     threshold = 0.25

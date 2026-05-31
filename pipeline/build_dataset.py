@@ -90,10 +90,19 @@ def main():
     except Exception as exc:
         print(f"WARNING: geopotential attach skipped ({exc}); hpa500 feature absent")
 
-    # data-quality: report any column with >1% missing values
+    # data-quality: missingness + external-feature coverage. This makes a
+    # date-range mismatch between Open-Meteo and the geopotential/NDVI/ENSO
+    # sources VISIBLE (those rows are kept — LightGBM tolerates NaN — not dropped).
     na = ds.isna().mean()
     bad = {c: round(float(v), 4) for c, v in na.items() if v > 0.01}
     print("data-quality: columns >1% missing:", bad or "none")
+    yrs = pd.to_datetime(ds["time"]).dt.year
+    print(f"data-quality: dataset spans {int(yrs.min())}-{int(yrs.max())}")
+    for ext in ("hpa500", "ndvi", "nino34"):
+        if ext in ds.columns:
+            cov = 100 * float(ds[ext].notna().mean())
+            flag = "  <-- RANGE MISMATCH? align the builders' year range" if cov < 90 else ""
+            print(f"data-quality: {ext} coverage {cov:.1f}%{flag}")
 
     os.makedirs("data/processed", exist_ok=True)
     ds.to_parquet("data/processed/dataset.parquet", index=False)

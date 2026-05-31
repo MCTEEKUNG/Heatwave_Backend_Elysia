@@ -35,6 +35,10 @@ LEAKY_COLS = frozenset(
      "is_hot", "heatwave"]
 )
 
+# Monthly external features that may be missing without dropping a row (LightGBM
+# tolerates NaN). Keeps the pipeline robust to date-range mismatch across sources.
+_MISSING_OK_FEATURES = frozenset(["hpa500", "ndvi", "nino34"])
+
 
 def _antecedent_features(d: pd.DataFrame) -> pd.DataFrame:
     """Rolling mean/max + climatology anomaly of PAST-only values.
@@ -114,8 +118,13 @@ def make_forecasting_frame(df_one_province: pd.DataFrame,
 
     out = pd.concat(blocks, ignore_index=True)
 
-    # drop rows with NaN target or NaN in any feature column
-    out = out.dropna(subset=["y"] + feature_cols).reset_index(drop=True)
+    # Drop only genuinely-unusable rows: NaN target, or NaN in an antecedent
+    # feature (the first ~30 days of each series have no rolling history). Monthly
+    # EXTERNAL features (geopotential / NDVI / ENSO) are allowed to be missing —
+    # LightGBM handles NaN natively, so a source whose date range doesn't fully
+    # cover the dataset degrades gracefully instead of silently dropping rows.
+    required = ["y"] + [c for c in feature_cols if c not in _MISSING_OK_FEATURES]
+    out = out.dropna(subset=required).reset_index(drop=True)
     out["y"] = out["y"].astype(int)
     return out
 
