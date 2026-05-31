@@ -42,10 +42,34 @@ def init_rows(ds_tmax, ds_spfh, provinces):
     return pd.concat(rows, ignore_index=True) if rows else pd.DataFrame()
 
 
+def _merge_and_write(existing, new_frames):
+    """Merge accumulated new-init frames with the existing store and persist.
+
+    Used for BOTH periodic checkpoints and the final write (identical logic) so a
+    crash mid-pull never loses processed inits -- a re-run resumes via the ``done``
+    set, which is recomputed from whatever was last written here.
+    """
+    new = pd.concat(new_frames, ignore_index=True) if new_frames else pd.DataFrame()
+    if not existing.empty:
+        keep_cols = [c for c in ["province_id", "issue_date", "target_date", "lead_k", "fc_tmax", "fc_spfh"] if c in existing.columns]
+        existing = existing[keep_cols]
+        if "fc_spfh" in existing.columns:
+            existing = existing[existing["fc_spfh"].notna()]
+    out = pd.concat([existing, new], ignore_index=True).drop_duplicates(
+        subset=["province_id", "issue_date", "target_date", "lead_k"], keep="last")
+    os.makedirs(os.path.dirname(STORE), exist_ok=True)
+    out.to_parquet(STORE, index=False)
+    return out
+
+
 def main():
     import xarray as xr
     provinces = load_provinces()
-    inits = season_inits([2016, 2017, 2018, 2019])
+    # Years can be passed on the CLI (e.g. ``build_gefs_store 2016 2017``) to pull a
+    # subset first; default is the full 2016-2019 ERA5-label overlap. GEFSv12
+    # reforecast archive ends at 2019, so later years are unavailable by design.
+    years = [int(a) for a in sys.argv[1:]] or [2016, 2017, 2018, 2019]
+    inits = season_inits(years)
     existing = pd.read_parquet(STORE) if os.path.exists(STORE) else pd.DataFrame()
     done = set()
     if not existing.empty and "fc_spfh" in existing.columns:
@@ -73,21 +97,15 @@ def main():
             for f in (ts, ss):
                 if os.path.exists(f):
                     os.remove(f)
-        if j % 10 == 0:
+        # crash-safe checkpoint: persist every 10 successfully-processed inits so a
+        # multi-hour pull that dies (or is killed) resumes instead of restarting.
+        if len(new_frames) and len(new_frames) % 10 == 0:
+            _merge_and_write(existing, new_frames)
             tot = sum(len(x) for x in new_frames)
-            print(f"  {j}/{len(inits)} inits processed, new rows so far {tot}", flush=True)
+            print(f"  checkpoint @ {j}/{len(inits)} inits ({len(new_frames)} new), "
+                  f"rows this run {tot} -> store written", flush=True)
 
-    new = pd.concat(new_frames, ignore_index=True) if new_frames else pd.DataFrame()
-    # keep existing rows that already have fc_spfh; drop stale partial rows for re-pulled inits
-    if not existing.empty:
-        keep_cols = [c for c in ["province_id", "issue_date", "target_date", "lead_k", "fc_tmax", "fc_spfh"] if c in existing.columns]
-        existing = existing[keep_cols]
-        if "fc_spfh" in existing.columns:
-            existing = existing[existing["fc_spfh"].notna()]
-    out = pd.concat([existing, new], ignore_index=True).drop_duplicates(
-        subset=["province_id", "issue_date", "target_date", "lead_k"], keep="last")
-    os.makedirs(os.path.dirname(STORE), exist_ok=True)
-    out.to_parquet(STORE, index=False)
+    out = _merge_and_write(existing, new_frames)
     print(f"GEFS store powered: {len(out)} rows, {out['issue_date'].nunique()} inits, "
           f"{out['province_id'].nunique()} provinces, fc_spfh coverage "
           f"{out['fc_spfh'].notna().mean()*100:.0f}%", flush=True)

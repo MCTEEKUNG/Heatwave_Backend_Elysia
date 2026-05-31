@@ -71,3 +71,4 @@ __pycache__/
 
 # Raw downloaded data (large binary files; download via scripts/fetch_era5_repo.py)
 data/raw/
+.superpowers/
