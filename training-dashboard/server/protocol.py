@@ -30,7 +30,8 @@ class StartCommand(BaseModel):
     command: Literal["start"]
     # Any registered trainer name; the registry (server/trainers) is the source
     # of truth and raises a friendly error for unknown names.
-    trainer: str
+    trainer: str  # job name (trainer or stage)
+    kind: Literal["trainer", "stage"] = "trainer"
     config: Optional[StartConfig] = None
 
 

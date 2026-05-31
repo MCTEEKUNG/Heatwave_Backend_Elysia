@@ -18,7 +18,7 @@ import time
 from typing import Callable, Optional
 
 from . import protocol
-from .trainers import get_trainer
+from .jobs import resolve_job
 
 EWMA_ALPHA = 0.3
 
@@ -103,7 +103,8 @@ class Runner:
         return self._stop_flag.is_set()
 
     # -- public API -------------------------------------------------------- #
-    def start(self, trainer_name: str, config: Optional[dict] = None) -> bool:
+    def start(self, name: str, config: Optional[dict] = None,
+              kind: str = "trainer") -> bool:
         """Start a run. Returns False (and emits a warn log) if already running."""
         with self._lock:
             if self._running:
@@ -118,7 +119,7 @@ class Runner:
             return False
 
         self._thread = threading.Thread(
-            target=self._run, args=(trainer_name, config or {}), daemon=True)
+            target=self._run, args=(name, config or {}, kind), daemon=True)
         try:
             self._thread.start()
         except Exception:
@@ -140,7 +141,7 @@ class Runner:
             t.join(timeout)
 
     # -- worker ------------------------------------------------------------ #
-    def _run(self, trainer_name: str, config: dict) -> None:
+    def _run(self, name: str, config: dict, kind: str) -> None:
         ewma = EwmaSpeed()
         last_emit = 0.0
         last_log_msg = None
@@ -177,9 +178,13 @@ class Runner:
 
         try:
             self._emit(protocol.log_event(
-                f"starting {trainer_name} trainer", level="info"))
-            trainer = get_trainer(trainer_name)
-            report = trainer.run(config, progress_cb, self.should_stop)
+                f"starting {name} ({kind})", level="info"))
+            job = resolve_job(name, kind)
+            if kind == "stage":
+                report = job.run(config, progress_cb, self.should_stop,
+                                 log_cb=lambda lvl, m: self._emit(protocol.log_event(m, level=lvl)))
+            else:
+                report = job.run(config, progress_cb, self.should_stop)
 
             if self._stop_flag.is_set():
                 # Cooperative stop -> back to idle.

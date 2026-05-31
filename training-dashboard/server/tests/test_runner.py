@@ -169,3 +169,22 @@ def test_error_does_not_crash_and_sets_error_state(monkeypatch):
     assert "dataset not found" in error_events[0]["message"]
     statuses = [e for e in events if e["type"] == "status"]
     assert statuses[-1]["state"] == "error"
+
+
+def test_runner_runs_a_stage_job_and_emits_metrics():
+    from server.runner import Runner
+    events = []
+    r = Runner(broadcast=events.append, status_interval=0.0)
+    import server.runner as rmod
+    class _FakeStage:
+        name = "train_p0"
+        def run(self, config, progress_cb, should_stop, log_cb=None):
+            if log_cb: log_cb("info", "matched rows=10")
+            return {"a_roc": 0.6, "b_roc": 0.63}
+    rmod.resolve_job = lambda name, kind="trainer": _FakeStage()
+    assert r.start("train_p0", {}, kind="stage") is True
+    r.join(2.0)
+    kinds = [e.get("type") for e in events]
+    assert "metrics" in kinds
+    metrics = [e for e in events if e.get("type") == "metrics"][0]
+    assert metrics["report"]["b_roc"] == 0.63

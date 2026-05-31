@@ -311,7 +311,6 @@ async def _handle_message(ws: WebSocket, raw: str) -> None:
 
     if isinstance(command, protocol.StartCommand):
         config = command.config.model_dump() if command.config else {}
-        # runner.start handles the single-run lock + warn log itself.
-        runner.start(command.trainer, config)
+        runner.start(command.trainer, config, kind=command.kind)
     elif isinstance(command, protocol.StopCommand):
         runner.stop()
