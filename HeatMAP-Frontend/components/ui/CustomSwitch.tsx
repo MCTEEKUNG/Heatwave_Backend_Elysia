@@ -26,7 +26,7 @@ export function CustomSwitch({
       duration: 200,
       useNativeDriver: false,
     }).start();
-  }, [value]);
+  }, [value, anim]);
 
   const trackColor = anim.interpolate({
     inputRange: [0, 1],

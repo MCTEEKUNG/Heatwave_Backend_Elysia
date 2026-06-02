@@ -2,7 +2,6 @@
 
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { SymbolWeight } from 'expo-symbols';
-import { ComponentProps } from 'react';
 import { OpaqueColorValue, type StyleProp, type TextStyle } from 'react-native';
 
 type IconMapping = Record<string, string>;
@@ -76,6 +75,14 @@ const MAPPING: IconMapping = {
   'info.fill': 'info',
   'check': 'check',
   'shield_check': 'shield',
+
+  // Province selector / forecast UI
+  'chevron.right': 'chevron-right',
+  'xmark': 'close',
+  'magnifyingglass': 'search',
+  'checkmark': 'check',
+  'clock': 'schedule',
+  'wifi.slash': 'wifi-off',
 };
 
 /**

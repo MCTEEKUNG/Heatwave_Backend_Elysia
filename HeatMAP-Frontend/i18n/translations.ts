@@ -81,6 +81,17 @@ export interface Translations {
   moderate: string;
   stable: string;
   
+  // Province selector / forecast (Phase 5)
+  selectProvince: string;
+  searchProvince: string;
+  noResults: string;
+  close: string;
+  asOf: string;
+  offlineData: string;
+  provinceForecastTitle: string;
+  sevenDayForecast: string;
+  noForecastData: string;
+
   // Common
   now: string;
   today: string;
@@ -167,6 +178,17 @@ const en: Record<TranslationKey, string> = {
   moderate: 'Moderate',
   stable: 'Stable',
   
+  // Province selector / forecast (Phase 5)
+  selectProvince: 'Select province',
+  searchProvince: 'Search province…',
+  noResults: 'No provinces found',
+  close: 'Close',
+  asOf: 'As of',
+  offlineData: 'Offline — showing bundled province list',
+  provinceForecastTitle: 'Province forecast',
+  sevenDayForecast: '7-day heatwave outlook',
+  noForecastData: 'No forecast available for this province yet.',
+
   // Common
   now: 'Now',
   today: 'Today',
@@ -250,6 +272,17 @@ const th: Record<TranslationKey, string> = {
   moderate: 'ปานกลาง',
   stable: 'คงที่',
   
+  // Province selector / forecast (Phase 5)
+  selectProvince: 'เลือกจังหวัด',
+  searchProvince: 'ค้นหาจังหวัด…',
+  noResults: 'ไม่พบจังหวัด',
+  close: 'ปิด',
+  asOf: 'ข้อมูล ณ',
+  offlineData: 'ออฟไลน์ — แสดงรายชื่อจังหวัดที่มากับแอป',
+  provinceForecastTitle: 'พยากรณ์รายจังหวัด',
+  sevenDayForecast: 'แนวโน้มคลื่นความร้อน 7 วัน',
+  noForecastData: 'ยังไม่มีพยากรณ์สำหรับจังหวัดนี้',
+
   // Common
   now: 'ตอนนี้',
   today: 'วันนี้',

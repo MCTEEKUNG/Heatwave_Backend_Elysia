@@ -6,7 +6,7 @@ import { Colors, DesignTokens, GlassStyle, BottomNavStyle } from '@/constants/th
 import { useSettings } from '@/hooks/useSettings';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { ScaledText } from '@/components/ui/ScaledText';
-import useLocation from '@/hooks/useLocation';
+import { useLocation } from '@/hooks/useLocation';
 import { getNearestCoolingPlaces, estimateTravelTime, type Place } from '@/services/nearbyPlaces';
 
 // Checklist items - will use translations
@@ -90,7 +90,7 @@ export default function ChecklistScreen() {
         userLocation.longitude
       );
       setNearbyPlaces(places);
-    } catch (error) {
+    } catch {
       setPlacesError('Could not find nearby places');
     } finally {
       setIsLoadingPlaces(false);
@@ -102,6 +102,8 @@ export default function ChecklistScreen() {
     if (locationStatus === 'idle') {
       getCurrentLocation();
     }
+    // getCurrentLocation is stable from the hook; depend only on locationStatus.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [locationStatus]);
 
   // Fetch places when location is available
@@ -131,9 +133,8 @@ export default function ChecklistScreen() {
   };
 
   const navigateToPlace = (place: Place) => {
-    const { latitude, longitude, name } = place;
-    const address = encodeURIComponent(name);
-    const url = Platform.OS === 'ios' 
+    const { latitude, longitude } = place;
+    const url = Platform.OS === 'ios'
       ? `http://maps.apple.com/?daddr=${latitude},${longitude}`
       : `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`;
     Linking.openURL(url);
