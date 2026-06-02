@@ -1,6 +1,12 @@
 import { Elysia, t } from "elysia";
 import { cors } from "@elysiajs/cors";
 import { spawn } from "child_process";
+import {
+  getProvinces,
+  getProvinceForecast,
+  getForecastMap,
+  getThresholds,
+} from "./routes/forecast";
 import { promises as fsAsync, existsSync, readdirSync, mkdirSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
@@ -355,6 +361,65 @@ const app = new Elysia()
       model: t.String(),
       days: t.Optional(t.Number()),  // 1–16, defaults to 7 (Open-Meteo limit)
     }),
+  })
+
+  // ─── Forecast Service API (private `heatwave` schema via direct Postgres) ─────
+  // These serve the model's forecasts written to Supabase by the Python daily job
+  // (scripts/run_daily_forecast.py). Reads only; on a DB/config error they return
+  // 503 with a clear message rather than crashing the server.
+
+  .get("/api/provinces", async ({ set }) => {
+    try {
+      return await getProvinces();
+    } catch (error: any) {
+      set.status = 503;
+      log("ERROR", "getProvinces failed", { error: error.message });
+      return { error: "Database unavailable" };
+    }
+  })
+
+  .get("/api/forecast/province/:id", async ({ params, query, set }) => {
+    const id = Number(params.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      set.status = 400;
+      return { error: "Invalid province id" };
+    }
+    let days = Number(query.days ?? 7);
+    if (!Number.isInteger(days) || days <= 0) days = 7;
+    if (days > 16) days = 16;
+    try {
+      return await getProvinceForecast(id, days);
+    } catch (error: any) {
+      set.status = 503;
+      log("ERROR", "getProvinceForecast failed", { error: error.message });
+      return { error: "Database unavailable" };
+    }
+  })
+
+  .get("/api/forecast/map", async ({ set }) => {
+    try {
+      return await getForecastMap();
+    } catch (error: any) {
+      set.status = 503;
+      log("ERROR", "getForecastMap failed", { error: error.message });
+      return { error: "Database unavailable" };
+    }
+  })
+
+  .get("/api/thresholds/:id", async ({ params, set }) => {
+    const id = Number(params.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      set.status = 400;
+      return { error: "Invalid province id" };
+    }
+    try {
+      const rows = await getThresholds(id);
+      return { province_id: id, thresholds: rows };
+    } catch (error: any) {
+      set.status = 503;
+      log("ERROR", "getThresholds failed", { error: error.message });
+      return { error: "Database unavailable" };
+    }
   })
 
   .listen(process.env.PORT || 3000);
