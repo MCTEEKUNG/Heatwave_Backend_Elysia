@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 
 const API_URL = (process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000') + '/api';

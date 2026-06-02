@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import { Text, TextProps, StyleSheet } from 'react-native';
+import { Text, TextProps } from 'react-native';
 import { useSettings } from '@/hooks/useSettings';
 
 /**

@@ -1,14 +1,12 @@
 /**
  * Nearby Places Service
- * 
- * Fetches nearby rest care / cooling centers based on user location.
- * 
- * In production, this would call:
- * - Google Places API
- * - Overpass API (OpenStreetMap)
- * - A custom backend API
- * 
- * For now, we generate mock data based on coordinates.
+ *
+ * Fetches real nearby rest care / cooling centers based on user location.
+ *
+ * Primary source is the Google Places API (`searchGooglePlaces`), with an
+ * OpenStreetMap Overpass API fallback (`searchOSMPlaces`) used when Google
+ * is unavailable or returns no results. Distances are computed from the
+ * returned coordinates; travel time is a heuristic estimate.
  */
 
 export interface Place {
@@ -257,7 +255,7 @@ export async function getNearestCoolingPlaces(
 }
 
 /**
- * Calculate estimated travel time (mock)
+ * Calculate estimated travel time (heuristic)
  */
 export function estimateTravelTime(distanceKm: number): string {
   // Assume average speed of 30 km/h in city

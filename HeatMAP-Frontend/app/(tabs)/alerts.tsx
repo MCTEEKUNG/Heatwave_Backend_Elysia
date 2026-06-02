@@ -77,9 +77,7 @@ export default function AlertsScreen() {
   const { calendar, summary, loading: forecastLoading, error: forecastError, refresh } = useForecast(1);
 
   // Real weather data from Open-Meteo (Bangkok default, no GPS needed)
-  const { temperature, wetBulb, uvIndex, humidity, aqi, aqiLabel, daily, loading: weatherLoading } = useWeather();
-
-  const loading = forecastLoading || weatherLoading;
+  const { temperature, wetBulb, uvIndex, humidity, aqi, aqiLabel, daily } = useWeather();
 
   // Build dynamic calendar grid for the current month
   const { year, month, startWeekday, daysInMonth, riskMap } = buildMonthGrid(calendar);

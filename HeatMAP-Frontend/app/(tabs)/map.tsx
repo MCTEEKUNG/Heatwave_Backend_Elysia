@@ -1,14 +1,17 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import { Colors, DesignTokens, GlassStyle, BottomNavStyle, useResponsive } from '@/constants/theme';
 import { useSettings } from '@/hooks/useSettings';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { MapGrid, generateThailandGrid, type GridCell, type Severity } from '@/components/map';
-import useLocation from '@/hooks/useLocation';
+import { useLocation } from '@/hooks/useLocation';
 import { ScaledText } from '@/components/ui/ScaledText';
 import { useWeather } from '@/hooks/useWeather';
-import { getLatestForecast } from '@/services/forecastService';
+import { getForecastMap, riskLevelToSeverity, formatGeneratedAt, type MapForecastPoint } from '@/services/forecastService';
+import { getProvinces, type Province } from '@/services/provincesService';
+import { ProvinceSelector } from '@/components/ProvinceSelector';
+import { ProvinceForecastPanel } from '@/components/forecast/ProvinceForecastPanel';
 
 // Helper function to find grid cell containing user's location
 const findUserGridCell = (
@@ -29,13 +32,56 @@ const findUserGridCell = (
   return null;
 };
 
+// Find the forecast point (one per province centroid) nearest to a coordinate.
+// Used to colour every grid cell from the ~77 real province values returned by
+// /api/forecast/map (squared-distance is enough for nearest-neighbour ranking).
+const nearestPoint = (
+  lat: number,
+  lng: number,
+  points: MapForecastPoint[]
+): MapForecastPoint | null => {
+  let best: MapForecastPoint | null = null;
+  let bestD = Infinity;
+  for (const p of points) {
+    const dLat = lat - p.lat;
+    const dLng = lng - p.lon;
+    const d = dLat * dLat + dLng * dLng;
+    if (d < bestD) {
+      bestD = d;
+      best = p;
+    }
+  }
+  return best;
+};
+
 export default function MapScreen() {
   const { isDarkMode, t } = useSettings();
   const theme = Colors[isDarkMode ? 'dark' : 'light'];
   // Start with a neutral (uncoloured) grid — overwritten once forecast loads
   const [gridData, setGridData] = useState<GridCell[]>(generateThailandGrid());
-  const [isLoadingData, setIsLoadingData] = useState(true);
-  const { isDesktop, isTablet, width } = useResponsive();
+  const [, setIsLoadingData] = useState(true);
+  // "As of" timestamp from the model run (generated_at on /api/forecast/map)
+  const [mapGeneratedAt, setMapGeneratedAt] = useState<string | null>(null);
+  const { isDesktop, isTablet } = useResponsive();
+
+  // ── Province selector state ──────────────────────────────────────────────
+  const [provinces, setProvinces] = useState<Province[]>([]);
+  const [provincesLoading, setProvincesLoading] = useState(true);
+  const [selectedProvince, setSelectedProvince] = useState<Province | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      setProvincesLoading(true);
+      const { provinces: list } = await getProvinces();
+      if (!active) return;
+      setProvinces(list);
+      setProvincesLoading(false);
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Location hook — declared early so lat/lng are available for useWeather
   const {
@@ -62,55 +108,45 @@ export default function MapScreen() {
         { label: t('now'), icon: 'sunny', temp: Math.round(liveTemp), time: '' },
       ];
 
-  // Load AI risk data from cached forecast (pre-generated once per month).
-  // We read /api/forecast/latest instead of running Python on every page load,
-  // which would be too slow and expensive on a free Render plan.
+  // Load REAL per-province risk from /api/forecast/map (one calibrated value
+  // per province centroid). Each grid cell is coloured by its NEAREST province
+  // point's risk_level — no synthetic temperature/Math.sin severity.
   useEffect(() => {
-    const loadCachedForecast = async () => {
+    const loadForecastMap = async () => {
       setIsLoadingData(true);
       try {
-        const data = await getLatestForecast();
+        const points = await getForecastMap();
 
-        if (!data.forecast || data.forecast.length === 0) {
-          // No forecast cached yet — leave the neutral grid, show nothing
+        if (!Array.isArray(points) || points.length === 0) {
+          // No forecast available yet — leave the neutral grid
+          setMapGeneratedAt(null);
           return;
         }
 
-        // Use today's entry, or the first available entry
-        const todayStr = new Date().toISOString().split('T')[0];
-        const todayEntry = data.forecast.find(d => d.date === todayStr) ?? data.forecast[0];
-        const baseTemp = todayEntry.temperature_c;   // actual °C from forecast
-
-        // Derive severity from Heat Index thresholds (4-tier, matches model labelling):
-        //   extreme  ≥ 41°C  → RED
-        //   high     35–40°C → ORANGE
-        //   moderate 28–34°C → YELLOW
-        //   low      < 28°C  → GREEN
-        const tempToSeverity = (t: number): Severity =>
-          t >= 41 ? 'extreme' : t >= 35 ? 'high' : t >= 28 ? 'moderate' : 'low';
+        setMapGeneratedAt(points[0]?.generated_at ?? null);
 
         const baseGrid = generateThailandGrid();
         const updated = baseGrid.map(cell => {
           const lat = (cell.north + cell.south) / 2;
           const lng = (cell.east  + cell.west)  / 2;
-          // Deterministic geographic variance — stable across renders
-          const latVar = (lat - 13.75) * 0.25;   // ±°C per degree latitude
-          const lngVar = Math.sin((lng - 100.5) * 0.15) * 0.15;
-          const cellTemp = Math.round(baseTemp + latVar + lngVar);
-          const severity = tempToSeverity(cellTemp);
-          const prob = todayEntry.heatwave_probability;
-          return { ...cell, severity, temperature: cellTemp, probability: prob } as GridCell;
+          const np = nearestPoint(lat, lng, points);
+          if (!np) return cell;
+          const severity: Severity = riskLevelToSeverity(np.risk_level);
+          // probability stored as 0–100 for the cell metadata
+          const probability = Math.round((np.probability ?? 0) * 100);
+          return { ...cell, severity, probability } as GridCell;
         });
         setGridData(updated);
       } catch {
-        // Network error — use plain grid rather than fake mock data
+        // Network error — neutral grid rather than fake data
         setGridData(generateThailandGrid());
+        setMapGeneratedAt(null);
       } finally {
         setIsLoadingData(false);
       }
     };
 
-    loadCachedForecast();
+    loadForecastMap();
   }, []);
   
   // Calculate user's current grid cell based on location
@@ -122,9 +158,6 @@ export default function MapScreen() {
   // Get current severity level (null if low/no risk)
   const currentSeverity = userGridCell?.severity || null;
 
-  // Check if any extreme severity exists
-  const hasExtreme = gridData.some(cell => cell.severity === 'extreme');
-  
   // Calculate responsive values
   const cardWidth = isDesktop ? 200 : isTablet ? 180 : 160;
   const fabRight = isDesktop ? 32 : 24;
@@ -148,6 +181,9 @@ export default function MapScreen() {
     if (locationStatus === 'idle') {
       getCurrentLocation();
     }
+    // Intentionally mount-only: re-running on locationStatus/getCurrentLocation
+    // changes would re-trigger permission prompts.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Get location coordinates for MapGrid
@@ -165,16 +201,41 @@ export default function MapScreen() {
         </View>
       )}
 
-      {currentSeverity === 'medium' && (
+      {(currentSeverity === 'high' || currentSeverity === 'moderate') && (
         <View style={[styles.warningBanner, { backgroundColor: theme.medium }]}>
           <IconSymbol size={20} name="warning" color="#fff" />
           <ScaledText variant="labelLarge" style={styles.warningText}>{t('mediumRiskArea')}</ScaledText>
         </View>
       )}
 
+      {/* Province selector + "as of" timestamp (real model data) */}
+      <View style={[styles.topControls, { top: currentSeverity ? 112 : 56 }]}>
+        <ProvinceSelector
+          provinces={provinces}
+          selected={selectedProvince}
+          onSelect={setSelectedProvince}
+          loading={provincesLoading}
+        />
+        {!!mapGeneratedAt && (
+          <View style={[styles.asOfPill, GlassStyle[isDarkMode ? 'dark' : 'light']]}>
+            <IconSymbol size={13} name="clock" color={theme.textSecondary} />
+            <ScaledText variant="labelSmall" style={{ color: theme.textSecondary }}>
+              {t('asOf')} {formatGeneratedAt(mapGeneratedAt)}
+            </ScaledText>
+          </View>
+        )}
+      </View>
+
+      {/* Selected-province 7-day forecast panel (from /api/forecast/province/:id) */}
+      {selectedProvince && (
+        <View style={styles.provincePanel} pointerEvents="box-none">
+          <ProvinceForecastPanel province={selectedProvince} />
+        </View>
+      )}
+
       {/* Map Area with OSM and Grid Overlay */}
       <View style={styles.mapArea}>
-        <MapGrid 
+        <MapGrid
           gridData={gridData}
           userLocation={locationCoords}
           onUserLocationRequest={handleGetLocation}
@@ -189,19 +250,21 @@ export default function MapScreen() {
           { width: cardWidth }
         ]}>
           <ScaledText variant="labelSmall" style={{ color: theme.primary, textTransform: 'uppercase', letterSpacing: 1 }}>{t('currentlyTemp')}</ScaledText>
+          {/* Live temperature comes from Open-Meteo (useWeather); severity/colour
+              comes from the model's risk_level — the two are intentionally decoupled. */}
           <ScaledText variant="displaySmall" style={{ color: theme.text, fontWeight: '700' }}>
-            {userGridCell ? `${userGridCell.temperature}°C` : `${Math.round(liveTemp)}°C`}
+            {`${Math.round(liveTemp)}°C`}
           </ScaledText>
           <View style={styles.tempStatus}>
             <View style={[
-              styles.tempIndicator, 
-              { backgroundColor: currentSeverity === 'extreme' ? theme.extreme : currentSeverity === 'medium' ? theme.medium : theme.low }
+              styles.tempIndicator,
+              { backgroundColor: currentSeverity === 'extreme' ? theme.extreme : (currentSeverity === 'high' || currentSeverity === 'moderate') ? theme.medium : theme.low }
             ]} />
-            <ScaledText variant="labelSmall" style={{ 
-              color: currentSeverity === 'extreme' ? theme.extreme : currentSeverity === 'medium' ? theme.medium : theme.low, 
-              textTransform: 'uppercase' 
+            <ScaledText variant="labelSmall" style={{
+              color: currentSeverity === 'extreme' ? theme.extreme : (currentSeverity === 'high' || currentSeverity === 'moderate') ? theme.medium : theme.low,
+              textTransform: 'uppercase'
             }}>
-              {currentSeverity === 'extreme' ? t('extremeHeat') : currentSeverity === 'medium' ? t('heatRiskLevelMedium').split(': ')[1] || 'Medium' : t('lowRisk')}
+              {currentSeverity === 'extreme' ? t('extremeHeat') : (currentSeverity === 'high' || currentSeverity === 'moderate') ? (t('heatRiskLevelMedium').split(': ')[1] || 'Medium') : t('lowRisk')}
             </ScaledText>
           </View>
         </View>
@@ -228,17 +291,6 @@ export default function MapScreen() {
               />
             )}
           </TouchableOpacity>
-          
-          {/* Zoom Controls */}
-          <View style={[styles.zoomControls, GlassStyle[isDarkMode ? 'dark' : 'light']]}>
-            <TouchableOpacity style={styles.zoomButton}>
-              <IconSymbol size={24} name="add" color={theme.textSecondary} />
-            </TouchableOpacity>
-            <View style={[styles.zoomDivider, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }]} />
-            <TouchableOpacity style={styles.zoomButton}>
-              <IconSymbol size={24} name="remove" color={theme.textSecondary} />
-            </TouchableOpacity>
-          </View>
         </View>
 
         {/* Location Status Indicator */}
@@ -334,6 +386,29 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  topControls: {
+    position: 'absolute',
+    left: 24,
+    right: 24,
+    zIndex: 30,
+    gap: 8,
+  },
+  asOfPill: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: DesignTokens.borderRadius.full,
+  },
+  provincePanel: {
+    position: 'absolute',
+    left: 24,
+    right: 24,
+    bottom: 200,
+    zIndex: 25,
+  },
   warningBanner: {
     position: 'absolute',
     top: 60,
@@ -424,19 +499,6 @@ const styles = StyleSheet.create({
   fabActive: {
     borderWidth: 2,
     borderColor: '#3b82f6',
-  },
-  zoomControls: {
-    borderRadius: DesignTokens.borderRadius.xl,
-    overflow: 'hidden',
-  },
-  zoomButton: {
-    width: 48,
-    height: 48,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  zoomDivider: {
-    height: 1,
   },
   locationStatus: {
     position: 'absolute',
