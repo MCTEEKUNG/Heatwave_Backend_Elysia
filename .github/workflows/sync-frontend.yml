@@ -1,0 +1,77 @@
+name: Sync HeatMAP-Frontend to deploy repo
+
+# Single source of truth for the frontend is this monorepo's HeatMAP-Frontend/.
+# Vercel deploys the standalone repo MCTEEKUNG/HeatMAP-Frontend (branch main), so
+# this workflow mirrors the subdirectory there on every change to master. Edit the
+# frontend ONLY here; the standalone repo is a generated mirror — do not edit it.
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'HeatMAP-Frontend/**'
+      - '.github/workflows/sync-frontend.yml'
+  workflow_dispatch: {}
+
+concurrency:
+  group: sync-frontend
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout monorepo
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Mirror HeatMAP-Frontend -> MCTEEKUNG/HeatMAP-Frontend@main
+        env:
+          SYNC_TOKEN: ${{ secrets.FRONTEND_SYNC_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SYNC_TOKEN:-}" ]; then
+            echo "::error::FRONTEND_SYNC_TOKEN secret is not set. Create a fine-grained PAT with Contents: Read & write on MCTEEKUNG/HeatMAP-Frontend and add it as the repo secret FRONTEND_SYNC_TOKEN."
+            exit 1
+          fi
+
+          TARGET="MCTEEKUNG/HeatMAP-Frontend"
+          BRANCH="main"
+          TMP="$(mktemp -d)"
+
+          git config --global user.name  "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # Clone the deploy repo using the cross-repo token.
+          git clone --depth 1 --branch "$BRANCH" \
+            "https://x-access-token:${SYNC_TOKEN}@github.com/${TARGET}.git" "$TMP/target"
+
+          cd "$TMP/target"
+          # Replace the entire working tree (keep .git) so deletions propagate too.
+          find . -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
+
+          # Copy the canonical frontend in (source has no node_modules/dist in CI,
+          # but exclude defensively).
+          rsync -a \
+            --exclude='.git' --exclude='node_modules' --exclude='dist' --exclude='.expo' \
+            "$GITHUB_WORKSPACE/HeatMAP-Frontend/" ./
+
+          # Never publish local env files to the public deploy repo.
+          rm -f .env .env.local .env.*.local
+
+          # Refresh package-lock.json so Vercel's `npm install` stays consistent
+          # (the monorepo uses bun.lock; the deploy repo builds with npm).
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund >/dev/null 2>&1 || true
+
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No frontend changes to sync."
+            exit 0
+          fi
+          git commit -m "chore(sync): mirror HeatMAP-Frontend from monorepo @ ${GITHUB_SHA::7}"
+          git push origin "$BRANCH"
+          echo "Synced HeatMAP-Frontend -> ${TARGET}@${BRANCH}. Vercel will auto-deploy."
