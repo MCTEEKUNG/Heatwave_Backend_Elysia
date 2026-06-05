@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -7,6 +8,12 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { ScaledText } from '@/components/ui/ScaledText';
 import { useForecast, type CalendarDay, type RiskLevel } from '@/hooks/useForecast';
 import { useWeather } from '@/hooks/useWeather';
+import {
+  getForecastMap,
+  getAlertTier,
+  alertTierColor,
+  type MapForecastPoint,
+} from '@/services/forecastService';
 
 // ─── 3-tier risk colour helpers ───────────────────────────────────────────────
 // safe    = 🟢 Green  — no heatwave predicted
@@ -78,6 +85,19 @@ export default function AlertsScreen() {
 
   // Real weather data from Open-Meteo (Bangkok default, no GPS needed)
   const { temperature, wetBulb, uvIndex, humidity, aqi, aqiLabel, daily } = useWeather();
+
+  // National two-tier alert roll-up (watch / warning) from the per-province map.
+  // Tiers are derived client-side via getAlertTier() — no backend change needed.
+  const [mapPoints, setMapPoints] = useState<MapForecastPoint[]>([]);
+  useEffect(() => {
+    let alive = true;
+    getForecastMap()
+      .then((pts) => { if (alive) setMapPoints(pts); })
+      .catch(() => { /* non-blocking: banner just stays hidden */ });
+    return () => { alive = false; };
+  }, []);
+  const warningCount = mapPoints.filter((p) => getAlertTier(p.probability) === 'warning').length;
+  const watchCount = mapPoints.filter((p) => getAlertTier(p.probability) === 'watch').length;
 
   // Build dynamic calendar grid for the current month
   const { year, month, startWeekday, daysInMonth, riskMap } = buildMonthGrid(calendar);
@@ -170,6 +190,25 @@ export default function AlertsScreen() {
                 ? <ActivityIndicator size="small" color={isDarkMode ? '#F87171' : '#EF4444'} />
                 : <ScaledText variant="labelSmall" style={{ color: isDarkMode ? '#F87171' : '#EF4444', fontWeight: '700' }}>Retry</ScaledText>}
             </TouchableOpacity>
+          </View>
+        )}
+
+        {/* ── National two-tier alert roll-up ── */}
+        {mapPoints.length > 0 && (warningCount > 0 || watchCount > 0) && (
+          <View style={[styles.nationalCard, GlassStyle[isDarkMode ? 'dark' : 'light']]}>
+            <ScaledText variant="labelMedium" style={[styles.sectionTitle, { color: theme.textSecondary, marginBottom: DesignTokens.spacing.sm }]}>
+              {`ภาพรวมทั้งประเทศ · ${mapPoints.length} จังหวัด`}
+            </ScaledText>
+            <View style={styles.nationalRow}>
+              <View style={[styles.tierChip, { borderColor: alertTierColor('warning') }]}>
+                <ScaledText variant="displaySmall" style={[styles.tierNum, { color: alertTierColor('warning') }]}>{warningCount}</ScaledText>
+                <ScaledText variant="labelSmall" style={[styles.tierLab, { color: alertTierColor('warning') }]}>🔴 เตือนภัย</ScaledText>
+              </View>
+              <View style={[styles.tierChip, { borderColor: alertTierColor('watch') }]}>
+                <ScaledText variant="displaySmall" style={[styles.tierNum, { color: alertTierColor('watch') }]}>{watchCount}</ScaledText>
+                <ScaledText variant="labelSmall" style={[styles.tierLab, { color: alertTierColor('watch') }]}>🟡 เฝ้าระวัง</ScaledText>
+              </View>
+            </View>
           </View>
         )}
 
@@ -424,6 +463,23 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginBottom: DesignTokens.spacing.md,
   },
+
+  // National two-tier roll-up
+  nationalCard: {
+    padding:      DesignTokens.spacing.md,
+    borderRadius: DesignTokens.borderRadius.xl,
+    marginBottom: DesignTokens.spacing.lg,
+  },
+  nationalRow: { flexDirection: 'row', gap: DesignTokens.spacing.md },
+  tierChip: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: DesignTokens.spacing.md,
+    borderRadius: DesignTokens.borderRadius.lg,
+    borderWidth: 1,
+  },
+  tierNum: { fontSize: 34, fontWeight: '900', lineHeight: 38 },
+  tierLab: { fontSize: 11, fontWeight: '700', marginTop: 2 },
 
   // Hero
   heroCard: {
