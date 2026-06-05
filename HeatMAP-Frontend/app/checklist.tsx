@@ -387,9 +387,9 @@ export default function ChecklistScreen() {
           <ScaledText variant="labelSmall" style={[styles.navLabel, { color: theme.tabIconDefault }]}>{t('navAlerts')}</ScaledText>
         </TouchableOpacity>
         
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.navItem}
-          onPress={() => router.push('/(tabs)')}
+          onPress={() => {}}
         >
           <IconSymbol size={28} name="shield.fill" color={theme.primary} />
           <ScaledText variant="labelSmall" style={[styles.navLabel, { color: theme.primary }]}>{t('navSafety')}</ScaledText>
