@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Heatwave Operations Console — Two-Tier Alert (Mockup)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;900&family=Archivo+Narrow:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --void:#0a0805; --panel:#15110b; --panel2:#1c160d; --edge:#2c2213;
+    --ink:#f3ead9; --muted:#a99a7e; --faint:#6f6450;
+    --warn:#ff3b2f; --warn2:#ff6a3d;      /* WARNING tier — red */
+    --watch:#ffb000; --watch2:#ffd24a;     /* WATCH tier — amber */
+    --calm:#3c6e57; --calm2:#5fae7f;       /* normal — muted green */
+    --mono:"IBM Plex Mono",monospace;
+    --disp:"Archivo",sans-serif;
+    --cond:"Archivo Narrow",sans-serif;
+    --thai:"IBM Plex Sans Thai",sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;min-height:100vh;background:
+      radial-gradient(1200px 600px at 78% -10%, #2a1402 0%, transparent 60%),
+      radial-gradient(900px 500px at 0% 110%, #1a0f02 0%, transparent 55%),
+      var(--void);
+    color:var(--ink);font-family:var(--thai);font-size:15px;line-height:1.55;
+    background-attachment:fixed}
+  body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:1;opacity:.05;
+    background-image:repeating-linear-gradient(0deg,#fff 0 1px,transparent 1px 3px);mix-blend-mode:overlay}
+  .console{position:relative;z-index:2;max-width:1280px;margin:0 auto;padding:22px}
+
+  /* command bar */
+  .cmdbar{display:flex;align-items:center;gap:18px;flex-wrap:wrap;
+    border:1px solid var(--edge);border-radius:14px;padding:14px 20px;
+    background:linear-gradient(180deg,var(--panel2),var(--panel));
+    box-shadow:0 20px 50px -30px #000 inset,0 1px 0 #ffffff08 inset}
+  .brandmark{width:42px;height:42px;border-radius:11px;display:grid;place-items:center;
+    background:conic-gradient(from 200deg,var(--warn),var(--watch),var(--warn));
+    box-shadow:0 0 28px -6px var(--warn);font-size:1.3rem}
+  .brand h1{font-family:var(--disp);font-weight:900;font-size:1.18rem;letter-spacing:.04em;
+    margin:0;text-transform:uppercase;line-height:1}
+  .brand .sub{font-family:var(--mono);font-size:.7rem;color:var(--muted);letter-spacing:.18em;text-transform:uppercase;margin-top:4px}
+  .live{margin-left:auto;display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+  .clock{font-family:var(--mono);font-size:.82rem;color:var(--muted);text-align:right}
+  .clock b{color:var(--ink);display:block;font-size:1rem;letter-spacing:.04em}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--warn);
+    box-shadow:0 0 0 0 var(--warn);animation:pulse 2s infinite;margin-right:6px}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 #ff3b2f88}70%{box-shadow:0 0 0 9px #ff3b2f00}100%{box-shadow:0 0 0 0 #ff3b2f00}}
+  .badge-mock{font-family:var(--mono);font-size:.62rem;letter-spacing:.16em;color:var(--watch);
+    border:1px solid #5a4410;border-radius:999px;padding:3px 9px;text-transform:uppercase}
+
+  /* layout */
+  .grid{display:grid;grid-template-columns:248px 1fr 286px;gap:16px;margin-top:16px}
+  @media(max-width:1080px){.grid{grid-template-columns:1fr}}
+  .col{display:flex;flex-direction:column;gap:14px}
+  .card{border:1px solid var(--edge);border-radius:14px;background:linear-gradient(180deg,var(--panel2),var(--panel));
+    padding:15px 16px;box-shadow:0 24px 60px -40px #000}
+  .card h3{font-family:var(--mono);font-size:.68rem;letter-spacing:.2em;text-transform:uppercase;
+    color:var(--faint);margin:0 0 12px;display:flex;align-items:center;gap:8px}
+  .card h3::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--edge),transparent)}
+
+  /* KPI tiers */
+  .tier{display:flex;align-items:baseline;gap:12px;padding:12px 0;border-bottom:1px dashed var(--edge)}
+  .tier:last-child{border-bottom:none}
+  .tier .n{font-family:var(--mono);font-weight:600;font-size:2rem;line-height:1;min-width:54px;text-align:right;
+    font-variant-numeric:tabular-nums}
+  .tier .meta .lab{font-family:var(--cond);font-weight:700;font-size:1.02rem;letter-spacing:.02em;text-transform:uppercase}
+  .tier .meta .desc{font-size:.74rem;color:var(--muted)}
+  .tier.warn .n{color:var(--warn2)} .tier.warn .lab{color:var(--warn2)}
+  .tier.watch .n{color:var(--watch2)} .tier.watch .lab{color:var(--watch2)}
+  .tier.calm .n{color:var(--calm2)} .tier.calm .lab{color:var(--calm2)}
+
+  /* legend / operating point */
+  .op{font-family:var(--mono);font-size:.74rem;color:var(--muted);line-height:1.7}
+  .op .row{display:flex;justify-content:space-between;gap:8px}
+  .op .row b{color:var(--ink)}
+  .swatch{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:7px;vertical-align:-1px}
+  .sw-warn{background:var(--warn)} .sw-watch{background:var(--watch)} .sw-calm{background:var(--calm)}
+
+  .slider-wrap{margin-top:6px}
+  .slider-wrap label{font-family:var(--mono);font-size:.7rem;color:var(--muted);display:flex;justify-content:space-between}
+  .slider-wrap label b{color:var(--watch2)}
+  input[type=range]{width:100%;accent-color:var(--warn);margin-top:8px}
+  .hint{font-size:.72rem;color:var(--faint);margin-top:8px;line-height:1.5}
+
+  /* province grid */
+  .mapcard{min-height:520px}
+  .maphead{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px}
+  .maphead .ttl{font-family:var(--disp);font-weight:700;font-size:1.05rem;letter-spacing:.02em}
+  .seg{display:flex;border:1px solid var(--edge);border-radius:9px;overflow:hidden;font-family:var(--mono);font-size:.72rem}
+  .seg button{background:transparent;color:var(--muted);border:none;padding:6px 12px;cursor:pointer;letter-spacing:.06em}
+  .seg button.on{background:var(--warn);color:#1a0600;font-weight:600}
+  .cells{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:7px}
+  .cell{position:relative;border:1px solid var(--edge);border-radius:9px;padding:9px 10px 8px;cursor:pointer;
+    background:var(--panel);overflow:hidden;transition:transform .12s ease,border-color .12s ease;
+    opacity:0;transform:translateY(8px);animation:rise .5s forwards}
+  @keyframes rise{to{opacity:1;transform:none}}
+  .cell:hover{transform:translateY(-3px);border-color:#5a4a28;z-index:3}
+  .cell .glow{position:absolute;inset:0;opacity:.20;pointer-events:none}
+  .cell .nm{font-family:var(--cond);font-weight:700;font-size:.86rem;letter-spacing:.01em;position:relative}
+  .cell .rg{font-size:.64rem;color:var(--faint);position:relative;font-family:var(--mono);letter-spacing:.05em}
+  .cell .pp{font-family:var(--mono);font-weight:600;font-size:1.18rem;margin-top:5px;position:relative;font-variant-numeric:tabular-nums}
+  .cell .tg{position:absolute;top:8px;right:9px;font-family:var(--mono);font-size:.56rem;letter-spacing:.12em;
+    padding:2px 6px;border-radius:5px;text-transform:uppercase;font-weight:600}
+  .cell.warn{border-color:#5a1a12} .cell.warn .glow{background:radial-gradient(120px 80px at 80% 0,var(--warn),transparent)}
+  .cell.warn .pp{color:var(--warn2)} .cell.warn .tg{background:var(--warn);color:#1a0600}
+  .cell.watch{border-color:#5a4410} .cell.watch .glow{background:radial-gradient(120px 80px at 80% 0,var(--watch),transparent)}
+  .cell.watch .pp{color:var(--watch2)} .cell.watch .tg{background:var(--watch);color:#1a0e00}
+  .cell.calm .pp{color:var(--calm2)} .cell.calm .tg{background:#23371f;color:var(--calm2)}
+  .cell.dim{opacity:.16;filter:grayscale(.6)}
+
+  /* detail panel */
+  .pickhint{color:var(--muted);font-size:.82rem}
+  .detail .dnm{font-family:var(--disp);font-weight:900;font-size:1.5rem;line-height:1.05;letter-spacing:.01em}
+  .detail .drg{font-family:var(--mono);font-size:.72rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-top:2px}
+  .gauge{height:10px;border-radius:6px;background:#241a0d;overflow:hidden;margin:16px 0 6px;border:1px solid var(--edge)}
+  .gauge > i{display:block;height:100%;background:linear-gradient(90deg,var(--calm),var(--watch),var(--warn))}
+  .tier-pill{display:inline-flex;align-items:center;gap:7px;font-family:var(--cond);font-weight:700;font-size:1.05rem;
+    text-transform:uppercase;letter-spacing:.04em;padding:7px 13px;border-radius:9px;margin-top:6px}
+  .tier-pill.warn{background:#2a0d09;color:var(--warn2);border:1px solid #5a1a12}
+  .tier-pill.watch{background:#2a1f06;color:var(--watch2);border:1px solid #5a4410}
+  .tier-pill.calm{background:#152417;color:var(--calm2);border:1px solid #25402a}
+  .drow{display:flex;justify-content:space-between;font-family:var(--mono);font-size:.78rem;
+    padding:8px 0;border-bottom:1px dashed var(--edge)}
+  .drow span{color:var(--muted)} .drow b{color:var(--ink)}
+  .action{margin-top:14px;font-size:.8rem;line-height:1.55;color:var(--muted);
+    border-left:3px solid var(--warn);padding:8px 0 8px 12px;background:#ffffff04;border-radius:0 8px 8px 0}
+  .reglist .rl{display:flex;align-items:center;gap:9px;padding:6px 0;font-size:.8rem}
+  .reglist .rl .bar{flex:1;height:7px;border-radius:5px;background:#241a0d;overflow:hidden}
+  .reglist .rl .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--watch),var(--warn))}
+  .reglist .rl .rn{font-family:var(--mono);font-size:.72rem;color:var(--muted);min-width:74px}
+  .reglist .rl .rc{font-family:var(--mono);font-size:.74rem;min-width:40px;text-align:right;color:var(--ink)}
+  footer{margin-top:18px;font-family:var(--mono);font-size:.68rem;color:var(--faint);text-align:center;letter-spacing:.06em;line-height:1.8}
+  footer a{color:var(--watch)}
+</style>
+</head>
+<body>
+<div class="console">
+
+  <div class="cmdbar">
+    <div class="brandmark">🜂</div>
+    <div class="brand">
+      <h1>Heatwave Ops Console</h1>
+      <div class="sub">Two-Tier Provincial Alert · Thailand</div>
+    </div>
+    <div class="live">
+      <span class="badge-mock">UX Mockup · ข้อมูลจริง</span>
+      <div class="clock"><span class="sub" style="font-size:.62rem;letter-spacing:.18em;color:var(--faint)"><span class="dot"></span>FORECAST FEED</span><b id="asof">—</b></div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <!-- LEFT: tiers + operating point -->
+    <div class="col">
+      <div class="card">
+        <h3>Alert Tally · ลีด +1 วัน</h3>
+        <div class="tier warn"><div class="n" id="cWarn">0</div><div class="meta"><div class="lab">Warning</div><div class="desc">เตือนภัย · แม่นยำสูง</div></div></div>
+        <div class="tier watch"><div class="n" id="cWatch">0</div><div class="meta"><div class="lab">Watch</div><div class="desc">เฝ้าระวัง · จับให้ครบ</div></div></div>
+        <div class="tier calm"><div class="n" id="cCalm">0</div><div class="meta"><div class="lab">Normal</div><div class="desc">ปกติ</div></div></div>
+      </div>
+
+      <div class="card">
+        <h3>Operating Point</h3>
+        <div class="op">
+          <div class="row"><span><span class="swatch sw-warn"></span>Warning ≥ <b id="tWarnTxt">0.281</b></span><b>P .35 / R .46</b></div>
+          <div class="row"><span><span class="swatch sw-watch"></span>Watch ≥ <b id="tWatchTxt">0.217</b></span><b>P .28 / R .64</b></div>
+          <div class="row"><span><span class="swatch sw-calm"></span>Normal</span><b>—</b></div>
+        </div>
+        <div class="slider-wrap">
+          <label>ปรับความไว (Warning threshold) <b id="tVal">0.281</b></label>
+          <input type="range" id="thr" min="0.10" max="0.45" step="0.001" value="0.281">
+        </div>
+        <div class="hint">เลื่อนเพื่อดูว่าจำนวนจังหวัดที่ถูกเตือนเปลี่ยนอย่างไร — สาธิต trade-off ระหว่าง "เตือนครบ" (recall) กับ "เตือนแม่น" (precision). P/R วัดจริงบน test 2025 ที่จุดแนะนำ.</div>
+      </div>
+    </div>
+
+    <!-- CENTER: province grid -->
+    <div class="card mapcard">
+      <div class="maphead">
+        <div class="ttl">77 จังหวัด · เรียงตามความเสี่ยง</div>
+        <div class="seg" id="filter">
+          <button data-f="all" class="on">ALL</button>
+          <button data-f="warn">WARNING</button>
+          <button data-f="watch">WATCH</button>
+        </div>
+      </div>
+      <div class="cells" id="cells"></div>
+    </div>
+
+    <!-- RIGHT: detail + region rollup -->
+    <div class="col">
+      <div class="card detail">
+        <h3>Province Detail</h3>
+        <div id="detail"><div class="pickhint">เลือกจังหวัดจากตารางเพื่อดูรายละเอียด — หรือดูจังหวัดเสี่ยงสูงสุดด้านล่าง</div></div>
+      </div>
+      <div class="card">
+        <h3>Warning โดยภูมิภาค</h3>
+        <div class="reglist" id="regions"></div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    Heatwave-AI · two-tier alert mockup · model <b style="color:var(--muted)">lgbm-v1</b> · thresholds จาก <a href="SESSION-REPORT.html">SESSION-REPORT.html §7</a> · ข้อมูล Supabase จริง (generated 2026-06-05 08:54 UTC)<br>
+    เป็นต้นแบบ UX — การ wire เข้าระบบจริงต้องเพิ่ม tier field ใน backend + render 2 ระดับใน frontend
+  </footer>
+</div>
+
+<script>
+const DATA = [{"id": 77, "name": "Narathiwat", "region": "South", "p": 0.6125, "risk": "extreme", "nameTh": "นราธิวาส"}, {"id": 27, "name": "Nan", "region": "North", "p": 0.5489, "risk": "high", "nameTh": "น่าน"}, {"id": 34, "name": "Tak", "region": "North", "p": 0.5109, "risk": "high", "nameTh": "ตาก"}, {"id": 49, "name": "Khon Kaen", "region": "Northeast", "p": 0.5109, "risk": "high", "nameTh": "ขอนแก่น"}, {"id": 50, "name": "Udon Thani", "region": "Northeast", "p": 0.4654, "risk": "high", "nameTh": "อุดรธานี"}, {"id": 26, "name": "Phrae", "region": "North", "p": 0.4654, "risk": "high", "nameTh": "แพร่"}, {"id": 56, "name": "Sakon Nakhon", "region": "Northeast", "p": 0.4654, "risk": "high", "nameTh": "สกลนคร"}, {"id": 18, "name": "Trat", "region": "East", "p": 0.4647, "risk": "high", "nameTh": "ตราด"}, {"id": 22, "name": "Chiang Mai", "region": "North", "p": 0.4647, "risk": "high", "nameTh": "เชียงใหม่"}, {"id": 52, "name": "Nong Khai", "region": "Northeast", "p": 0.4529, "risk": "high", "nameTh": "หนองคาย"}, {"id": 25, "name": "Uttaradit", "region": "North", "p": 0.4529, "risk": "high", "nameTh": "อุตรดิตถ์"}, {"id": 45, "name": "Chaiyaphum", "region": "Northeast", "p": 0.4529, "risk": "high", "nameTh": "ชัยภูมิ"}, {"id": 64, "name": "Nakhon Si Thammarat", "region": "South", "p": 0.3983, "risk": "high", "nameTh": "นครศรีธรรมราช"}, {"id": 23, "name": "Lamphun", "region": "North", "p": 0.3958, "risk": "high", "nameTh": "ลำพูน"}, {"id": 36, "name": "Phitsanulok", "region": "North", "p": 0.3958, "risk": "high", "nameTh": "พิษณุโลก"}, {"id": 24, "name": "Lampang", "region": "North", "p": 0.3958, "risk": "high", "nameTh": "ลำปาง"}, {"id": 14, "name": "Samut Songkhram", "region": "Central", "p": 0.3789, "risk": "high", "nameTh": "สมุทรสงคราม"}, {"id": 53, "name": "Maha Sarakham", "region": "Northeast", "p": 0.3771, "risk": "high", "nameTh": "มหาสารคาม"}, {"id": 47, "name": "Bueng Kan", "region": "Northeast", "p": 0.373, "risk": "high", "nameTh": "บึงกาฬ"}, {"id": 71, "name": "Songkhla", "region": "South", "p": 0.373, "risk": "high", "nameTh": "สงขลา"}, {"id": 28, "name": "Phayao", "region": "North", "p": 0.373, "risk": "high", "nameTh": "พะเยา"}, {"id": 17, "name": "Chanthaburi", "region": "East", "p": 0.3621, "risk": "high", "nameTh": "จันทบุรี"}, {"id": 54, "name": "Roi Et", "region": "Northeast", "p": 0.3424, "risk": "high", "nameTh": "ร้อยเอ็ด"}, {"id": 57, "name": "Nakhon Phanom", "region": "Northeast", "p": 0.3391, "risk": "high", "nameTh": "นครพนม"}, {"id": 40, "name": "Buriram", "region": "Northeast", "p": 0.3391, "risk": "high", "nameTh": "บุรีรัมย์"}, {"id": 74, "name": "Phatthalung", "region": "South", "p": 0.3391, "risk": "high", "nameTh": "พัทลุง"}, {"id": 20, "name": "Prachin Buri", "region": "East", "p": 0.3102, "risk": "high", "nameTh": "ปราจีนบุรี"}, {"id": 70, "name": "Chumphon", "region": "South", "p": 0.3102, "risk": "high", "nameTh": "ชุมพร"}, {"id": 38, "name": "Phetchabun", "region": "North", "p": 0.3102, "risk": "high", "nameTh": "เพชรบูรณ์"}, {"id": 37, "name": "Phichit", "region": "North", "p": 0.3102, "risk": "high", "nameTh": "พิจิตร"}, {"id": 65, "name": "Krabi", "region": "South", "p": 0.3102, "risk": "high", "nameTh": "กระบี่"}, {"id": 32, "name": "Uthai Thani", "region": "North", "p": 0.3102, "risk": "high", "nameTh": "อุทัยธานี"}, {"id": 46, "name": "Amnat Charoen", "region": "Northeast", "p": 0.3102, "risk": "high", "nameTh": "อำนาจเจริญ"}, {"id": 35, "name": "Sukhothai", "region": "North", "p": 0.2934, "risk": "moderate", "nameTh": "สุโขทัย"}, {"id": 33, "name": "Kamphaeng Phet", "region": "North", "p": 0.2934, "risk": "moderate", "nameTh": "กำแพงเพชร"}, {"id": 55, "name": "Kalasin", "region": "Northeast", "p": 0.2934, "risk": "moderate", "nameTh": "กาฬสินธุ์"}, {"id": 58, "name": "Mukdahan", "region": "Northeast", "p": 0.287, "risk": "moderate", "nameTh": "มุกดาหาร"}, {"id": 31, "name": "Nakhon Sawan", "region": "North", "p": 0.287, "risk": "moderate", "nameTh": "นครสวรรค์"}, {"id": 72, "name": "Satun", "region": "South", "p": 0.287, "risk": "moderate", "nameTh": "สตูล"}, {"id": 48, "name": "Nong Bua Lamphu", "region": "Northeast", "p": 0.281, "risk": "moderate", "nameTh": "หนองบัวลำภู"}, {"id": 19, "name": "Chachoengsao", "region": "East", "p": 0.2739, "risk": "moderate", "nameTh": "ฉะเชิงเทรา"}, {"id": 44, "name": "Yasothon", "region": "Northeast", "p": 0.2618, "risk": "moderate", "nameTh": "ยโสธร"}, {"id": 8, "name": "Sing Buri", "region": "Central", "p": 0.2618, "risk": "moderate", "nameTh": "สิงห์บุรี"}, {"id": 30, "name": "Mae Hong Son", "region": "North", "p": 0.2491, "risk": "moderate", "nameTh": "แม่ฮ่องสอน"}, {"id": 9, "name": "Chai Nat", "region": "Central", "p": 0.2312, "risk": "moderate", "nameTh": "ชัยนาท"}, {"id": 67, "name": "Phuket", "region": "South", "p": 0.2291, "risk": "moderate", "nameTh": "ภูเก็ต"}, {"id": 29, "name": "Chiang Rai", "region": "North", "p": 0.2291, "risk": "moderate", "nameTh": "เชียงราย"}, {"id": 7, "name": "Lopburi", "region": "Central", "p": 0.2291, "risk": "moderate", "nameTh": "ลพบุรี"}, {"id": 73, "name": "Trang", "region": "South", "p": 0.2171, "risk": "moderate", "nameTh": "ตรัง"}, {"id": 13, "name": "Samut Sakhon", "region": "Central", "p": 0.2171, "risk": "moderate", "nameTh": "สมุทรสาคร"}, {"id": 41, "name": "Surin", "region": "Northeast", "p": 0.2171, "risk": "moderate", "nameTh": "สุรินทร์"}, {"id": 21, "name": "Sa Kaeo", "region": "East", "p": 0.2171, "risk": "moderate", "nameTh": "สระแก้ว"}, {"id": 62, "name": "Phetchaburi", "region": "West", "p": 0.2111, "risk": "moderate", "nameTh": "เพชรบุรี"}, {"id": 42, "name": "Sisaket", "region": "Northeast", "p": 0.1957, "risk": "moderate", "nameTh": "ศรีสะเกษ"}, {"id": 5, "name": "Phra Nakhon Si Ayutthaya", "region": "Central", "p": 0.1957, "risk": "moderate", "nameTh": "พระนครศรีอยุธยา"}, {"id": 51, "name": "Loei", "region": "Northeast", "p": 0.1957, "risk": "moderate", "nameTh": "เลย"}, {"id": 12, "name": "Nakhon Pathom", "region": "Central", "p": 0.1957, "risk": "moderate", "nameTh": "นครปฐม"}, {"id": 39, "name": "Nakhon Ratchasima", "region": "Northeast", "p": 0.1938, "risk": "moderate", "nameTh": "นครราชสีมา"}, {"id": 4, "name": "Pathum Thani", "region": "Central", "p": 0.1877, "risk": "moderate", "nameTh": "ปทุมธานี"}, {"id": 43, "name": "Ubon Ratchathani", "region": "Northeast", "p": 0.176, "risk": "moderate", "nameTh": "อุบลราชธานี"}, {"id": 60, "name": "Suphan Buri", "region": "West", "p": 0.176, "risk": "moderate", "nameTh": "สุพรรณบุรี"}, {"id": 75, "name": "Pattani", "region": "South", "p": 0.173, "risk": "moderate", "nameTh": "ปัตตานี"}, {"id": 16, "name": "Rayong", "region": "East", "p": 0.144, "risk": "moderate", "nameTh": "ระยอง"}, {"id": 11, "name": "Nakhon Nayok", "region": "Central", "p": 0.144, "risk": "moderate", "nameTh": "นครนายก"}, {"id": 6, "name": "Ang Thong", "region": "Central", "p": 0.1384, "risk": "moderate", "nameTh": "อ่างทอง"}, {"id": 61, "name": "Ratchaburi", "region": "West", "p": 0.1348, "risk": "moderate", "nameTh": "ราชบุรี"}, {"id": 69, "name": "Ranong", "region": "South", "p": 0.1222, "risk": "moderate", "nameTh": "ระนอง"}, {"id": 63, "name": "Prachuap Khiri Khan", "region": "West", "p": 0.1107, "risk": "moderate", "nameTh": "ประจวบคีรีขันธ์"}, {"id": 76, "name": "Yala", "region": "South", "p": 0.1107, "risk": "moderate", "nameTh": "ยะลา"}, {"id": 59, "name": "Kanchanaburi", "region": "West", "p": 0.0881, "risk": "low", "nameTh": "กาญจนบุรี"}, {"id": 15, "name": "Chon Buri", "region": "East", "p": 0.0662, "risk": "low", "nameTh": "ชลบุรี"}, {"id": 1, "name": "Bangkok", "region": "Central", "p": 0.0662, "risk": "low", "nameTh": "กรุงเทพมหานคร"}, {"id": 10, "name": "Saraburi", "region": "Central", "p": 0.0662, "risk": "low", "nameTh": "สระบุรี"}, {"id": 3, "name": "Nonthaburi", "region": "Central", "p": 0.0662, "risk": "low", "nameTh": "นนทบุรี"}, {"id": 2, "name": "Samut Prakan", "region": "Central", "p": 0.0485, "risk": "low", "nameTh": "สมุทรปราการ"}, {"id": 66, "name": "Phang Nga", "region": "South", "p": 0.0298, "risk": "low", "nameTh": "พังงา"}, {"id": 68, "name": "Surat Thani", "region": "South", "p": 0.0183, "risk": "low", "nameTh": "สุราษฎร์ธานี"}];
+const WATCH_T = 0.217, WARN_REC = 0.281; // measured operating points (test 2025)
+let warnT = WARN_REC, watchT = WATCH_T, filter = "all", selected = null;
+const $ = s => document.querySelector(s);
+const fmt = v => v.toFixed(3).replace(/^0/,'');
+
+document.getElementById('asof').textContent = "05 มิ.ย. · 15:54";
+
+function tierOf(p){ return p >= warnT ? "warn" : (p >= watchT ? "watch" : "calm"); }
+
+function render(){
+  const cells = $("#cells"); cells.innerHTML = "";
+  let nW=0,nU=0,nC=0;
+  DATA.forEach((d,i)=>{
+    const t = tierOf(d.p);
+    if(t==="warn")nW++; else if(t==="watch")nU++; else nC++;
+    const show = filter==="all" || filter===t;
+    const el = document.createElement("div");
+    el.className = "cell "+t+(show?"":" dim");
+    el.style.animationDelay = (i*9)+"ms";
+    el.innerHTML = `<div class="glow"></div>
+      <div class="tg">${t==="warn"?"เตือนภัย":t==="watch"?"เฝ้าระวัง":"ปกติ"}</div>
+      <div class="nm">${d.nameTh||d.name}</div>
+      <div class="rg">${d.region}</div>
+      <div class="pp">${fmt(d.p)}</div>`;
+    el.onclick = ()=>{ selected = d; detail(d); };
+    cells.appendChild(el);
+  });
+  $("#cWarn").textContent=nW; $("#cWatch").textContent=nU; $("#cCalm").textContent=nC;
+  regions();
+}
+
+function detail(d){
+  const t = tierOf(d.p);
+  const labTh = t==="warn"?"เตือนภัย":t==="watch"?"เฝ้าระวัง":"ปกติ";
+  const act = t==="warn"
+    ? "สื่อสารวงกว้าง · แจ้งหน่วยสาธารณสุข · เฝ้าระวังกลุ่มเปราะบาง (ผู้สูงอายุ/เด็ก/ผู้ป่วย)"
+    : t==="watch" ? "เฝ้าติดตาม · เตรียมแจ้งเตือนล่วงหน้า · เตือนกลุ่มเสี่ยงให้ดื่มน้ำ/เลี่ยงแดด"
+    : "ไม่มีการเตือน · ติดตามตามปกติ";
+  $("#detail").innerHTML = `
+    <div class="dnm">${d.nameTh||d.name}</div>
+    <div class="drg">${d.region} · จังหวัด #${d.id}</div>
+    <div class="gauge"><i style="width:${Math.min(100,d.p*100/0.65*1).toFixed(0)}%"></i></div>
+    <div class="tier-pill ${t}">${t==="warn"?"🔴":t==="watch"?"🟡":"🟢"} ${labTh}</div>
+    <div class="drow"><span>ความน่าจะเป็น heatwave</span><b>${fmt(d.p)}</b></div>
+    <div class="drow"><span>ระดับ (legacy risk)</span><b>${d.risk}</b></div>
+    <div class="drow"><span>ลีดไทม์</span><b>+1 วัน</b></div>
+    <div class="action">${act}</div>`;
+}
+
+function regions(){
+  const agg = {};
+  DATA.forEach(d=>{ if(tierOf(d.p)==="warn"){ agg[d.region]=(agg[d.region]||0)+1; } });
+  const all = ["North","Northeast","Central","South","East","West"];
+  const max = Math.max(1,...Object.values(agg));
+  $("#regions").innerHTML = all.map(r=>{
+    const c = agg[r]||0;
+    return `<div class="rl"><span class="rn">${r}</span><span class="bar"><i style="width:${(c/max*100).toFixed(0)}%"></i></span><span class="rc">${c}</span></div>`;
+  }).join("");
+}
+
+$("#thr").addEventListener("input", e=>{
+  warnT = parseFloat(e.target.value);
+  watchT = Math.max(0.05, warnT - 0.064); // keep the measured watch/warning gap
+  $("#tVal").textContent = warnT.toFixed(3);
+  $("#tWarnTxt").textContent = warnT.toFixed(3);
+  $("#tWatchTxt").textContent = watchT.toFixed(3);
+  render();
+});
+document.querySelectorAll("#filter button").forEach(b=>{
+  b.onclick=()=>{ document.querySelectorAll("#filter button").forEach(x=>x.classList.remove("on"));
+    b.classList.add("on"); filter=b.dataset.f; render(); };
+});
+render();
+detail(DATA[0]);
+</script>
+</body>
+</html>

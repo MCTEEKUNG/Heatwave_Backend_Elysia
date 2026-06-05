@@ -278,8 +278,10 @@
       <tr><td><span class="pill block">WARNING</span> เตือนภัย</td><td class="num">0.281</td><td class="num">0.347</td><td class="num">0.459</td><td class="num">18%</td><td>แม่นขึ้น (precision สูง) — แจ้งเตือนระดับสูง/สื่อสารวงกว้าง</td></tr>
     </tbody>
   </table>
-  <div class="callout info"><span class="ic">🎨</span><div><b>ข้อเสนอ UX:</b> แสดงเป็น 2 ระดับสี/ป้าย (เฝ้าระวัง = เหลือง, เตือนภัย = แดง) แทนระดับเดียว.
-  <b>ผลกระทบ:</b> ต้องเพิ่มฟิลด์ระดับใน backend + render 2 ระดับใน frontend (เป็นงานต่อยอด ไม่ได้ทำในรอบนี้เพราะกระทบหลายชั้น).</div></div>
+  <div class="callout info"><span class="ic">🎨</span><div><b>ข้อเสนอ UX — มี mockup ให้ดูแล้ว:</b> เปิด
+  <a class="link" href="two-tier-alert-mockup.html"><b>two-tier-alert-mockup.html</b></a> — ต้นแบบ "Heatwave Ops Console" แบบ interactive
+  ที่ใช้ <b>ข้อมูลจริง 77 จังหวัด</b> + threshold จริง (เลื่อน slider ดู trade-off ได้). แสดง 2 ระดับสี/ป้าย (เฝ้าระวัง = เหลือง, เตือนภัย = แดง).
+  <b>การ wire เข้าระบบจริง:</b> ต้องเพิ่มฟิลด์ระดับใน backend + render 2 ระดับใน frontend (งานต่อยอด — mockup เป็น design ไม่แตะ prod).</div></div>
 </div></section>
 
 <!-- 8. CORS -->
