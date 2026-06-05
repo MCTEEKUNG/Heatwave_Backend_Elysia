@@ -1,27 +1,152 @@
-/* Global CSS for Heatwave Forecast App */
+/* Global CSS for Heatwave Forecast App — "Thermal Instrument" web theme */
 
-/* Leaflet CSS for OpenStreetMap */
+/* @import rules must precede all other rules */
 @import 'leaflet/dist/leaflet.css';
+/* Type: Bai Jamjuree — technical geometric, Thai + Latin (instrument feel) */
+@import url('https://fonts.googleapis.com/css2?family=Bai+Jamjuree:wght@300;400;500;600;700&display=swap');
 
-/* Base styles */
+/* Base */
 html, body {
   margin: 0;
   padding: 0;
   height: 100%;
   width: 100%;
+  /* Cascades to React Native <Text> on web (which don't set their own family).
+     Icon fonts set font-family inline, so glyph icons are unaffected. */
+  font-family: 'Bai Jamjuree', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 * {
   box-sizing: border-box;
 }
 
-/* Ensure proper z-index for Leaflet map */
-.leaflet-container {
-  z-index: 1;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+/* Tabular, lining figures everywhere numbers matter (temps, %, dates) */
+body {
+  font-feature-settings: 'tnum' 1, 'lnum' 1;
 }
 
-/* Fix for Leaflet default marker icons */
+/* Utility: instrument display numerals (big readouts) */
+.thermal-display {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+/* Subtle film grain to kill flat fills (very low opacity, GPU-cheap) */
+.thermal-grain::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+  opacity: 0.035;
+  mix-blend-mode: overlay;
+  z-index: 0;
+}
+
+/* Soft heat-pulse for the live "extreme" state */
+@keyframes thermalPulse {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50%      { opacity: 1;    transform: scale(1.06); }
+}
+.thermal-pulse { animation: thermalPulse 2.4s ease-in-out infinite; }
+
+/* One-shot entrance: rise + fade (orchestrated reveal) */
+@keyframes thermalRise {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.thermal-rise { animation: thermalRise 0.6s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* Leaflet */
+.leaflet-container {
+  z-index: 1;
+  font-family: 'Bai Jamjuree', system-ui, sans-serif;
+  background: #0d0f14;
+}
 .leaflet-default-icon-path {
   background-image: url(https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png);
 }
+.leaflet-control-attribution {
+  background: rgba(10, 10, 12, 0.55) !important;
+  color: rgba(255, 255, 255, 0.45) !important;
+}
+.leaflet-control-attribution a { color: rgba(255, 180, 120, 0.7) !important; }
+
+/* ── Heat design tokens ─────────────────────────────────────────────── */
+:root {
+  --heat-low: #2CC36B;
+  --heat-mod: #EAB308;
+  --heat-high: #F97316;
+  --heat-ext: #EF4444;
+  --ink-900: #0a0c11;
+}
+
+/* Atmosphere: a fixed edge vignette so the whole frame has depth, not a flat fill */
+.edge-vignette {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(130% 80% at 50% -10%, rgba(255, 122, 54, 0.10), transparent 60%),
+    radial-gradient(120% 100% at 50% 110%, rgba(20, 9, 5, 0.55), transparent 62%);
+}
+
+/* Instrument panel: refined glass with a hairline heat top-edge + inner highlight.
+   Layer this via className on top of the RN glass style. */
+.instr-panel::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 12%; right: 12%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 150, 90, 0.75), transparent);
+  pointer-events: none;
+}
+.instr-panel::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+/* Heat halo — a soft radial glow that sits behind the hero readout's number.
+   Intensity scales by risk via the modifier classes. */
+.heat-halo {
+  position: absolute;
+  width: 130px; height: 130px;
+  border-radius: 999px;
+  filter: blur(22px);
+  pointer-events: none;
+  opacity: 0.45;
+  transition: opacity 0.4s ease, background 0.4s ease;
+}
+.heat-halo.low { background: radial-gradient(circle, rgba(44,195,107,0.55), transparent 70%); opacity: 0.42; }
+.heat-halo.moderate { background: radial-gradient(circle, rgba(234,179,8,0.65), transparent 70%); opacity: 0.50; }
+.heat-halo.high { background: radial-gradient(circle, rgba(249,115,22,0.75), transparent 70%); opacity: 0.62; }
+.heat-halo.extreme { background: radial-gradient(circle, rgba(239,68,68,0.85), transparent 70%); opacity: 0.78; }
+
+/* Orchestrated entrance — single staggered reveal on load */
+.thermal-rise.d1 { animation-delay: 0.04s; }
+.thermal-rise.d2 { animation-delay: 0.13s; }
+.thermal-rise.d3 { animation-delay: 0.24s; }
+.thermal-rise.d4 { animation-delay: 0.36s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .thermal-rise, .thermal-pulse { animation: none !important; }
+}
+
+/* Custom scrollbar — thin, heat-tinted */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 126, 73, 0.35);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 126, 73, 0.55); background-clip: padding-box; }

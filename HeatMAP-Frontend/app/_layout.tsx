@@ -102,7 +102,7 @@ export default function RootLayout() {
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
           <Stack.Screen name="prd" options={{ presentation: 'modal', title: 'Product Requirements' }} />
-          <Stack.Screen name="checklist" options={{ presentation: 'modal', title: 'Safety Checklist' }} />
+          <Stack.Screen name="checklist" options={{ presentation: 'modal', headerShown: false }} />
           <Stack.Screen name="liff" options={{ headerShown: false }} />
         </Stack>
       </AppContent>
