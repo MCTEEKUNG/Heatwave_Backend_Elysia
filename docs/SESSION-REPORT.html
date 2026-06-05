@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Heatwave-AI — รายงานสรุปการพัฒนา (Session Report)</title>
+<style>
+  :root{
+    --bg:#0f1419; --panel:#171d26; --panel2:#1e2630; --line:#2b3543;
+    --ink:#e6edf3; --muted:#9aa7b4; --faint:#6b7785;
+    --accent:#ff7849; --accent2:#ffb454; --safe:#3fb950; --danger:#f85149;
+    --info:#58a6ff; --purple:#bc8cff; --code-bg:#0b0f14;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:"Segoe UI","IBM Plex Sans Thai","Sarabun","Noto Sans Thai",system-ui,sans-serif;
+    line-height:1.7;font-size:16px}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 22px}
+  header.hero{background:linear-gradient(135deg,#10241a 0%,#0f1419 55%);
+    border-bottom:1px solid var(--line);padding:46px 0 34px}
+  .eyebrow{color:var(--accent2);font-weight:700;letter-spacing:.12em;font-size:.78rem;text-transform:uppercase}
+  h1{margin:.25em 0 .15em;font-size:2.05rem;line-height:1.2}
+  h1 .em{color:var(--accent)}
+  .sub{color:var(--muted);max-width:820px}
+  .meta{margin-top:18px;display:flex;flex-wrap:wrap;gap:8px}
+  .chip{background:var(--panel2);border:1px solid var(--line);color:var(--muted);
+    padding:4px 11px;border-radius:999px;font-size:.8rem}
+  .chip b{color:var(--ink)}
+  .chip.ok{border-color:#1d4d2a;color:var(--safe)}
+  .chip.warn{border-color:#5a4410;color:var(--accent2)}
+  nav.toc{position:sticky;top:0;z-index:20;background:rgba(15,20,25,.92);
+    backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+  nav.toc .wrap{display:flex;flex-wrap:wrap;gap:4px;padding:10px 22px}
+  nav.toc a{color:var(--muted);text-decoration:none;font-size:.86rem;padding:5px 11px;border-radius:7px}
+  nav.toc a:hover{background:var(--panel2);color:var(--ink)}
+  section{padding:38px 0;border-bottom:1px solid var(--line)}
+  h2{font-size:1.5rem;margin:0 0 4px;display:flex;align-items:center;gap:11px}
+  h2 .n{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:8px;
+    background:var(--accent);color:#1a0d05;font-size:.95rem;font-weight:800}
+  .lead{color:var(--muted);margin:.2em 0 1.4em;max-width:860px}
+  h3{font-size:1.12rem;margin:1.7em 0 .5em;color:#fff}
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:.92rem;
+    background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  th,td{text-align:left;padding:9px 13px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{background:var(--panel2);color:var(--ink);font-weight:700;font-size:.82rem;text-transform:uppercase}
+  tr:last-child td{border-bottom:none}
+  .num{font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right}
+  code{font-family:"JetBrains Mono","Cascadia Code","Consolas",monospace;
+    background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:.85em;color:var(--accent2)}
+  pre{background:var(--code-bg);border:1px solid var(--line);border-left:3px solid var(--accent);
+    border-radius:10px;padding:14px 16px;overflow:auto;margin:10px 0}
+  pre code{background:none;border:none;padding:0;color:#cdd6e0;font-size:.82rem;line-height:1.55}
+  .callout{border-radius:10px;padding:13px 16px;margin:14px 0;border:1px solid var(--line);
+    background:var(--panel);display:flex;gap:12px}
+  .callout .ic{font-size:1.2rem;line-height:1.4}
+  .callout.warn{border-color:#5a4410;background:#1d1606}
+  .callout.danger{border-color:#5a1d1a;background:#1d0d0c}
+  .callout.safe{border-color:#1d4d2a;background:#0c1a10}
+  .callout.info{border-color:#1a3a5c;background:#0a1622}
+  .callout b{color:#fff}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  @media(max-width:760px){.grid2,.grid3{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+  .card h4{margin:0 0 6px;font-size:1.02rem}
+  .kpi{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;text-align:center}
+  .kpi .v{font-size:1.7rem;font-weight:800;font-variant-numeric:tabular-nums}
+  .kpi .l{color:var(--muted);font-size:.82rem;margin-top:2px}
+  .kpi.ok .v{color:var(--safe)} .kpi.acc .v{color:var(--accent)} .kpi.info .v{color:var(--info)}
+  ul.clean{margin:.4em 0;padding-left:1.25em}ul.clean li{margin:.34em 0}
+  .muted{color:var(--muted)}
+  .pill{display:inline-block;font-size:.72rem;font-weight:700;padding:2px 9px;border-radius:999px;text-transform:uppercase;letter-spacing:.03em}
+  .pill.done{background:#0c1a10;color:var(--safe);border:1px solid #1d4d2a}
+  .pill.block{background:#1d0d0c;color:var(--danger);border:1px solid #5a1d1a}
+  .pill.todo{background:#1d1606;color:var(--accent2);border:1px solid #5a4410}
+  .pill.rec{background:#0a1622;color:var(--info);border:1px solid #1a3a5c}
+  .bar{height:9px;border-radius:5px;background:var(--panel2);overflow:hidden;min-width:90px}
+  .bar > i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2))}
+  .flow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:10px 0}
+  .node{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:8px 12px;font-size:.84rem}
+  .node .t{font-weight:700} .node .s{color:var(--muted);font-size:.76rem}
+  .node.live{border-color:#1d4d2a} .node.new{border-color:var(--accent)}
+  .arrow{color:var(--faint)}
+  footer{padding:30px 0;color:var(--faint);font-size:.82rem}
+  a.link{color:var(--info)}
+</style>
+</head>
+<body>
+<header class="hero"><div class="wrap">
+  <div class="eyebrow">Heatwave-AI · Session Report</div>
+  <h1>รายงานสรุปการพัฒนา <span class="em">ทั้งระบบ</span></h1>
+  <p class="sub">สรุปงานที่ทำในรอบนี้ตั้งแต่ขยายข้อมูลเป็น 77 จังหวัด, เทรนโมเดลใหม่, ไล่หาและแก้บั๊ก CORS ที่ทำให้แผนที่ไม่ขึ้น,
+  จนระบบ <b>โมเดล → Supabase → Backend → Frontend</b> ทำงานครบวงจรบน production จริง — พร้อมการวิเคราะห์โมเดลเชิงลึก
+  (overfit, รายภูมิภาค, operating point) และสถานะงานที่เหลือ</p>
+  <div class="meta">
+    <span class="chip">วันที่ <b>5 มิ.ย. 2026</b></span>
+    <span class="chip">โมเดล <b>lgbm-v1 · 77 จังหวัด</b></span>
+    <span class="chip ok">Production <b>LIVE ครบวงจร</b></span>
+    <span class="chip ok">CORS bug <b>แก้แล้ว</b></span>
+    <span class="chip warn">Daily automation <b>ต้อง activate</b></span>
+  </div>
+</div></header>
+
+<nav class="toc"><div class="wrap">
+  <a href="#summary">สรุปผู้บริหาร</a>
+  <a href="#done">งานรอบนี้</a>
+  <a href="#chain">ระบบ end-to-end</a>
+  <a href="#model">โมเดล &amp; ข้อมูล</a>
+  <a href="#overfit">Overfit</a>
+  <a href="#region">รายภูมิภาค</a>
+  <a href="#operating">Operating point</a>
+  <a href="#cors">CORS fix</a>
+  <a href="#deploy">Deploy</a>
+  <a href="#auto">Automation</a>
+  <a href="#next">งานที่เหลือ</a>
+</div></nav>
+
+<!-- 1. SUMMARY -->
+<section id="summary"><div class="wrap">
+  <h2><span class="n">1</span> สรุปผู้บริหาร</h2>
+  <p class="lead">ระบบพยากรณ์คลื่นความร้อนรายจังหวัดทำงานครบวงจรบน production แล้ว และครอบคลุม <b>ครบ 77 จังหวัด</b>
+  (เดิมแสดงจริงแค่ 20). บั๊กที่ทำให้แผนที่บนเว็บไม่ขึ้นสีถูกไล่หาถึงรากและแก้+deploy เรียบร้อย.</p>
+  <div class="grid3">
+    <div class="kpi ok"><div class="v">77/77</div><div class="l">จังหวัดบนแผนที่ (เดิม 20)</div></div>
+    <div class="kpi info"><div class="v">0.7535</div><div class="l">ROC-AUC (test 2025)</div></div>
+    <div class="kpi acc"><div class="v">0.5113</div><div class="l">F2 (test 2025)</div></div>
+    <div class="kpi ok"><div class="v">539</div><div class="l">แถวพยากรณ์ใน Supabase (77×7)</div></div>
+    <div class="kpi info"><div class="v">+0.096</div><div class="l">ช่องว่าง ROC train→test (overfit น้อย)</div></div>
+    <div class="kpi acc"><div class="v">0 errors</div><div class="l">CORS errors บนเว็บ (เดิม 12)</div></div>
+  </div>
+  <div class="callout safe"><span class="ic">✓</span><div>
+    <b>สายงานครบวงจร LIVE:</b> dataset 77 จว. → โมเดล lgbm-v1 → Supabase (539 แถว) → Backend API (CORS แก้แล้ว) →
+    Frontend แผนที่แสดงข้อมูลจริงในเบราว์เซอร์ (ยืนยันด้วย Playwright: 0 console error, แผนที่ขึ้นสี, "As of Jun 5, 03:54 PM").</div></div>
+</div></section>
+
+<!-- 2. DONE THIS SESSION -->
+<section id="done"><div class="wrap">
+  <h2><span class="n">2</span> งานที่ทำในรอบนี้</h2>
+  <table>
+    <thead><tr><th>#</th><th>งาน</th><th>ผล</th><th>หลักฐาน</th></tr></thead>
+    <tbody>
+      <tr><td>L1</td><td>แก้ DB pooler — ปิด prepared statements</td><td><span class="pill done">commit</span></td><td><code>7c9d3da</code> — กัน daily job crash หลัง batch แรก (Supabase PgBouncer)</td></tr>
+      <tr><td>L2</td><td>ขยาย dataset ครบ 77 จังหวัด</td><td><span class="pill done">done</span></td><td>ดึง จว. 46 (Amnat Charoen) + 48 (Nong Bua Lamphu) ที่เคยติด 429 → 984,368 แถว, 1991–2025</td></tr>
+      <tr><td>L3</td><td>เทรนโมเดล 77 จว. + regenerate Supabase</td><td><span class="pill done">done</span></td><td>539 แถว (77×7), generated_at 08:54 UTC; ยืนยัน API คืน 77 จว.</td></tr>
+      <tr><td>F4</td><td>ตรวจ end-to-end → เจอ &amp; แก้บั๊ก CORS</td><td><span class="pill done">deployed</span></td><td>PR #6 → master <code>88c5ea3</code>, Render deploy live; แผนที่ขึ้นจริง</td></tr>
+      <tr><td>A</td><td>วิเคราะห์โมเดล (overfit, รายภูมิภาค, two-tier)</td><td><span class="pill done">วัดผล</span></td><td>มีตัวเลขจริงในรายงานนี้ (§5–7)</td></tr>
+      <tr><td>M6</td><td>แก้ artifact provenance + workflow groundwork</td><td><span class="pill todo">ต้อง activate</span></td><td>upload โมเดลขึ้น HF + เขียน workflow + แก้ load_dotenv (<code>03f982f</code>)</td></tr>
+    </tbody>
+  </table>
+</div></section>
+
+<!-- 3. CHAIN -->
+<section id="chain"><div class="wrap">
+  <h2><span class="n">3</span> ระบบ end-to-end</h2>
+  <p class="lead">แต่ละกล่องตรวจแล้วว่าทำงานจริงบน production (สีเขียว = live, สีส้ม = ของใหม่/แก้ในรอบนี้)</p>
+  <div class="flow">
+    <div class="node live"><div class="t">Open-Meteo (ERA5)</div><div class="s">อดีต 1991–2025 · 77 จว.</div></div>
+    <span class="arrow">→</span>
+    <div class="node new"><div class="t">โมเดล lgbm-v1</div><div class="s">antecedent-only · calibrated</div></div>
+    <span class="arrow">→</span>
+    <div class="node new"><div class="t">Supabase heatwave.forecasts</div><div class="s">539 แถว/วัน</div></div>
+    <span class="arrow">→</span>
+    <div class="node new"><div class="t">Backend Elysia (Render)</div><div class="s">/api/forecast/map · CORS fixed</div></div>
+    <span class="arrow">→</span>
+    <div class="node live"><div class="t">Frontend (Vercel)</div><div class="s">แผนที่ 77 จว.</div></div>
+  </div>
+  <div class="callout info"><span class="ic">🛰️</span><div><b>หลักการกัน data leakage:</b> ฟีเจอร์ทุกตัวเป็น <b>antecedent-only</b>
+  (<code>.shift(1).rolling(...)</code>) — ค่าของวันเป้าหมายไม่เคยเข้ามาเป็นฟีเจอร์ของตัวเอง. แบ่ง train/test ตามเวลา ไม่ใช่สุ่ม
+  (สุ่มบนข้อมูลอากาศรายวัน = leakage → คะแนนปลอม ~0.99).</div></div>
+</div></section>
+
+<!-- 4. MODEL -->
+<section id="model"><div class="wrap">
+  <h2><span class="n">4</span> โมเดล &amp; ข้อมูล</h2>
+  <div class="grid2">
+    <div class="card"><h4>ชุดข้อมูล</h4><ul class="clean">
+      <li>แหล่ง: <b>Open-Meteo archive (ERA5-grade)</b></li>
+      <li>ขอบเขต: <b>77/77 จังหวัด</b>, ปี <b>1991–2025</b> (~984k วัน-จังหวัด)</li>
+      <li>Label: sWBGT ≥ p95(วันของปี) <b>และ</b> ร้อนต่อเนื่อง ≥2 วัน</li>
+      <li>ฟีเจอร์: <b>34 ตัว แบบ antecedent-only</b> (ไม่มี leakage)</li>
+    </ul></div>
+    <div class="card"><h4>การแบ่ง split (ตามเวลา)</h4><ul class="clean">
+      <li><b>Train</b> ≤ 2023 — 6,480,397 แถว</li>
+      <li><b>Validation</b> 2024 — 197,274 แถว <span class="muted">(จูน calibration + threshold)</span></li>
+      <li><b>Test</b> 2025 — 194,579 แถว <span class="muted">(วัดผลจริง, ไม่เคยเห็น)</span></li>
+      <li>โมเดล: LightGBM + isotonic calibration → ความน่าจะเป็นที่ <b>calibrated</b></li>
+    </ul></div>
+  </div>
+  <h3>คะแนนบนปีทดสอบ (2025, held-out)</h3>
+  <table>
+    <thead><tr><th>Metric</th><th class="num">ค่า</th><th>อ่านอย่างไร</th></tr></thead>
+    <tbody>
+      <tr><td>ROC-AUC</td><td class="num">0.7535</td><td>แยกวัน heatwave/ปกติ — ใกล้เพดาน antecedent ของงานนี้ (~0.76)</td></tr>
+      <tr><td>F2</td><td class="num">0.5113</td><td>เน้น recall (จับ heatwave ให้ครบ)</td></tr>
+      <tr><td>PR-AUC</td><td class="num">0.3333</td><td>เทียบ base rate 0.137 = lift ~2.4×</td></tr>
+      <tr><td>Brier</td><td class="num">0.1072</td><td>ความน่าจะเป็น "ซื่อสัตย์" (ต่ำ = ดี)</td></tr>
+      <tr><td>MCC</td><td class="num">0.2053</td><td>ความสัมพันธ์ทำนาย-จริง (รับ imbalance)</td></tr>
+      <tr><td>base rate</td><td class="num">0.1372</td><td>สัดส่วน positive จริงในปีทดสอบ</td></tr>
+    </tbody>
+  </table>
+</div></section>
+
+<!-- 5. OVERFIT -->
+<section id="overfit"><div class="wrap">
+  <h2><span class="n">5</span> Overfit / "หลอน" หรือไม่ — วัดจริง</h2>
+  <p class="lead"><b>หมายเหตุศัพท์:</b> "hallucination" เป็นของโมเดลภาษา (LLM). โมเดลนี้เป็น LightGBM classifier — ไม่ "หลอน" แบบสร้างข้อมูลเท็จ
+  อาการที่เทียบเคียงคือ <b>overfit</b> (จำ noise ในชุดเทรนจนทำนายของใหม่พลาด) วัดได้จากช่องว่าง train↔test.</p>
+  <table>
+    <thead><tr><th>Split</th><th class="num">ROC-AUC</th><th class="num">PR-AUC</th><th class="num">F2</th><th class="num">base rate</th></tr></thead>
+    <tbody>
+      <tr><td>TRAIN (≤2023)</td><td class="num">0.8496</td><td class="num">0.2087</td><td class="num">0.3255</td><td class="num">0.038</td></tr>
+      <tr><td>VAL (2024)</td><td class="num">0.7035</td><td class="num">0.4457</td><td class="num">0.6370</td><td class="num">0.243</td></tr>
+      <tr><td>TEST (2025)</td><td class="num">0.7535</td><td class="num">0.3333</td><td class="num">0.5113</td><td class="num">0.137</td></tr>
+    </tbody>
+  </table>
+  <div class="callout safe"><span class="ic">🩺</span><div><b>คำตัดสิน: overfit เล็กน้อย–ปานกลาง ไม่ "หลอน".</b>
+  ช่องว่าง ROC train→test = <b>+0.096</b>. ถ้า overfit หนัก train ROC จะ ~0.98–0.99 แล้ว test ดิ่งเหลือ ~0.6 — แต่นี่ train แค่ <b>0.85</b> = จำไม่มาก.
+  กลไกกัน overfit ที่มีอยู่: temporal split (กัน leakage), calibration + threshold จูนบน <b>val</b> (ไม่ใช่ test), <code>scale_pos_weight</code> คุม imbalance,
+  Brier test ต่ำ. รองรับด้วย rolling-origin CV เดิม (ROC 0.734 ± 0.021, ความแปรปรวนต่ำ = generalize ได้จริง).</div></div>
+  <div class="callout warn"><span class="ic">⚠️</span><div><b>ประเด็นที่ใหญ่กว่า overfit คือ base-rate shift:</b> base rate ต่างกันมากระหว่างปี
+  (train 3.8% → val 24.3% → test 13.7%) จากภาวะโลกร้อน + วิธีตั้ง threshold p95. นี่คือเหตุผลที่ F2 แกว่งข้ามปี — เป็น distribution shift ไม่ใช่การจำ
+  (งานแก้: fixed-baseline p95 / per-region).</div></div>
+</div></section>
+
+<!-- 6. REGION -->
+<section id="region"><div class="wrap">
+  <h2><span class="n">6</span> สมรรถนะรายภูมิภาค &amp; รายจังหวัด</h2>
+  <p class="lead">โมเดลเก่งไม่สม่ำเสมอตามภูมิภาค. <b>ข้อควรระวัง:</b> F2 ขึ้นกับ base rate มาก — ภาคใต้ F2 สูงส่วนหนึ่งเพราะ heatwave ถี่
+  (base rate สูง) ไม่ใช่เพราะ skill ล้วน. <b>ROC คือมาตรวัด skill ที่ไม่ขึ้นกับ base rate.</b></p>
+  <table>
+    <thead><tr><th>ภูมิภาค</th><th class="num">base rate</th><th class="num">ROC</th><th class="num">PR-AUC</th><th class="num">F2</th><th>สเกล F2</th></tr></thead>
+    <tbody>
+      <tr><td>South</td><td class="num">0.236</td><td class="num">0.753</td><td class="num">0.447</td><td class="num">0.663</td><td><div class="bar"><i style="width:100%"></i></div></td></tr>
+      <tr><td>East</td><td class="num">0.150</td><td class="num">0.686</td><td class="num">0.258</td><td class="num">0.513</td><td><div class="bar"><i style="width:77%"></i></div></td></tr>
+      <tr><td>West</td><td class="num">0.126</td><td class="num">0.739</td><td class="num">0.269</td><td class="num">0.500</td><td><div class="bar"><i style="width:75%"></i></div></td></tr>
+      <tr><td>North</td><td class="num">0.122</td><td class="num">0.765</td><td class="num">0.316</td><td class="num">0.482</td><td><div class="bar"><i style="width:73%"></i></div></td></tr>
+      <tr><td>Central</td><td class="num">0.124</td><td class="num">0.722</td><td class="num">0.287</td><td class="num">0.470</td><td><div class="bar"><i style="width:71%"></i></div></td></tr>
+      <tr><td>Northeast</td><td class="num">0.089</td><td class="num">0.702</td><td class="num">0.199</td><td class="num">0.383</td><td><div class="bar"><i style="width:58%"></i></div></td></tr>
+    </tbody>
+  </table>
+  <div class="grid2">
+    <div class="card"><h4>จังหวัดที่อ่อนสุด (F2 ต่ำ)</h4>
+      <table style="margin:0"><thead><tr><th>จังหวัด</th><th class="num">base</th><th class="num">ROC</th><th class="num">F2</th></tr></thead><tbody>
+        <tr><td>Chiang Rai</td><td class="num">0.014</td><td class="num">0.507</td><td class="num">0.074</td></tr>
+        <tr><td>Chiang Mai</td><td class="num">0.036</td><td class="num">0.514</td><td class="num">0.153</td></tr>
+        <tr><td>Phrae</td><td class="num">0.044</td><td class="num">0.523</td><td class="num">0.188</td></tr>
+        <tr><td>Mukdahan</td><td class="num">0.064</td><td class="num">0.575</td><td class="num">0.246</td></tr>
+        <tr><td>Mae Hong Son</td><td class="num">0.036</td><td class="num">0.813</td><td class="num">0.252</td></tr>
+      </tbody></table>
+      <p class="muted" style="font-size:.82rem;margin-top:8px">เหนือ/อีสานที่ base rate ต่ำมาก = หนักสุด. <b>Mae Hong Son น่าสนใจ</b>: ROC 0.81 (skill ดี) แต่ F2 ต่ำเพราะ heatwave หายาก.</p>
+    </div>
+    <div class="card"><h4>จังหวัดที่แข็งสุด (F2 สูง)</h4>
+      <table style="margin:0"><thead><tr><th>จังหวัด</th><th class="num">base</th><th class="num">ROC</th><th class="num">F2</th></tr></thead><tbody>
+        <tr><td>Nakhon Si Thammarat</td><td class="num">0.455</td><td class="num">0.649</td><td class="num">0.805</td></tr>
+        <tr><td>Phuket</td><td class="num">0.443</td><td class="num">0.569</td><td class="num">0.801</td></tr>
+        <tr><td>Narathiwat</td><td class="num">0.361</td><td class="num">0.710</td><td class="num">0.760</td></tr>
+        <tr><td>Samut Songkhram</td><td class="num">0.344</td><td class="num">0.647</td><td class="num">0.733</td></tr>
+        <tr><td>Songkhla</td><td class="num">0.305</td><td class="num">0.761</td><td class="num">0.698</td></tr>
+      </tbody></table>
+      <p class="muted" style="font-size:.82rem;margin-top:8px">ส่วนใหญ่ภาคใต้ base rate สูง → F2 สูงแม้ ROC ปานกลาง. ยืนยันว่า F2 ผูกกับ base rate.</p>
+    </div>
+  </div>
+</div></section>
+
+<!-- 7. OPERATING POINT -->
+<section id="operating"><div class="wrap">
+  <h2><span class="n">7</span> Operating point &amp; ข้อเสนอ UX</h2>
+  <h3>7.1 Per-region threshold — ทดสอบแล้ว <span class="pill block">ไม่ใช่ win</span></h3>
+  <p class="lead">ลองจูน threshold แยกรายภูมิภาคบน val 2024 แล้ววัดบน test 2025 — <b>F2 รวมเปลี่ยน −0.008 (แย่ลงนิดเดียว)</b>.
+  ไม่ generalize เพราะ base rate val ต่างจาก test. <b>สรุป: ยังไม่ควร productionize</b> — ใช้ threshold เดียว (0.1334) ต่อไป.</p>
+  <h3>7.2 Two-tier operating point — <span class="pill rec">แนะนำสำหรับ UX</span></h3>
+  <p class="lead">แทนที่จะมีระดับเดียว เสนอ 2 ระดับ (เลือกจุดจาก val, วัดบน test 2025) ให้ผู้ใช้เข้าใจง่ายและสอดคล้องต้นทุนจริงของ "เตือนผิด" vs "พลาด":</p>
+  <table>
+    <thead><tr><th>ระดับ</th><th class="num">threshold</th><th class="num">precision</th><th class="num">recall</th><th class="num">อัตราเตือน</th><th>เหมาะกับ</th></tr></thead>
+    <tbody>
+      <tr><td><span class="pill todo">WATCH</span> เฝ้าระวัง</td><td class="num">0.217</td><td class="num">0.281</td><td class="num">0.643</td><td class="num">31%</td><td>จับให้ครบ (recall สูง) — แจ้งเตือนทั่วไป/กลุ่มเปราะบาง</td></tr>
+      <tr><td><span class="pill block">WARNING</span> เตือนภัย</td><td class="num">0.281</td><td class="num">0.347</td><td class="num">0.459</td><td class="num">18%</td><td>แม่นขึ้น (precision สูง) — แจ้งเตือนระดับสูง/สื่อสารวงกว้าง</td></tr>
+    </tbody>
+  </table>
+  <div class="callout info"><span class="ic">🎨</span><div><b>ข้อเสนอ UX:</b> แสดงเป็น 2 ระดับสี/ป้าย (เฝ้าระวัง = เหลือง, เตือนภัย = แดง) แทนระดับเดียว.
+  <b>ผลกระทบ:</b> ต้องเพิ่มฟิลด์ระดับใน backend + render 2 ระดับใน frontend (เป็นงานต่อยอด ไม่ได้ทำในรอบนี้เพราะกระทบหลายชั้น).</div></div>
+</div></section>
+
+<!-- 8. CORS -->
+<section id="cors"><div class="wrap">
+  <h2><span class="n">8</span> เจาะลึก: บั๊ก CORS ที่ทำให้แผนที่ไม่ขึ้น</h2>
+  <p class="lead">อาการ: เว็บจริงเปิดแผนที่แล้วว่างเปล่า. console ขึ้น <code>No 'Access-Control-Allow-Origin' header is present</code>
+  แต่ <code>curl</code> เรียก API ได้ 200 ปกติ (curl ไม่บังคับ CORS).</p>
+  <h3>Root cause (ยืนยันด้วย bisect)</h3>
+  <p>route ที่ <code>return</code> ผลลัพธ์ของ library <code>postgres</code> (<code>Result</code> ซึ่งเป็น subclass ของ Array ไม่ใช่ plain) ตรงๆ
+  ทำให้ <code>@elysiajs/cors</code> <b>ไม่แนบ ACAO บน response จริง</b> (OPTIONS preflight ยังผ่าน → บั๊กเนียนเหมือน config ผิด).</p>
+  <table>
+    <thead><tr><th>Route</th><th>ชนิดที่ return</th><th>ACAO บน GET?</th></tr></thead>
+    <tbody>
+      <tr><td><code>/api/health</code>, <code>/</code></td><td>plain object (sync)</td><td><span class="pill done">มี</span></td></tr>
+      <tr><td><code>/api/thresholds/:id</code></td><td>object ห่อ (<code>{...}</code>)</td><td><span class="pill done">มี</span></td></tr>
+      <tr><td><code>/api/forecast/map</code>, <code>/api/provinces</code>, <code>/api/forecast/province/:id</code></td><td><b>raw <code>Result</code></b></td><td><span class="pill block">ไม่มี</span></td></tr>
+    </tbody>
+  </table>
+  <h3>Fix</h3>
+  <pre><code>// ก่อน — return Result ตรงๆ (CORS header หาย)
+return sql`SELECT ... FROM heatwave.forecasts ...`;
+
+// หลัง — spread เป็น plain array (CORS header กลับมา)
+const rows = await sql`SELECT ... FROM heatwave.forecasts ...`;
+return [...rows];</code></pre>
+  <div class="callout safe"><span class="ic">✓</span><div><b>ยืนยันบน production:</b> PR #6 → master <code>88c5ea3</code> → Render deploy live.
+  Playwright หน้า <code>/map</code>: <b>0 console error</b> (เดิม 12), <code>/api/forecast/map</code> + <code>/api/provinces</code> = <b>200</b>,
+  แผนที่ขึ้นสี + "As of Jun 5, 03:54 PM" (= ข้อมูล run จริงเวลา 08:54 UTC).</div></div>
+</div></section>
+
+<!-- 9. DEPLOY -->
+<section id="deploy"><div class="wrap">
+  <h2><span class="n">9</span> Deploy topology (สำคัญ — เคยสับสน)</h2>
+  <table>
+    <thead><tr><th>ส่วน</th><th>Deploy จาก</th><th>หมายเหตุ</th></tr></thead>
+    <tbody>
+      <tr><td>Backend</td><td>repo <code>Heatwave_Backend_Elysia</code> · branch <b>master</b></td><td>Render <code>srv-d76ggm…fqu0</code>, <code>render.yaml</code> → <code>Heatwave-AI-Backend-Elysia/Dockerfile.render</code>, autoDeploy on push</td></tr>
+      <tr><td>Frontend</td><td>repo standalone <code>HeatMAP-Frontend</code> · main</td><td>Vercel; monorepo sync ผ่าน workflow <code>sync-frontend.yml</code></td></tr>
+    </tbody>
+  </table>
+  <div class="callout warn"><span class="ic">🗂️</span><div><b>Layout แตกต่าง 2 แบบ:</b> branch ทำงาน <code>feat/clean-era5-ndvi-dataset</code> ใช้ <b>flat <code>src/</code></b>
+  แต่ <b>master ใช้ foldered</b> (<code>Heatwave-AI-Backend-Elysia/src/...</code>, โค้ด Python อยู่ <code>Heatwave-AI-TRAIN/</code>).
+  การแก้ production ต้องแก้ที่ foldered path บน master เสมอ (รอบนี้ทำผ่าน git worktree off master).</div></div>
+</div></section>
+
+<!-- 10. AUTOMATION -->
+<section id="auto"><div class="wrap">
+  <h2><span class="n">10</span> Automation (M6) — สถานะ &amp; วิธี activate</h2>
+  <p class="lead">เดิม artifact โมเดล (<code>heatwave_model.pkl</code>) เป็น <b>local-only + gitignored</b> → ทำ CI cron ไม่ได้ (โหลดโมเดลไม่เจอ).
+  รอบนี้แก้ provenance แล้ว:</p>
+  <ul class="clean">
+    <li><span class="pill done">ทำแล้ว</span> Upload โมเดล + thresholds + model_card ขึ้น HF (public): <code>MCTEEKUNG123/Heatwave-AI/forecast/</code></li>
+    <li><span class="pill done">ทำแล้ว</span> แก้ <code>run_daily_forecast.py</code> ให้โหลด <code>.env</code> (กัน footgun ตอนรันเครื่อง local)</li>
+    <li><span class="pill done">ทำแล้ว</span> เขียน <code>.github/workflows/daily-forecast.yml</code> — ดึงโมเดลจาก HF → เขียน Supabase รายวัน</li>
+  </ul>
+  <div class="callout danger"><span class="ic">⏳</span><div><b>ยังต้อง activate (ตัดสินใจ + ความปลอดภัย):</b>
+  <ul class="clean" style="margin-top:6px">
+    <li>Scheduled workflow รันได้เฉพาะจาก <b>default branch</b> — ต้องเอา workflow + โค้ด ML ไปไว้บน branch ที่ schedule หรือชี้ <code>checkout ref:</code> ให้ถูก</li>
+    <li>ต้องตั้ง repo secret <code>DATABASE_URL</code> (ผมไม่ตั้งให้เองเพราะเป็น credential ของ DB production — ควรให้เจ้าของตั้ง/อนุมัติ)</li>
+    <li><b>Operational gap ที่ต้องรู้:</b> ข้อมูลแผนที่วันนี้มาจากการรัน manual ครั้งเดียว — <b>ยังไม่มีอะไร re-run อัตโนมัติ</b> ข้อมูลจะค่อยๆ เก่า จนกว่าจะ activate ตัวนี้</li>
+  </ul></div></div>
+</div></section>
+
+<!-- 11. NEXT -->
+<section id="next"><div class="wrap">
+  <h2><span class="n">11</span> งานที่เหลือ &amp; ข้อเสนอ</h2>
+  <table>
+    <thead><tr><th>งาน</th><th>สถานะ</th><th>เหตุผล / ข้อเสนอ</th></tr></thead>
+    <tbody>
+      <tr><td><b>M6</b> activate daily cron</td><td><span class="pill todo">พร้อม activate</span></td><td>ตั้ง <code>DATABASE_URL</code> secret + วาง workflow บน scheduled branch → ปิด operational gap (สำคัญสุด)</td></tr>
+      <tr><td><b>M5</b> two-tier alerts (watch/warning)</td><td><span class="pill rec">แนะนำ</span></td><td>มี threshold พร้อม (§7.2) — เพิ่มฟิลด์ระดับใน backend + render 2 ระดับใน frontend</td></tr>
+      <tr><td><b>M1</b> forecast covariates</td><td><span class="pill block">data-blocked</span></td><td>คันโยก skill ตัวเดียวที่พิสูจน์แล้ว (ROC 0.578→0.657) — รอ forward-collector สะสมข้อมูลพอ</td></tr>
+      <tr><td><b>M4</b> per-region threshold</td><td><span class="pill block">ไม่ใช่ win</span></td><td>ทดสอบแล้ว F2 −0.008 — แทนด้วย <b>per-region features</b> (เหนือแห้ง ต่างจากใต้) จะตรงเหตุกว่า</td></tr>
+      <tr><td>จังหวัด base rate ต่ำมาก</td><td><span class="pill todo">วิจัย</span></td><td>Chiang Rai/Chiang Mai ROC ~0.5 (เกือบสุ่ม) — พิจารณา pool หรือฟีเจอร์เฉพาะภาคเหนือ</td></tr>
+    </tbody>
+  </table>
+  <div class="callout info"><span class="ic">🧭</span><div><b>ลำดับแนะนำ:</b> (1) activate M6 ให้แผนที่สด → (2) ทำ M5 two-tier ให้ UX สื่อสารดีขึ้น →
+  (3) เดินหน้า M1 เมื่อข้อมูล forecast covariate สุก (คันโยกเดียวที่ทะลุเพดาน ROC 0.76).</div></div>
+</div></section>
+
+<footer><div class="wrap">
+  Heatwave-AI · รายงานสร้างอัตโนมัติ 5 มิ.ย. 2026 · โมเดล <code>lgbm-v1</code> git <code>7c9d3da</code> ·
+  ข้อมูลคะแนนจาก <code>models/model_card.json</code> + <code>docs/_model_analysis.json</code> (ประเมินบน test 2025 จริง)
+</div></footer>
+</body>
+</html>
