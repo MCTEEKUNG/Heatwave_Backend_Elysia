@@ -8,11 +8,17 @@ import { getSql } from "../db";
 /** All provinces ordered by id (name + centroid). */
 export async function getProvinces() {
   const sql = getSql();
-  return sql`
+  const rows = await sql`
     SELECT id, code, name_th, name_en, region, lat, lon
     FROM heatwave.provinces
     ORDER BY id ASC
   `;
+  // Return a PLAIN array, not the postgres `Result` (an Array subclass).
+  // Elysia/@elysiajs/cors does not append CORS response headers when a handler
+  // returns the non-plain `Result` instance, so the actual GET response reaches
+  // the browser without `Access-Control-Allow-Origin` (preflight still passes,
+  // making the bug subtle). Spreading into a plain array restores CORS headers.
+  return [...rows];
 }
 
 /**
@@ -22,7 +28,7 @@ export async function getProvinces() {
  */
 export async function getProvinceForecast(provinceId: number, days: number) {
   const sql = getSql();
-  return sql`
+  const rows = await sql`
     SELECT province_id, target_date, generated_at, horizon_days,
            probability, predicted_label, swbgt_pred, risk_level, model_version
     FROM heatwave.forecasts
@@ -36,6 +42,7 @@ export async function getProvinceForecast(provinceId: number, days: number) {
     ORDER BY target_date ASC
     LIMIT ${days}
   `;
+  return [...rows]; // plain array so @elysiajs/cors appends CORS headers (see getProvinces)
 }
 
 /**
@@ -48,7 +55,7 @@ export async function getProvinceForecast(provinceId: number, days: number) {
  */
 export async function getForecastMap() {
   const sql = getSql();
-  return sql`
+  const rows = await sql`
     SELECT DISTINCT ON (f.province_id)
            f.province_id, p.lat, p.lon,
            f.target_date, f.generated_at, f.horizon_days,
@@ -59,6 +66,7 @@ export async function getForecastMap() {
     WHERE f.target_date >= current_date
     ORDER BY f.province_id ASC, f.generated_at DESC, f.target_date ASC
   `;
+  return [...rows]; // plain array so @elysiajs/cors appends CORS headers (see getProvinces)
 }
 
 /** Threshold rows for a province (per day-of-year, per metric). */

@@ -13,8 +13,17 @@
 #  2. Add repository secret  DATABASE_URL  (Supabase pooler connection string,
 #     port 6543). Required — the job writes to the private `heatwave` schema.
 #  3. The model + thresholds are pulled from the PUBLIC Hugging Face repo
-#     MCTEEKUNG123/Heatwave-AI under forecast/ (uploaded 2026-06-05). No token
-#     needed while that repo stays public.
+#     MCTEEKUNG123/Heatwave-AI under forecast/ (uploaded 2026-06-05; verified
+#     round-trip: download -> joblib.load -> predict_proba OK). No token needed
+#     while that repo stays public.
+#  4. PIN lightgbm + scikit-learn in requirements.txt to the TRAINING versions.
+#     The bundle is a pickled src.model.CalibratedModel; a fresh CI install that
+#     resolves newer lightgbm/sklearn can fail to unpickle. A same-env local
+#     load does NOT catch this — pin before activating.
+#
+# NOTE: this file has a `schedule:` trigger but is intentionally DORMANT on the
+# feature branch. If merged to the default branch as-is it WILL start firing
+# daily and fail (no DATABASE_URL secret, foldered paths). Activate deliberately.
 #
 # Until activated, run locally:
 #   .venv\Scripts\python.exe scripts\run_daily_forecast.py --state-file state.json

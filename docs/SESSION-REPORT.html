@@ -331,7 +331,7 @@ return [...rows];</code></pre>
   <p class="lead">เดิม artifact โมเดล (<code>heatwave_model.pkl</code>) เป็น <b>local-only + gitignored</b> → ทำ CI cron ไม่ได้ (โหลดโมเดลไม่เจอ).
   รอบนี้แก้ provenance แล้ว:</p>
   <ul class="clean">
-    <li><span class="pill done">ทำแล้ว</span> Upload โมเดล + thresholds + model_card ขึ้น HF (public): <code>MCTEEKUNG123/Heatwave-AI/forecast/</code></li>
+    <li><span class="pill done">ทำแล้ว</span> Upload โมเดล + thresholds + model_card ขึ้น HF (public): <code>MCTEEKUNG123/Heatwave-AI/forecast/</code> — <b>ทดสอบ round-trip แล้ว</b> (download → <code>joblib.load</code> → <code>predict_proba</code> ผ่าน, thresholds 77 จว.)</li>
     <li><span class="pill done">ทำแล้ว</span> แก้ <code>run_daily_forecast.py</code> ให้โหลด <code>.env</code> (กัน footgun ตอนรันเครื่อง local)</li>
     <li><span class="pill done">ทำแล้ว</span> เขียน <code>.github/workflows/daily-forecast.yml</code> — ดึงโมเดลจาก HF → เขียน Supabase รายวัน</li>
   </ul>
@@ -339,6 +339,8 @@ return [...rows];</code></pre>
   <ul class="clean" style="margin-top:6px">
     <li>Scheduled workflow รันได้เฉพาะจาก <b>default branch</b> — ต้องเอา workflow + โค้ด ML ไปไว้บน branch ที่ schedule หรือชี้ <code>checkout ref:</code> ให้ถูก</li>
     <li>ต้องตั้ง repo secret <code>DATABASE_URL</code> (ผมไม่ตั้งให้เองเพราะเป็น credential ของ DB production — ควรให้เจ้าของตั้ง/อนุมัติ)</li>
+    <li><b>Pin version</b> <code>lightgbm</code> + <code>scikit-learn</code> ใน <code>requirements.txt</code> ให้ตรงตอนเทรน — ไม่งั้น CI install version ใหม่อาจ unpickle โมเดลไม่ได้ (local load ตรวจไม่เจอเพราะ env เดียวกัน)</li>
+    <li><b>workflow มี <code>schedule:</code> แต่ตอนนี้ dormant</b> บน feature branch — ถ้า merge เข้า default branch เฉยๆ มันจะเริ่มยิงรายวันแล้ว fail (ไม่มี secret/path ผิด) ต้อง activate อย่างตั้งใจ</li>
     <li><b>Operational gap ที่ต้องรู้:</b> ข้อมูลแผนที่วันนี้มาจากการรัน manual ครั้งเดียว — <b>ยังไม่มีอะไร re-run อัตโนมัติ</b> ข้อมูลจะค่อยๆ เก่า จนกว่าจะ activate ตัวนี้</li>
   </ul></div></div>
 </div></section>
