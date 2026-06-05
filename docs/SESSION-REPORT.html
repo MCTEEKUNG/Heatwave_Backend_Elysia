@@ -336,6 +336,8 @@ return [...rows];</code></pre>
     <li><span class="pill done">ทำแล้ว</span> Upload โมเดล + thresholds + model_card ขึ้น HF (public): <code>MCTEEKUNG123/Heatwave-AI/forecast/</code> — <b>ทดสอบ round-trip แล้ว</b> (download → <code>joblib.load</code> → <code>predict_proba</code> ผ่าน, thresholds 77 จว.)</li>
     <li><span class="pill done">ทำแล้ว</span> แก้ <code>run_daily_forecast.py</code> ให้โหลด <code>.env</code> (กัน footgun ตอนรันเครื่อง local)</li>
     <li><span class="pill done">ทำแล้ว</span> เขียน <code>.github/workflows/daily-forecast.yml</code> — ดึงโมเดลจาก HF → เขียน Supabase รายวัน</li>
+    <li><span class="pill done">ทำแล้ว</span> Pin <code>lightgbm&lt;5</code> + <code>scikit-learn&lt;2</code> ใน requirements (กัน unpickle พังใน CI)</li>
+    <li><span class="pill done">verified</span> <b>จำลอง runtime path ของ workflow ครบ end-to-end:</b> HF download → <code>run_daily_forecast</code> → Supabase (539 แถว/77 จว.) → <b>prod API เสิร์ฟข้อมูลใหม่</b> (generated 12:17 UTC). พิสูจน์ว่า cron จะทำงานจริงเมื่อ activate</li>
   </ul>
   <div class="callout danger"><span class="ic">⏳</span><div><b>ยังต้อง activate (ตัดสินใจ + ความปลอดภัย):</b>
   <ul class="clean" style="margin-top:6px">
