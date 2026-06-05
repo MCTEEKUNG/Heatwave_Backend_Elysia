@@ -169,6 +169,18 @@ def main(argv=None) -> None:
     )
     args = parser.parse_args(argv)
 
+    # Load .env so a bare local run picks up DATABASE_URL (the DB write happens
+    # only after the first Open-Meteo fetch, so without this the job fetches
+    # fine and then crashes at the first upsert with "DATABASE_URL is not set").
+    # In CI the variable is injected directly and there is no .env, so this is a
+    # harmless no-op. Imported lazily so --dry-run / unit tests never need it.
+    if not args.dry_run:
+        try:
+            from dotenv import load_dotenv
+            load_dotenv()
+        except ImportError:
+            pass
+
     # Read sleep duration from env (allows CI override without code change)
     sleep_s = float(os.environ.get("HEATWAVE_SLEEP", "20"))
     batch_size = args.batch_size

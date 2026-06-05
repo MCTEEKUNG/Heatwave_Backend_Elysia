@@ -1,0 +1,74 @@
+# Daily heatwave forecast → Supabase.
+#
+# Closes the operational loop so the live map stays fresh (Track M6). Without
+# this, heatwave.forecasts only updates when someone runs the script by hand on
+# a local machine (the current state: the 2026-06-05 batch was a manual run).
+#
+# ── ACTIVATION CHECKLIST (this file alone does NOT make it run) ───────────────
+#  1. SCHEDULED runs only fire from the repository's DEFAULT branch. This Python
+#     forecasting code currently lives on `feat/clean-era5-ndvi-dataset` (flat
+#     layout). Either (a) merge the flat ML code + this workflow to the default
+#     branch, or (b) keep this workflow on the default branch but point the
+#     checkout `ref:` below at the branch that holds the code.
+#  2. Add repository secret  DATABASE_URL  (Supabase pooler connection string,
+#     port 6543). Required — the job writes to the private `heatwave` schema.
+#  3. The model + thresholds are pulled from the PUBLIC Hugging Face repo
+#     MCTEEKUNG123/Heatwave-AI under forecast/ (uploaded 2026-06-05). No token
+#     needed while that repo stays public.
+#
+# Until activated, run locally:
+#   .venv\Scripts\python.exe scripts\run_daily_forecast.py --state-file state.json
+name: daily-forecast
+
+on:
+  schedule:
+    - cron: "30 1 * * *" # 01:30 UTC = 08:30 Asia/Bangkok, daily
+  workflow_dispatch: {} # manual trigger for testing
+
+concurrency:
+  group: daily-forecast
+  cancel-in-progress: false
+
+jobs:
+  forecast:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        # If this workflow lives on the default branch but the ML code is on a
+        # feature branch, uncomment and set the ref:
+        # with:
+        #   ref: feat/clean-era5-ndvi-dataset
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Download model + thresholds from Hugging Face
+        run: |
+          mkdir -p models data/processed
+          base=https://huggingface.co/MCTEEKUNG123/Heatwave-AI/resolve/main/forecast
+          curl -fsSL "$base/heatwave_model.pkl"        -o models/heatwave_model.pkl
+          curl -fsSL "$base/province_thresholds.parquet" -o data/processed/province_thresholds.parquet
+          ls -la models/heatwave_model.pkl data/processed/province_thresholds.parquet
+
+      - name: Run daily forecast (77 provinces → Supabase)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          HEATWAVE_SLEEP: "8"
+        run: |
+          python scripts/run_daily_forecast.py \
+            --batch-size 5 \
+            --state-file forecast_state.json
+
+      - name: Upload run state (debug)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: forecast-state
+          path: forecast_state.json
+          if-no-files-found: ignore
