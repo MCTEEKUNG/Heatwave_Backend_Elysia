@@ -130,6 +130,47 @@ export function getHeatwaveRiskLevel(probability: number): 'low' | 'moderate' | 
   return 'low';
 }
 
+// ─── Two-tier alert (watch / warning) ────────────────────────────────────────
+//
+// An operating-point view layered on top of the raw probability, for clearer
+// public messaging than the 4-bucket risk_level. The thresholds are the ones
+// measured on the held-out 2025 test year (see docs/SESSION-REPORT.html §7 and
+// docs/two-tier-alert-mockup.html):
+//   • WARNING  p >= 0.281  → precision 0.35 / recall 0.46  (fewer, more certain)
+//   • WATCH    p >= 0.217  → precision 0.28 / recall 0.64  (catch more, earlier)
+// Pure + client-side: no backend change needed (the map/province endpoints
+// already return `probability`).
+
+export type AlertTier = 'warning' | 'watch' | 'none';
+
+export const ALERT_THRESHOLDS = { warning: 0.281, watch: 0.217 } as const;
+
+/** Classify a calibrated heatwave probability into a two-tier alert level. */
+export function getAlertTier(probability: number): AlertTier {
+  if (probability >= ALERT_THRESHOLDS.warning) return 'warning';
+  if (probability >= ALERT_THRESHOLDS.watch) return 'watch';
+  return 'none';
+}
+
+/** Localized label for an alert tier (th / en). */
+export function alertTierLabel(tier: AlertTier, lang: 'th' | 'en' = 'th'): string {
+  const map = {
+    warning: { th: 'เตือนภัย', en: 'Warning' },
+    watch: { th: 'เฝ้าระวัง', en: 'Watch' },
+    none: { th: 'ปกติ', en: 'Normal' },
+  } as const;
+  return map[tier][lang];
+}
+
+/** Display color for an alert tier (red / amber / green). */
+export function alertTierColor(tier: AlertTier): string {
+  switch (tier) {
+    case 'warning': return '#ff3b2f';
+    case 'watch': return '#ffb000';
+    default: return '#3c6e57';
+  }
+}
+
 export function getRiskColor(risk: string): string {
   switch (risk) {
     case 'extreme': return '#dc2626';
