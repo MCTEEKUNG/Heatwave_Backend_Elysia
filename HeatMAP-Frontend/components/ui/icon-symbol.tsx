@@ -34,6 +34,10 @@ const MAPPING: IconMapping = {
   'water_drop': 'water-drop',
   'ac_unit': 'ac-unit',
   'wb_sunny': 'wb-sunny',
+  // weatherCodeToIcon outputs that weren't mapped → rendered as "?"
+  'foggy': 'cloud',
+  'rainy': 'grain',
+  'thunderstorm': 'flash-on',
   
   // Alert icons
   'warning': 'warning',
