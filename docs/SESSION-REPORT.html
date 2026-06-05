@@ -281,9 +281,9 @@
   <div class="callout info"><span class="ic">🎨</span><div><b>ข้อเสนอ UX — มี mockup ให้ดูแล้ว:</b> เปิด
   <a class="link" href="two-tier-alert-mockup.html"><b>two-tier-alert-mockup.html</b></a> — ต้นแบบ "Heatwave Ops Console" แบบ interactive
   ที่ใช้ <b>ข้อมูลจริง 77 จังหวัด</b> + threshold จริง (เลื่อน slider ดู trade-off ได้). แสดง 2 ระดับสี/ป้าย (เฝ้าระวัง = เหลือง, เตือนภัย = แดง).
-  <b>ลงโค้ดจริงแล้วบางส่วน:</b> เพิ่ม primitive <code>getAlertTier()</code> + <code>ALERT_THRESHOLDS</code> ใน <code>forecastService.ts</code>
-  (classify watch/warning ฝั่ง client จาก <code>probability</code> ที่ API คืนอยู่แล้ว — ไม่ต้องแก้ backend, type-check ผ่าน).
-  <b>เหลือ:</b> render 2 ระดับใน UI (map/alerts) แล้ว deploy — เป็นขั้น user-gated เพราะ merge เข้า master = ออก prod.</div></div>
+  <b>ลงโค้ดจริง + render แล้ว (branch):</b> primitive <code>getAlertTier()</code>/<code>ALERT_THRESHOLDS</code> ใน <code>forecastService.ts</code>
+  + <b>national watch/warning roll-up</b> ที่ render จริงในหน้า alerts (<code>app/(tabs)/alerts.tsx</code>, ดึง map data จริง, นับ tier ฝั่ง client).
+  type-check ผ่าน (0 error ในไฟล์ที่แก้). <b>เหลือขั้นเดียว = deploy</b>: merge เข้า master (Vercel sync) — user-gated เพราะ = ออก prod.</div></div>
 </div></section>
 
 <!-- 8. CORS -->
