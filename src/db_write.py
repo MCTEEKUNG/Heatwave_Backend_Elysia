@@ -68,7 +68,12 @@ def get_connection():
     url = _database_url()
     import psycopg  # local import: not needed for pure row building
 
-    return psycopg.connect(url)
+    # prepare_threshold=None disables psycopg3 server-side prepared statements.
+    # DATABASE_URL points at Supabase's transaction pooler (PgBouncer, :6543),
+    # which does NOT support prepared statements across pooled connections --
+    # without this, the second pooled connection raises
+    # DuplicatePreparedStatement ("_pg3_0 already exists").
+    return psycopg.connect(url, prepare_threshold=None)
 
 
 def upsert_forecasts(rows, conn=None) -> int:
