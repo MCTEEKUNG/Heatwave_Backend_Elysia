@@ -3,16 +3,24 @@ import { getSql } from "../db";
 /**
  * Query helpers for the private `heatwave` schema (direct Postgres).
  * All queries are parameterized via the postgres tagged template.
+ *
+ * Every helper returns a PLAIN array (`[...rows]`), never the `postgres`
+ * library's `Result` object directly. The `Result` is a non-plain Array
+ * subclass, and when an Elysia handler returns it, @elysiajs/cors does NOT
+ * append the CORS response headers to the actual GET response (the OPTIONS
+ * preflight still passes, which makes the bug subtle). Returning a plain array
+ * restores `Access-Control-Allow-Origin` on the response the browser reads.
  */
 
 /** All provinces ordered by id (name + centroid). */
 export async function getProvinces() {
   const sql = getSql();
-  return sql`
+  const rows = await sql`
     SELECT id, code, name_th, name_en, region, lat, lon
     FROM heatwave.provinces
     ORDER BY id ASC
   `;
+  return [...rows];
 }
 
 /**
@@ -22,7 +30,7 @@ export async function getProvinces() {
  */
 export async function getProvinceForecast(provinceId: number, days: number) {
   const sql = getSql();
-  return sql`
+  const rows = await sql`
     SELECT province_id, target_date, generated_at, horizon_days,
            probability, predicted_label, swbgt_pred, risk_level, model_version
     FROM heatwave.forecasts
@@ -36,6 +44,7 @@ export async function getProvinceForecast(provinceId: number, days: number) {
     ORDER BY target_date ASC
     LIMIT ${days}
   `;
+  return [...rows];
 }
 
 /**
@@ -48,7 +57,7 @@ export async function getProvinceForecast(provinceId: number, days: number) {
  */
 export async function getForecastMap() {
   const sql = getSql();
-  return sql`
+  const rows = await sql`
     SELECT DISTINCT ON (f.province_id)
            f.province_id, p.lat, p.lon,
            f.target_date, f.generated_at, f.horizon_days,
@@ -59,15 +68,17 @@ export async function getForecastMap() {
     WHERE f.target_date >= current_date
     ORDER BY f.province_id ASC, f.generated_at DESC, f.target_date ASC
   `;
+  return [...rows];
 }
 
 /** Threshold rows for a province (per day-of-year, per metric). */
 export async function getThresholds(provinceId: number) {
   const sql = getSql();
-  return sql`
+  const rows = await sql`
     SELECT province_id, doy, metric, p90, p95, p975, baseline_period, updated_at
     FROM heatwave.province_thresholds
     WHERE province_id = ${provinceId}
     ORDER BY metric ASC, doy ASC
   `;
+  return [...rows];
 }
