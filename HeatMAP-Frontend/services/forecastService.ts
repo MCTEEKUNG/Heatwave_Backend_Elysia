@@ -1,43 +1,5 @@
 import { api } from './apiService';
 
-export interface ForecastDay {
-  date: string;
-  predicted_heatwave: number;
-  heatwave_probability: number;
-  forecast_cycle: number;
-  temperature_c: number;
-  humidity_est: number;
-  forecast_generated: string;
-}
-
-export interface ForecastResponse {
-  success: boolean;
-  filename?: string;
-  forecast?: ForecastDay[];
-  totalDays?: number;
-  error?: string;
-  log?: string;
-}
-
-export interface LatestForecastResponse {
-  filename?: string;
-  forecast?: ForecastDay[];
-  totalDays?: number;
-  error?: string;
-}
-
-export function runForecast(
-  model: string,
-  days: number = 7,   // max 16 (Open-Meteo real-data limit)
-): Promise<ForecastResponse> {
-  return api.post<ForecastResponse>('/api/forecast', { model, days });
-}
-
-export function getLatestForecast(): Promise<LatestForecastResponse> {
-  // 45s timeout — Render free tier can take 30s+ to wake from sleep
-  return api.get<LatestForecastResponse>('/api/forecast/latest', { timeoutMs: 45_000 });
-}
-
 // ─── Per-province forecast (spec §7 / Phase 5) ────────────────────────────────
 
 /** 4-tier risk level emitted by the backend (calibrated probability → bucket). */
@@ -72,6 +34,9 @@ export interface MapForecastPoint {
   risk_level: RiskLevel;
   target_date: string;
   generated_at: string;
+  /** Model that produced this row (e.g. 'lgbm-v1'); used to detect stale
+   *  client-side alert thresholds (see ALERT_TUNED_FOR_VERSION). */
+  model_version?: string;
 }
 
 /** Fetch the 7-day (default) forecast for a single province. */
@@ -123,29 +88,78 @@ export function formatGeneratedAt(iso: string | null | undefined): string {
   });
 }
 
+// ─── Severity policy (mirror of src/risk.py — the single source of truth) ────
+//
+// These bands MUST match `DEFAULT_BANDS` in src/risk.py, which is what the
+// backend uses to write `risk_level` into heatwave.forecasts. The upper two
+// edges ARE the measured two-tier alert operating points (2025 test year, see
+// docs/SESSION-REPORT.html §7), so the 4-tier gradation and the watch/warning
+// vocabulary can never disagree:
+//   • WARNING / extreme  p >= 0.281  → precision 0.35 / recall 0.46
+//   • WATCH   / high     p >= 0.217  → precision 0.28 / recall 0.64
+//   • moderate           p >= 0.10   (elevated, below watch)
+//   • low                otherwise
+// Change policy in src/risk.py FIRST, then sync here.
+
+export const RISK_BANDS = { moderate: 0.10, high: 0.217, extreme: 0.281 } as const;
+
+/**
+ * Probability → 4-tier risk level using the SAME bands as the backend
+ * (src/risk.py). Prefer the server-provided `risk_level` when available —
+ * this exists only for payloads that carry a bare probability.
+ */
 export function getHeatwaveRiskLevel(probability: number): 'low' | 'moderate' | 'high' | 'extreme' {
-  if (probability >= 0.8) return 'extreme';
-  if (probability >= 0.6) return 'high';
-  if (probability >= 0.4) return 'moderate';
+  if (probability >= RISK_BANDS.extreme) return 'extreme';
+  if (probability >= RISK_BANDS.high) return 'high';
+  if (probability >= RISK_BANDS.moderate) return 'moderate';
   return 'low';
 }
 
 // ─── Two-tier alert (watch / warning) ────────────────────────────────────────
-//
-// An operating-point view layered on top of the raw probability, for clearer
-// public messaging than the 4-bucket risk_level. The thresholds are the ones
-// measured on the held-out 2025 test year (see docs/SESSION-REPORT.html §7 and
-// docs/two-tier-alert-mockup.html):
-//   • WARNING  p >= 0.281  → precision 0.35 / recall 0.46  (fewer, more certain)
-//   • WATCH    p >= 0.217  → precision 0.28 / recall 0.64  (catch more, earlier)
-// Pure + client-side: no backend change needed (the map/province endpoints
-// already return `probability`).
 
 export type AlertTier = 'warning' | 'watch' | 'none';
 
-export const ALERT_THRESHOLDS = { warning: 0.281, watch: 0.217 } as const;
+export const ALERT_THRESHOLDS = {
+  warning: RISK_BANDS.extreme,
+  watch: RISK_BANDS.high,
+} as const;
 
-/** Classify a calibrated heatwave probability into a two-tier alert level. */
+/**
+ * The thresholds above were measured for THIS model version's calibrated
+ * probabilities. If the API reports a different `model_version`, the tiers may
+ * be stale — `assertAlertThresholdsCurrent` surfaces that in dev.
+ */
+export const ALERT_TUNED_FOR_VERSION = 'lgbm-v1';
+
+/** Warn (once per session) if served forecasts come from a model version the
+ *  alert thresholds were not tuned for. Returns true when versions match. */
+let warnedStaleThresholds = false;
+export function assertAlertThresholdsCurrent(modelVersion: string | undefined): boolean {
+  if (!modelVersion || modelVersion === ALERT_TUNED_FOR_VERSION) return true;
+  if (!warnedStaleThresholds) {
+    warnedStaleThresholds = true;
+    console.warn(
+      `[forecastService] ALERT_THRESHOLDS tuned for '${ALERT_TUNED_FOR_VERSION}' ` +
+      `but API serves '${modelVersion}' — re-measure the operating points.`,
+    );
+  }
+  return false;
+}
+
+/**
+ * Server `risk_level` → two-tier alert. EXACT under the unified bands
+ * (extreme==warning, high==watch). Prefer this over the probability overload —
+ * it can never drift from what the backend wrote.
+ */
+export function alertTierFromRiskLevel(risk: RiskLevel | string | null | undefined): AlertTier {
+  if (risk === 'extreme') return 'warning';
+  if (risk === 'high') return 'watch';
+  return 'none';
+}
+
+/** Classify a calibrated heatwave probability into a two-tier alert level.
+ *  Fallback for payloads without `risk_level`; equals alertTierFromRiskLevel
+ *  by construction (shared bands). */
 export function getAlertTier(probability: number): AlertTier {
   if (probability >= ALERT_THRESHOLDS.warning) return 'warning';
   if (probability >= ALERT_THRESHOLDS.watch) return 'watch';
@@ -162,12 +176,13 @@ export function alertTierLabel(tier: AlertTier, lang: 'th' | 'en' = 'th'): strin
   return map[tier][lang];
 }
 
-/** Display color for an alert tier (red / amber / green). */
-export function alertTierColor(tier: AlertTier): string {
+/** Display color for an alert tier (red / amber / green), dark-mode aware so it
+ *  tracks the app theme rather than a single hardcoded palette. */
+export function alertTierColor(tier: AlertTier, isDark: boolean = false): string {
   switch (tier) {
-    case 'warning': return '#ff3b2f';
-    case 'watch': return '#ffb000';
-    default: return '#3c6e57';
+    case 'warning': return isDark ? '#ff6b5e' : '#dc2626';
+    case 'watch':   return isDark ? '#ffc14d' : '#b45309';
+    default:        return isDark ? '#5fa180' : '#3c6e57';
   }
 }
 

@@ -97,6 +97,11 @@ export interface Translations {
   today: string;
   loading: string;
   error: string;
+
+  // Data load states (Map / Alerts)
+  retry: string;
+  loadFailed: string;
+  dataUnavailable: string;
 }
 
 // Flat translation keys for easy access
@@ -194,6 +199,11 @@ const en: Record<TranslationKey, string> = {
   today: 'Today',
   loading: 'Loading...',
   error: 'Error',
+
+  // Data load states (Map / Alerts)
+  retry: 'Retry',
+  loadFailed: "Couldn't load forecast",
+  dataUnavailable: 'No data — tap to retry',
 };
 
 const th: Record<TranslationKey, string> = {
@@ -288,6 +298,11 @@ const th: Record<TranslationKey, string> = {
   today: 'วันนี้',
   loading: 'กำลังโหลด...',
   error: 'ข้อผิดพลาด',
+
+  // Data load states (Map / Alerts)
+  retry: 'ลองใหม่',
+  loadFailed: 'โหลดพยากรณ์ไม่สำเร็จ',
+  dataUnavailable: 'ไม่มีข้อมูล — แตะเพื่อลองใหม่',
 };
 
 export const translations: Record<Language, Record<TranslationKey, string>> = {

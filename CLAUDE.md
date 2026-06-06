@@ -58,8 +58,9 @@ This is a per-(province, horizon `k`=1..7) **rare-event binary forecast** (~4% p
 ## Data & datasets
 
 - `data/` is **git-ignored**; the **reproducible builders are the source of truth**, not the parquet files.
-- `data/processed/dataset.parquet` — **v1** (Open-Meteo, 1991–2025, 20 provinces). Currently the **better-scoring** model (F2 ≈ 0.56).
-- `data/processed/dataset_era5.parquet` — **v2 canonical** (real ERA5 6-hourly, 2016–2025, 77 provinces, daily-max heat-index label). Cleaner/leakage-free but scores lower due to the short humidity-era history; see `docs/DATA.md` §5 and `docs/DATASET_PROFILE.md`.
+- `data/processed/dataset.parquet` — **the canonical training set** and the file *both* the production trainer (`scripts/train_production.py`, `pipeline/train.py`) and the training-dashboard trainers (`training-dashboard/server/trainers/*`) read. As of the 2026-06-05 rebuild it is **77 provinces, 1991–2025, daily** (Open-Meteo archive / ERA5-based; columns `time, temperature_2m_max, relative_humidity_2m_mean, swbgt_max, p95, is_hot, heatwave, province_id`; label = sWBGT≥p95(doy) & ≥2-day run). The live model `models/heatwave_model.pkl` (lgbm-v1) was trained from this. **History note:** before that rebuild this file was the *v1* 20-province Open-Meteo build (F2≈0.56) — any `models/dashboard/*.pkl` dated before 2026-06-05 are stale 20-province artifacts, not a different data source.
+- `data/processed/dataset_era5.parquet` — a separate **real ERA5 6-hourly, 2016–2025, 77-province** build that is **NOT currently wired into training** (the live path uses `dataset.parquet`). Kept for reference; see `docs/DATA.md` §5 and `docs/DATASET_PROFILE.md`.
+- The dashboard saves experiments to `models/dashboard/<name>.pkl` (sandbox); production serves `models/heatwave_model.pkl`. Promote a dashboard model to production with `scripts/promote_model.py` (has a province-coverage guard + backup; does not touch Supabase), then `scripts/run_daily_forecast.py` to regenerate forecasts.
 - **`config.yaml` describes an ERA5/MODIS-NDVI design that is NOT wired into training** (historical/aspirational). The actually-wired pipeline is documented in `docs/DATA.md` — trust the docs and the code, not `config.yaml`.
 
 ## Database (Supabase)
