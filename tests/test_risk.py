@@ -4,13 +4,15 @@ from src.risk import prob_to_risk, RISK_LEVELS, DEFAULT_BANDS
 
 
 def test_default_bands_each_region():
+    # Bands nest the measured two-tier operating points:
+    # high == watch (>= 0.217), extreme == warning (>= 0.281).
     assert prob_to_risk(0.0) == "low"
     assert prob_to_risk(0.05) == "low"
     assert prob_to_risk(0.10) == "moderate"   # lower edge inclusive
-    assert prob_to_risk(0.29) == "moderate"
-    assert prob_to_risk(0.30) == "high"
-    assert prob_to_risk(0.59) == "high"
-    assert prob_to_risk(0.60) == "extreme"
+    assert prob_to_risk(0.216) == "moderate"
+    assert prob_to_risk(0.217) == "high"      # watch threshold
+    assert prob_to_risk(0.280) == "high"
+    assert prob_to_risk(0.281) == "extreme"   # warning threshold
     assert prob_to_risk(1.0) == "extreme"
 
 
@@ -54,3 +56,15 @@ def test_bad_bands_raise():
 def test_default_bands_constant_shape():
     assert len(DEFAULT_BANDS) == 3
     assert list(DEFAULT_BANDS) == sorted(DEFAULT_BANDS)
+
+
+def test_bands_nest_alert_thresholds():
+    """The upper two band edges must BE the measured alert operating points so
+    risk_level and the two-tier alert vocabulary can never disagree."""
+    from src.risk import ALERT_THRESHOLDS, risk_to_alert_tier
+    assert DEFAULT_BANDS[1] == ALERT_THRESHOLDS["watch"]
+    assert DEFAULT_BANDS[2] == ALERT_THRESHOLDS["warning"]
+    assert risk_to_alert_tier(prob_to_risk(ALERT_THRESHOLDS["warning"])) == "warning"
+    assert risk_to_alert_tier(prob_to_risk(ALERT_THRESHOLDS["watch"])) == "watch"
+    assert risk_to_alert_tier(prob_to_risk(0.05)) == "none"
+    assert risk_to_alert_tier(prob_to_risk(0.15)) == "none"

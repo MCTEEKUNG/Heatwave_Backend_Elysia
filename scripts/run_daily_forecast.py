@@ -220,8 +220,6 @@ def main(argv=None) -> None:
         build_forecast_rows,
         _real_frame_builder,
         _bangkok_today,
-        DEFAULT_MODEL_VERSION,
-        LABEL_THRESHOLD,
         MODEL_PATH,
     )
     from src.db_write import upsert_forecasts
@@ -271,6 +269,9 @@ def main(argv=None) -> None:
             f"[{batch_num}/{schedule['n_batches']}] "
             f"Processing provinces: {batch_ids} ..."
         )
+        # model_version/label_threshold intentionally omitted: they resolve from
+        # the CalibratedModel bundle (its F2-tuned validation operating point),
+        # NOT the untuned 0.5 fallback.
         rows = build_forecast_rows(
             batch_df,
             model,
@@ -278,8 +279,6 @@ def main(argv=None) -> None:
             history_days=40,
             horizons=horizons,
             frame_builder=builder,
-            model_version=DEFAULT_MODEL_VERSION,
-            label_threshold=LABEL_THRESHOLD,
             origin_date=origin,
         )
         n = upsert_forecasts(rows)

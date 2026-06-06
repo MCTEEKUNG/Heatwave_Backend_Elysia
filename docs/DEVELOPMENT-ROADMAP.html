@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Heatwave-AI — แผนพัฒนาต่อ (Frontend + ML Training)</title>
+<style>
+  :root{
+    --bg:#0f1419; --panel:#171d26; --panel2:#1e2630; --line:#2b3543;
+    --ink:#e6edf3; --muted:#9aa7b4; --faint:#6b7785;
+    --accent:#ff7849; --accent2:#ffb454; --safe:#3fb950; --danger:#f85149;
+    --info:#58a6ff; --purple:#bc8cff; --code-bg:#0b0f14;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:"Segoe UI","IBM Plex Sans Thai","Sarabun","Noto Sans Thai",system-ui,sans-serif;
+    line-height:1.7;font-size:16px}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 22px}
+  header.hero{background:linear-gradient(135deg,#10241a 0%,#0f1419 55%);
+    border-bottom:1px solid var(--line);padding:46px 0 34px}
+  .eyebrow{color:var(--accent2);font-weight:700;letter-spacing:.12em;font-size:.78rem;text-transform:uppercase}
+  h1{margin:.25em 0 .15em;font-size:2.05rem;line-height:1.2}
+  h1 .em{color:var(--accent)}
+  .sub{color:var(--muted);max-width:780px}
+  .meta{margin-top:18px;display:flex;flex-wrap:wrap;gap:8px}
+  .chip{background:var(--panel2);border:1px solid var(--line);color:var(--muted);
+    padding:4px 11px;border-radius:999px;font-size:.8rem}
+  .chip b{color:var(--ink)}
+  .chip.ok{border-color:#1d4d2a;color:var(--safe)}
+  nav.toc{position:sticky;top:0;z-index:20;background:rgba(15,20,25,.92);
+    backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+  nav.toc .wrap{display:flex;flex-wrap:wrap;gap:4px;padding:10px 22px}
+  nav.toc a{color:var(--muted);text-decoration:none;font-size:.86rem;padding:5px 11px;border-radius:7px}
+  nav.toc a:hover{background:var(--panel2);color:var(--ink)}
+  section{padding:40px 0;border-bottom:1px solid var(--line)}
+  h2{font-size:1.5rem;margin:0 0 4px;display:flex;align-items:center;gap:11px}
+  h2 .n{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:8px;
+    color:#0d0500;font-size:.95rem;font-weight:800}
+  h2 .n.f{background:var(--purple);color:#1a0833}
+  h2 .n.m{background:var(--accent);color:#1a0d05}
+  h2 .n.s{background:var(--info);color:#04122b}
+  .lead{color:var(--muted);margin:.2em 0 1.4em;max-width:840px}
+  h3{font-size:1.12rem;margin:1.7em 0 .5em;color:#fff}
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:.92rem;
+    background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  th,td{text-align:left;padding:10px 13px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{background:var(--panel2);color:var(--ink);font-weight:700;font-size:.84rem;text-transform:uppercase}
+  tr:last-child td{border-bottom:none}
+  .num{font-variant-numeric:tabular-nums;white-space:nowrap}
+  code{font-family:"JetBrains Mono","Cascadia Code","Consolas",monospace;
+    background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:.86em;color:var(--accent2)}
+  pre{background:var(--code-bg);border:1px solid var(--line);border-left:3px solid var(--accent);
+    border-radius:10px;padding:16px 18px;overflow:auto;margin:10px 0 4px}
+  pre code{background:none;border:none;padding:0;color:#cdd6e0;font-size:.83rem;line-height:1.6}
+  .c-com{color:#6b7785;font-style:italic}.c-kw{color:#ff7b9c}.c-str{color:#7ee787}
+  .c-fn{color:#79c0ff}.c-num{color:#ffb454}
+  .filebar{display:flex;justify-content:space-between;align-items:center;background:var(--panel2);
+    border:1px solid var(--line);border-bottom:none;border-radius:10px 10px 0 0;padding:7px 14px;
+    font-size:.82rem;color:var(--muted);font-family:"JetBrains Mono",monospace}
+  .filebar+pre{border-radius:0 0 10px 10px;margin-top:0}
+  .filebar .tag{color:var(--accent2)}
+  .callout{border-radius:10px;padding:14px 16px;margin:14px 0;border:1px solid var(--line);
+    background:var(--panel);display:flex;gap:12px}
+  .callout .ic{font-size:1.2rem;line-height:1.4}
+  .callout.warn{border-color:#5a4410;background:#1d1606}
+  .callout.danger{border-color:#5a1d1a;background:#1d0d0c}
+  .callout.safe{border-color:#1d4d2a;background:#0c1a10}
+  .callout.info{border-color:#1a3a5c;background:#0a1622}
+  .callout b{color:#fff}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:760px){.grid2{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+  .card.f{border-top:3px solid var(--purple)}.card.m{border-top:3px solid var(--accent)}
+  .card h4{margin:0 0 6px;font-size:1.02rem}
+  ul.clean{margin:.4em 0;padding-left:1.25em}ul.clean li{margin:.3em 0}
+  .muted{color:var(--muted)}
+  .pill{display:inline-block;font-size:.72rem;font-weight:700;padding:2px 9px;border-radius:999px;text-transform:uppercase;letter-spacing:.03em}
+  .pill.me{background:#0a2233;color:var(--info);border:1px solid #1a3a5c}
+  .pill.user{background:#3a2a08;color:var(--accent2);border:1px solid #5a4410}
+  .pill.gate{background:#2a0d0c;color:#ff9f99;border:1px solid #5a1d1a}
+  .pill.done{background:#0c2114;color:var(--safe);border:1px solid #1d4d2a}
+  .pill.run{background:#1a1233;color:var(--purple);border:1px solid #3a2a5c}
+  .phase{display:grid;grid-template-columns:60px 1fr;gap:16px;padding:16px 0;border-bottom:1px dashed var(--line)}
+  .phase:last-child{border-bottom:none}
+  .phase .tag{font-weight:800;font-size:.9rem;color:#fff;background:var(--panel2);border:1px solid var(--line);
+    border-radius:9px;height:44px;display:grid;place-items:center}
+  .phase.m .tag{border-color:var(--accent);color:var(--accent2)}
+  .phase.f .tag{border-color:var(--purple);color:var(--purple)}
+  .phase h4{margin:0 0 4px;font-size:1.05rem}
+  /* diagram */
+  .diagram{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px 18px;margin:18px 0;overflow-x:auto}
+  .lane-h{font-size:.82rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);
+    margin:18px 0 10px;display:flex;align-items:center;gap:9px}
+  .lane-h:first-child{margin-top:0}
+  .lane-h .dot{width:11px;height:11px;border-radius:3px;display:inline-block}
+  .flow{display:flex;align-items:stretch;flex-wrap:wrap;gap:0}
+  .node{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:9px 13px;min-width:110px;font-size:.82rem}
+  .node .t{font-weight:700;color:#fff;font-size:.85rem}
+  .node .s{color:var(--faint);font-size:.74rem;font-family:"JetBrains Mono",monospace;margin-top:2px}
+  .node.src{border-color:#3a5c1a}.node.proc{border-color:#1a3a5c}.node.store{border-color:#5a4410}.node.out{border-color:#3a1a5c}
+  .node.new{border-color:var(--accent);box-shadow:0 0 0 1px rgba(255,120,73,.25)}
+  .arrow{display:grid;place-items:center;color:var(--faint);padding:0 9px;font-size:1.2rem;font-weight:700}
+  .boundary{border:1.5px dashed var(--safe);border-radius:12px;padding:14px 12px 8px;margin:4px 0 0;background:rgba(63,185,80,.04);position:relative}
+  .boundary .blab{position:absolute;top:-11px;left:14px;background:var(--bg);padding:0 9px;color:var(--safe);font-size:.74rem;font-weight:700}
+  footer{padding:34px 0 60px;color:var(--faint);font-size:.86rem}
+  .legend{display:flex;flex-wrap:wrap;gap:16px;margin-top:14px;font-size:.8rem;color:var(--muted)}
+  .legend span{display:flex;align-items:center;gap:7px}.legend i{width:13px;height:13px;border-radius:3px;display:inline-block}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="eyebrow">Heatwave-AI · แผนพัฒนาต่อ (Development Roadmap)</div>
+    <h1>ก้าวต่อไป: <span class="em">Frontend</span> + <span class="em">ML Training</span></h1>
+    <p class="sub">Go-live เสร็จแล้ว (โมเดล→Supabase→backend→API ใช้งานจริงบน production) เอกสารนี้วางแผน
+    <b>สองงานที่เหลือ</b> ให้เห็นภาพและตัดสินใจง่ายขึ้น: (F) ปลดล็อก frontend ที่ deploy ของเก่า และ
+    (M) งานใหญ่ — ยกระดับโมเดล ML ให้ครอบคลุม 77 จังหวัดและเก่งระดับ production. ยึดโค้ด/เอกสารจริง.</p>
+    <div class="meta">
+      <span class="chip ok">✅ Backend live <b>/api/forecast/map = 200</b></span>
+      <span class="chip ok">✅ Forecasts ใน Supabase <b>20 จว.</b></span>
+      <span class="chip">📅 <b>2026-06-02</b></span>
+      <span class="chip">🎯 ต่อไป <b>Frontend + ML</b></span>
+    </div>
+  </div>
+</header>
+
+<nav class="toc">
+  <div class="wrap">
+    <a href="#now">1 · ตอนนี้อยู่ตรงไหน</a>
+    <a href="#frontend">2 · Track F — Frontend</a>
+    <a href="#ml">3 · Track M — ML Training</a>
+    <a href="#code">4 · โค้ด/คำสั่งสำคัญ</a>
+    <a href="#decide">5 · ลำดับ & จุดตัดสินใจ</a>
+  </div>
+</nav>
+
+<!-- 1. NOW -->
+<section id="now">
+  <div class="wrap">
+    <h2><span class="n s">1</span> ตอนนี้อยู่ตรงไหน</h2>
+    <p class="lead">สายส่งข้อมูล (pipeline) ทำงานครบจากโมเดลถึง API แล้ว — สิ่งที่เหลือคือ "ให้ผู้ใช้เห็น" (frontend)
+    และ "ทำให้เก่งขึ้น/ครบ 77 จังหวัด" (ML).</p>
+    <table>
+      <thead><tr><th>ส่วน</th><th>สถานะ</th><th>หมายเหตุ</th></tr></thead>
+      <tbody>
+        <tr><td>Daily forecast → Supabase</td><td><span class="pill done">live</span></td><td>20 จว. × 7 leads, model lgbm-v1 (F2 0.556)</td></tr>
+        <tr><td>Backend API (Render)</td><td><span class="pill done">live</span></td><td><code>/api/forecast/map</code> → 200, 20 จว. (PR #3 merged)</td></tr>
+        <tr><td>Forecast collector (P0)</td><td><span class="pill run">running</span></td><td>Task Scheduler รายวัน 08:00 สะสม hindcast</td></tr>
+        <tr><td><b>Frontend (Vercel)</b></td><td><span class="pill gate">ต้องตรวจ</span></td><td>สงสัยว่า deploy จาก GitHub repo เก่า — Track F</td></tr>
+        <tr><td><b>โมเดล ML</b></td><td><span class="pill gate">modest / 20 จว.</span></td><td>antecedent ชนเพดาน; ขยาย+เก่งขึ้น = Track M</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- 2. FRONTEND -->
+<section id="frontend">
+  <div class="wrap">
+    <h2><span class="n f">F</span> Track F — ปลดล็อก Frontend</h2>
+    <p class="lead">โค้ด frontend ใน repo ปัจจุบัน <b>ถูกต้องและเข้ากับ backend ใหม่แล้ว</b> — ปัญหาจึงน่าจะเป็น
+    "Vercel deploy ของเก่า" ไม่ใช่บั๊กในโค้ด.</p>
+
+    <div class="callout safe">
+      <span class="ic">✓</span>
+      <div><b>ยืนยันจากโค้ดจริง:</b> <code>services/forecastService.ts</code> มี <code>getForecastMap()</code> → <code>/api/forecast/map</code>
+      และ shape <code>MapForecastPoint</code> ตรงกับ backend ที่ deploy เป๊ะ; <code>app/(tabs)/map.tsx</code> เรียกแล้วระบายสี grid ตาม
+      <code>risk_level</code> ของจังหวัดที่ใกล้สุด + แสดง "as of" timestamp. <b>โค้ดไม่เก่า</b>.</div>
+    </div>
+
+    <div class="callout warn">
+      <span class="ic">🔎</span>
+      <div><b>สมมติฐานหลัก (ที่คุณตั้งไว้ — น่าจะใช่):</b> Vercel project ผูกกับ <b>GitHub repo เก่า</b> หรือ branch เก่า
+      ที่ยังไม่มีโค้ดชุดนี้ → เว็บ live จึงเป็นเวอร์ชันก่อนหน้า. <span class="muted">(ผมลองเช็กผ่าน Vercel MCP แล้ว — คืน
+      teams ว่าง จึงยืนยันอัตโนมัติไม่ได้ ต้องดูใน dashboard)</span></div>
+    </div>
+
+    <h3>ขั้นตอน Track F</h3>
+    <div class="phase f">
+      <div class="tag">F1</div>
+      <div>
+        <h4>ตรวจว่า Vercel ผูกกับ repo/branch ไหน <span class="pill gate">เริ่มที่นี่</span></h4>
+        <div class="muted" style="margin:.3em 0"><span class="pill user">USER</span> 10 วินาทีใน Vercel dashboard</div>
+        <ul class="clean">
+          <li>Vercel → project (heat-map-frontend) → <b>Settings → Git</b> → ดู <b>Connected Repository</b> + <b>Production Branch</b></li>
+          <li>เทียบกับ repo จริงที่เราใช้: <code>github.com/MCTEEKUNG/Heatwave_Backend_Elysia</code> (frontend อยู่ที่ <code>HeatMAP-Frontend/</code>), branch ที่อัปเดตล่าสุดคือ <code>feat/clean-era5-ndvi-dataset</code></li>
+          <li><b>ถ้าผูก repo อื่น/branch อื่น</b> = นั่นคือสาเหตุ</li>
+        </ul>
+      </div>
+    </div>
+    <div class="phase f">
+      <div class="tag">F2</div>
+      <div>
+        <h4>ตรวจ Environment Variable <code>EXPO_PUBLIC_API_URL</code></h4>
+        <div class="muted" style="margin:.3em 0"><span class="pill user">USER</span> ดู / <span class="pill me">ME</span> แก้ได้ถ้าให้สิทธิ์</div>
+        <ul class="clean">
+          <li>Vercel → Settings → Environment Variables → ต้องมี<br><code>EXPO_PUBLIC_API_URL = https://heatwave-backend-elysia.onrender.com</code></li>
+          <li>ถ้าไม่มี/ผิด → frontend ยิงไป <code>localhost:3000</code> (default ใน <code>apiService.ts</code>) → ข้อมูลไม่ขึ้น</li>
+        </ul>
+      </div>
+    </div>
+    <div class="phase f">
+      <div class="tag">F3</div>
+      <div>
+        <h4>เลือกวิธีแก้ (ตามผล F1) <span class="pill gate">DECISION</span></h4>
+        <ul class="clean">
+          <li><b>ถ้า repo ผิด:</b> ใน Vercel → Settings → Git → เปลี่ยนไปผูก repo/branch ปัจจุบัน + ตั้ง <b>Root Directory = <code>HeatMAP-Frontend</code></b> → redeploy</li>
+          <li><b>ถ้า branch เก่า:</b> merge โค้ด frontend ปัจจุบันเข้า branch ที่ Vercel deploy (เหมือนที่เราทำกับ backend เป๊ะ — ผมเตรียม PR ให้ได้)</li>
+          <li>ตั้ง <code>EXPO_PUBLIC_API_URL</code> ให้ถูก (F2) แล้ว redeploy</li>
+        </ul>
+      </div>
+    </div>
+    <div class="phase f">
+      <div class="tag">F4</div>
+      <div>
+        <h4>ตรวจ end-to-end</h4>
+        <div class="muted" style="margin:.3em 0"><span class="pill me">ME</span> + <span class="pill user">USER</span></div>
+        <ul class="clean">
+          <li>เปิดเว็บ → หน้า map ควรลงสี (20 จว. มีข้อมูล, ที่เหลือใช้สีของจังหวัดใกล้สุด)</li>
+          <li>F12 → Network → เห็น <code>/api/forecast/map</code> ตอบ 200; ไม่มี CORS error (backend ใช้ <code>cors()</code> เปิดกว้าง)</li>
+          <li>เลือกจังหวัด → panel เรียก <code>/api/forecast/province/:id</code> ได้</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="diagram">
+      <div class="lane-h"><span class="dot" style="background:var(--purple)"></span>สายที่ควรเป็น (หลังแก้ Track F)</div>
+      <div class="flow">
+        <div class="node out"><div class="t">เว็บผู้ใช้</div><div class="s">Vercel (repo/branch ปัจจุบัน)</div></div>
+        <div class="arrow">→</div>
+        <div class="node proc"><div class="t">apiService</div><div class="s">EXPO_PUBLIC_API_URL</div></div>
+        <div class="arrow">→</div>
+        <div class="node proc"><div class="t">Backend</div><div class="s">/api/forecast/map · Render</div></div>
+        <div class="arrow">→</div>
+        <div class="node store"><div class="t">Supabase</div><div class="s">heatwave.forecasts</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 3. ML TRAINING -->
+<section id="ml">
+  <div class="wrap">
+    <h2><span class="n m">M</span> Track M — ยกระดับ ML Training (งานใหญ่)</h2>
+    <p class="lead">เป้าหมาย: จากโมเดล "พอใช้ได้ 20 จังหวัด" → <b>ครบ 77 จังหวัด</b> และ <b>เก่งระดับ production</b>.
+    หัวใจที่วัดมาแล้ว: โมเดลปัจจุบัน "ตาบอดต่อพยากรณ์ของวันที่มันทำนาย" — และ <b>forecast covariate</b> คือคันโยกเดียวที่พิสูจน์แล้วว่าได้ผล.</p>
+
+    <h3>3.1 สถานะตรงไปตรงมา</h3>
+    <table>
+      <thead><tr><th>โมเดล</th><th>ขอบเขต</th><th>คะแนน (test)</th><th>สถานะ</th></tr></thead>
+      <tbody>
+        <tr><td><b>v1</b> Open-Meteo</td><td>20 จว. · 1991–2025</td><td class="num">F2 0.556 · ROC 0.76</td><td><span class="pill done">บน production</span></td></tr>
+        <tr><td><b>v2</b> ERA5 (clean)</td><td>77 จว. · 2016–2025</td><td class="num">F2 0.317 · ROC 0.62</td><td>สะอาด/ทำซ้ำได้ แต่คะแนนต่ำกว่า (ประวัติสั้น)</td></tr>
+        <tr><td>เพดาน oracle (รู้อนาคต)</td><td>—</td><td class="num">F2 0.915 · PR-AUC 0.88</td><td>headroom: forecast covariate เท่านั้นที่ไปถึง</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout safe">
+      <span class="ic">📈</span>
+      <div><b>คันโยกที่พิสูจน์แล้วด้วยข้อมูลจริง (GEFS reforecast):</b> เพิ่ม forecast <b>heat-index</b> ของวันเป้าหมาย →
+      <b>ROC 0.578 → 0.657</b> (+0.079), PR-AUC lift 1.22×→1.82×. lift แรงสุดที่ <b>lead 3–5</b> (persistence จัดการ lead 1 อยู่แล้ว).
+      <span class="muted">รายละเอียด: <code>docs/MODEL-IMPROVEMENT.md §5</code></span></div>
+    </div>
+
+    <h3>3.2 ทำไม v2 (77 จว.) ถึงคะแนนต่ำกว่า — และทางออก</h3>
+    <p class="muted">ไม่ใช่ข้อมูลแย่ แต่การบังคับมีความชื้น (ERA5) ทำให้เหลือประวัติแค่ 2016+ → เสีย 27 ปี และปีฝึกเย็นกว่าปีทดสอบ
+    (positive rate 2.6%→8.1%). ทางออกคือ <b>multi-fidelity</b>: ใช้ t2m ยาว (1991+) เป็นแกน antecedent + ฟีเจอร์ความชื้นเฉพาะที่มี.</p>
+
+    <h3>3.3 Roadmap เป็นเฟส (พร้อมเหตุผล + effort)</h3>
+
+    <div class="phase m">
+      <div class="tag">M1</div>
+      <div>
+        <h4>Forecast covariate → wire เข้า production training <span class="pill done">คันโยกหลัก</span></h4>
+        <div class="muted" style="margin:.3em 0"><span class="pill me">ME</span> · ขึ้นกับข้อมูล hindcast</div>
+        <ul class="clean">
+          <li><b>เหลือรอ:</b> collector (กำลังรันทุกวัน) สะสม Open-Meteo forecast ให้ครอบคลุมหน้าร้อน (~2–3 เดือน) → ได้ hindcast ที่ <b>match แหล่ง serve-time</b></li>
+          <li>แล้ว join เข้า forecasting frame ที่ <code>target_date</code> → เทรนใหม่ด้วย <code>fc_heat_index</code> เป็นฟีเจอร์</li>
+          <li><b>ผลคาด:</b> ROC 0.6→0.66+ ที่ lead 3–5, precision ดีขึ้น (false alarm ลด)</li>
+          <li><b>ทางลัดวัดผลทันที (ไม่ต้องรอ):</b> GEFS reforecast 2016–2019 (ทำไว้แล้ว) — ใช้ประเมิน per-lead ก่อนตัดสินใจ productionize</li>
+        </ul>
+      </div>
+    </div>
+    <div class="phase m">
+      <div class="tag">M2</div>
+      <div>
+        <h4>ขยาย production 20 → 77 จังหวัด <span class="pill gate">DECISION</span></h4>
+        <ul class="clean">
+          <li><b>ตัวเลือก A:</b> สลับ production ไปใช้ v2 (77 จว. ครบเลย แต่คะแนน antecedent ต่ำกว่า)</li>
+          <li><b>ตัวเลือก B (แนะนำ):</b> multi-fidelity — t2m ยาว 1991+ ทุกจังหวัด เป็นแกน + humidity features เฉพาะที่มี → ครบ 77 โดยไม่เสียประวัติ</li>
+          <li>ผลพลอยได้: แผนที่ลงสีครบ 77 จังหวัด (ตอนนี้ 20)</li>
+        </ul>
+      </div>
+    </div>
+    <div class="phase m">
+      <div class="tag">M3</div>
+      <div>
+        <h4>Label robustness — fixed-baseline p95</h4>
+        <ul class="clean">
+          <li>fit per-province p95 บน baseline ปีฝึกคงที่ (ไม่ให้ threshold ดูดซับ warming trend) → ลด train→test label shift</li>
+          <li>effort ต่ำ, ลดความผันผวนของคะแนนข้ามปี</li>
+        </ul>
+      </div>
+    </div>
+    <div class="phase m">
+      <div class="tag">M4</div>
+      <div>
+        <h4>งานรายภูมิภาค (skill ไม่สม่ำเสมอ)</h4>
+        <ul class="clean">
+          <li>South F2 0.70 vs Northeast 0.39, West 0.40, <b>Chiang Rai 0.10</b> (base rate 1.4%)</li>
+          <li>per-region threshold, ฟีเจอร์เฉพาะภาค (เหนือแห้งต่างจากใต้), หรือ pool จังหวัด base rate ต่ำมาก</li>
+        </ul>
+      </div>
+    </div>
+    <div class="phase m">
+      <div class="tag">M5</div>
+      <div>
+        <h4>Operating point กับ stakeholder</h4>
+        <ul class="clean">
+          <li>ตอนนี้ precision 0.23 = false alarm เยอะ (จุด F2 เน้น recall)</li>
+          <li>เลือกจุดจากต้นทุนจริงของ "เตือนผิด" vs "พลาดคลื่นร้อน"; พิจารณา 2 ระดับ (watch / warning)</li>
+        </ul>
+      </div>
+    </div>
+    <div class="phase m">
+      <div class="tag">M6</div>
+      <div>
+        <h4>Retrain → promote → automate (ปิดลูป) <span class="pill gate">artifact story</span></h4>
+        <ul class="clean">
+          <li>ตัดสิน artifact story: train-in-CI หรือ ดาวน์โหลดโมเดลจาก HF/Release</li>
+          <li>ตั้ง GitHub Action cron รัน <code>run_daily_forecast.py</code> + secrets (<code>DATABASE_URL</code>) — เลิกพึ่ง Task Scheduler ในเครื่อง</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3>3.4 สายข้อมูลการเทรน (leakage-safe)</h3>
+    <div class="diagram">
+      <div class="lane-h"><span class="dot" style="background:var(--accent)"></span>Training pipeline + คันโยก M1 (สีส้ม = ของใหม่)</div>
+      <div class="boundary">
+        <span class="blab">✓ LEAKAGE-SAFE — antecedent (อดีต) + forecast (issue&lt;target)</span>
+        <div class="flow">
+          <div class="node src"><div class="t">ERA5 / Open-Meteo</div><div class="s">อดีต (reanalysis)</div></div>
+          <div class="arrow">→</div>
+          <div class="node proc"><div class="t">label + features</div><div class="s">.shift(1).rolling</div></div>
+          <div class="arrow">+</div>
+          <div class="node new"><div class="t">forecast covariate</div><div class="s">forecast_store · fc_heat_index</div></div>
+          <div class="arrow">→</div>
+          <div class="node proc"><div class="t">train_p0 / train_era5</div><div class="s">temporal split + CV</div></div>
+          <div class="arrow">→</div>
+          <div class="node store"><div class="t">model.pkl</div><div class="s">promote → daily job</div></div>
+        </div>
+      </div>
+      <div class="legend">
+        <span><i style="background:#3a5c1a"></i> แหล่งข้อมูล</span>
+        <span><i style="background:#1a3a5c"></i> ประมวลผล</span>
+        <span><i style="background:#5a4410"></i> ที่เก็บ</span>
+        <span><i style="background:var(--accent)"></i> ของใหม่ (M1)</span>
+      </div>
+    </div>
+
+    <h3>3.5 วิธีทำงาน (methodology)</h3>
+    <ul class="clean">
+      <li><b>Ablate ทีละสัญญาณ:</b> เพิ่ม 1 ฟีเจอร์ → วัด ΔPR-AUC บน split เดิม เก็บเฉพาะที่ขยับจริง</li>
+      <li><b>เชื่อตัวเลขด้วย rolling-origin CV</b> (<code>scripts/cv_era5.py</code>) ไม่ใช่ปีเดียว (base rate แกว่ง 3%→13%)</li>
+      <li><b>Stop rule:</b> "พอแล้ว" = ชนะ baseline (climatology F2 0.47) ที่ operating point ที่ stakeholder รับได้</li>
+    </ul>
+  </div>
+</section>
+
+<!-- 4. CODE -->
+<section id="code">
+  <div class="wrap">
+    <h2><span class="n s">4</span> โค้ด/คำสั่งสำคัญที่ควรดู</h2>
+
+    <h3>4.1 วัดผล forecast covariate (M1) — มีให้รันแล้ว</h3>
+    <div class="filebar"><span>PowerShell · จาก repo root</span><span class="tag">ทางลัด GEFS</span></div>
+    <pre><code><span class="c-com"># A (antecedent) vs B (+ GEFS forecast heat-index) บน rows เดียวกัน</span>
+.\.venv\Scripts\python.exe scripts\train_p0.py
+<span class="c-com"># → ROC 0.578 -> 0.657, PR-AUC lift 1.22x -> 1.82x (วัดมาแล้ว)</span></code></pre>
+
+    <div class="filebar"><span>scripts/collect_forecast.py</span><span class="tag">P0 store — leakage-safe</span></div>
+    <pre><code><span class="c-com"># key: (province, issue_date, target_date, lead_k) โดย issue_date &lt; target_date เสมอ</span>
+rows.<span class="c-fn">append</span>({
+    <span class="c-str">"issue_date"</span>:  issue.<span class="c-fn">date</span>().<span class="c-fn">isoformat</span>(),
+    <span class="c-str">"target_date"</span>: target.<span class="c-fn">date</span>().<span class="c-fn">isoformat</span>(),
+    <span class="c-str">"lead_k"</span>: lead,
+    <span class="c-str">"fc_heat_index"</span>: <span class="c-fn">float</span>(<span class="c-fn">heat_index_c</span>(tx, h)),  <span class="c-com"># ตรงกับ label</span>
+})</code></pre>
+
+    <h3>4.2 กฎ #1 — ฟีเจอร์ antecedent-only (อย่าทำพัง)</h3>
+    <div class="filebar"><span>src/features.py</span><span class="tag">บรรทัด ~41</span></div>
+    <pre><code>past = d[col].<span class="c-fn">shift</span>(<span class="c-num">1</span>)  <span class="c-com"># ค่าก่อนวัน t เท่านั้น</span>
+roll = past.<span class="c-fn">rolling</span>(window=w, min_periods=w)   <span class="c-com"># ไม่มี same-day leakage</span>
+<span class="c-com"># target: y = heatwave.shift(-k)  (heatwave อีก k วันข้างหน้า)</span></code></pre>
+
+    <h3>4.3 คำสั่งหลัก ML</h3>
+    <table>
+      <thead><tr><th>งาน</th><th>คำสั่ง</th></tr></thead>
+      <tbody>
+        <tr><td>สร้าง dataset v2</td><td><code>.\.venv\Scripts\python.exe pipeline\build_era5_dataset.py</code></td></tr>
+        <tr><td>เทรน + eval (temporal)</td><td><code>.\.venv\Scripts\python.exe scripts\train_era5.py</code></td></tr>
+        <tr><td>rolling-origin CV</td><td><code>.\.venv\Scripts\python.exe scripts\cv_era5.py</code></td></tr>
+        <tr><td>P0 covariate A/B</td><td><code>.\.venv\Scripts\python.exe scripts\train_p0.py</code></td></tr>
+        <tr><td>เทรน+promote production</td><td><code>.\.venv\Scripts\python.exe scripts\train_production.py</code></td></tr>
+        <tr><td>เทสต์ทั้งหมด</td><td><code>.\.venv\Scripts\python.exe -m pytest tests/ -q</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- 5. DECIDE -->
+<section id="decide">
+  <div class="wrap">
+    <h2><span class="n s">5</span> ลำดับแนะนำ & จุดตัดสินใจ</h2>
+    <div class="grid2">
+      <div class="card f">
+        <h4>🟣 Track F (เร็ว — ทำก่อน)</h4>
+        <ul class="clean">
+          <li><b>F1</b> เช็ก Vercel ผูก repo/branch ไหน (10 วิ)</li>
+          <li><b>F2</b> เช็ก <code>EXPO_PUBLIC_API_URL</code></li>
+          <li><b>F3</b> แก้ตามผล (rebind / merge / set env)</li>
+          <li><b>F4</b> ตรวจหน้า map ลงสี</li>
+        </ul>
+        <p class="muted" style="margin:.4em 0 0">เป้า: ผู้ใช้เห็นพยากรณ์จริงบนเว็บ (ปิด go-live 100%)</p>
+      </div>
+      <div class="card m">
+        <h4>🟠 Track M (ใหญ่ — ขนาน/ตามมา)</h4>
+        <ul class="clean">
+          <li><b>M1</b> forecast covariate (คันโยกหลัก, collector กำลังสะสม)</li>
+          <li><b>M2</b> ขยาย 77 จว. (เลือก v2 vs multi-fidelity)</li>
+          <li><b>M3–M5</b> label robustness / regional / operating point</li>
+          <li><b>M6</b> automate retrain pipeline</li>
+        </ul>
+        <p class="muted" style="margin:.4em 0 0">เป้า: ครบ 77 จว. + เก่งระดับ production</p>
+      </div>
+    </div>
+
+    <div class="callout info">
+      <span class="ic">🧭</span>
+      <div><b>คำแนะนำลำดับ:</b> ทำ <b>Track F ให้จบก่อน</b> (เร็ว, ปิด go-live ให้ครบวงจรผู้ใช้) → แล้วลุย <b>M2 (ขยาย 77 จว.)</b>
+      เพราะเห็นผลชัดบนแผนที่ทันที → ระหว่างนั้น collector สะสมข้อมูลให้ <b>M1</b> (คันโยกคุณภาพตัวจริง) สุก.</div>
+    </div>
+
+    <h3>จุดที่ต้องคุณตัดสิน</h3>
+    <table>
+      <thead><tr><th>เรื่อง</th><th>ตัวเลือก</th></tr></thead>
+      <tbody>
+        <tr><td>F3 วิธีแก้ Vercel</td><td>rebind repo/branch · หรือ merge frontend เข้า branch ที่ deploy</td></tr>
+        <tr><td>M2 ขยาย 77 จว.</td><td>สลับไป v2 · หรือ multi-fidelity (แนะนำ)</td></tr>
+        <tr><td>M5 operating point</td><td>เกณฑ์ false-alarm vs missed; 1 ระดับ หรือ 2 ระดับ (watch/warning)</td></tr>
+        <tr><td>M6 artifact story</td><td>train-in-CI · หรือ ดาวน์โหลดโมเดลจาก HF/Release</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout warn">
+      <span class="ic">📌</span>
+      <div><b>เอกสารอ้างอิง:</b> <code>docs/MODEL-IMPROVEMENT.md</code> (การวินิจฉัย + ผล P0) ·
+      <code>docs/DATA.md</code> (pipeline ที่ wire จริง) · <code>docs/GO-LIVE-RUNBOOK.md</code> ·
+      <code>docs/IMPLEMENTATION-PLAN.html</code> (แผน go-live เดิม).</div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    จัดทำ 2026-06-02 · อ้างอิงโค้ด/เอกสารจริง · self-contained (เปิดด้วย browser ได้ทันที) ·
+    บอกได้เลยว่าจะเริ่ม Track F หรือ M ก่อน เดี๋ยวผมลงมือต่อ
+  </div>
+</footer>
+
+</body>
+</html>

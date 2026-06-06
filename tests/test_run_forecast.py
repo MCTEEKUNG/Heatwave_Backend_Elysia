@@ -22,7 +22,12 @@ GEN_DATE = pd.Timestamp("2025-06-01")
 
 class StubModel:
     """Deterministic stub: probability rises with horizon_k so we get a range
-    of risk levels. Returns a 2-column array like sklearn predict_proba."""
+    of risk levels. Returns a 2-column array like sklearn predict_proba.
+    Carries `threshold`/`model_version` like the real CalibratedModel bundle so
+    build_forecast_rows resolves them without the untuned-fallback warning."""
+
+    threshold = 0.281
+    model_version = "stub-v0"
 
     def predict_proba(self, X):
         X = pd.DataFrame(X)
@@ -149,6 +154,36 @@ def test_probability_in_unit_interval_and_risk_consistent():
     order = {lvl: i for i, lvl in enumerate(RISK_LEVELS)}
     sev = [order[r] for r in df["risk_level"]]
     assert sev == sorted(sev)
+
+
+def test_predicted_label_uses_bundle_threshold_and_version():
+    """predicted_label must fire at the bundle's TUNED threshold (not 0.5) and
+    model_version must come from the bundle when not overridden."""
+    provinces = _provinces(1)
+    gen_at = datetime(2025, 6, 1, 6, 0, tzinfo=timezone.utc)
+    rows = build_forecast_rows(provinces, StubModel(), gen_at,
+                               frame_builder=_builder_factory())
+    for r in rows:
+        assert r["predicted_label"] == (r["probability"] >= StubModel.threshold)
+        assert r["model_version"] == "stub-v0"
+    # stub probs span ~0.05..0.65 -> at threshold 0.281 some labels MUST be True
+    # (they would all be False at the old untuned 0.5-ish region for low ks).
+    assert any(r["predicted_label"] for r in rows)
+    assert not all(r["predicted_label"] for r in rows)
+
+
+def test_threshold_fallback_warns_when_bundle_untuned():
+    """A model without a tuned `threshold` must fall back loudly, not silently."""
+
+    class BareStub:
+        def predict_proba(self, X):
+            return StubModel().predict_proba(X)
+
+    provinces = _provinces(1)
+    gen_at = datetime(2025, 6, 1, 6, 0, tzinfo=timezone.utc)
+    with pytest.warns(RuntimeWarning, match="no tuned `threshold`"):
+        build_forecast_rows(provinces, BareStub(), gen_at,
+                            frame_builder=_builder_factory())
 
 
 def test_feature_matrix_has_no_leaky_columns():

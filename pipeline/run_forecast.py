@@ -33,7 +33,12 @@ from src.swbgt import swbgt
 
 MODEL_PATH = "models/heatwave_model.pkl"
 DEFAULT_MODEL_VERSION = "lgbm-v1"
-LABEL_THRESHOLD = 0.5  # tunable: default decision threshold for predicted_label
+# Last-resort fallback ONLY. The real decision threshold lives on the trained
+# CalibratedModel bundle (`model.threshold`, F2-tuned on validation) and is
+# resolved per-run in build_forecast_rows. 0.5 is meaningless for a ~4%
+# base-rate calibrated model (p >= 0.5 almost never fires), so reaching this
+# fallback emits a RuntimeWarning.
+LABEL_THRESHOLD = 0.5
 
 
 def _province_daily_frame(province, history_df, forecast_df):
@@ -67,15 +72,24 @@ def _province_daily_frame(province, history_df, forecast_df):
 
 def build_forecast_rows(provinces, model, generated_at,
                         history_days=40, horizons=range(1, 8),
-                        frame_builder=None, model_version=DEFAULT_MODEL_VERSION,
-                        label_threshold=LABEL_THRESHOLD, origin_date=None):
+                        frame_builder=None, model_version=None,
+                        label_threshold=None, origin_date=None):
     """Return a list of forecast row dicts. Pure: no network, no DB.
 
     Parameters
     ----------
     provinces : DataFrame with at least ``id`` (and ideally ``lat``/``lon``).
     model : object exposing ``predict_proba`` compatible with ``src.model``.
+        If it is a ``CalibratedModel`` bundle, its F2-tuned ``threshold`` and
+        ``model_version`` are used automatically.
     generated_at : ``datetime`` stamp written to the ``generated_at`` column.
+    model_version : override for the version string; ``None`` (default) reads
+        ``model.model_version``, falling back to ``DEFAULT_MODEL_VERSION``.
+    label_threshold : override for the ``predicted_label`` decision threshold;
+        ``None`` (default) reads ``model.threshold`` (the operating point tuned
+        on validation). Falling back to the untuned ``LABEL_THRESHOLD`` (0.5)
+        warns loudly — at a ~4% base rate it would mean predicted_label is
+        effectively always False.
     origin_date : the origin day used to select forecast rows; ``target_date =
         origin_date + k``. If None, defaults to ``generated_at.date()``. Pass
         this explicitly when ``generated_at`` is in a different timezone than the
@@ -86,6 +100,22 @@ def build_forecast_rows(provinces, model, generated_at,
         supply synthetic data with no network. ``main`` wires the real fetch.
     """
     horizons = list(horizons)
+    if model_version is None:
+        model_version = getattr(model, "model_version", None) or DEFAULT_MODEL_VERSION
+    if label_threshold is None:
+        bundled = getattr(model, "threshold", None)
+        if bundled is not None:
+            label_threshold = float(bundled)
+        else:
+            import warnings
+            warnings.warn(
+                "model bundle has no tuned `threshold`; falling back to the "
+                f"untuned LABEL_THRESHOLD={LABEL_THRESHOLD}. predicted_label "
+                "will under-fire badly at a ~4% base rate — retrain via "
+                "pipeline/train.py so the CalibratedModel carries its tuned "
+                "operating point.",
+                RuntimeWarning, stacklevel=2)
+            label_threshold = LABEL_THRESHOLD
     if origin_date is None:
         origin_date = generated_at.date() if isinstance(generated_at, datetime) \
             else generated_at

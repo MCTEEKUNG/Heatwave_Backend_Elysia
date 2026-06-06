@@ -271,3 +271,48 @@ GEFS `spfh_2m` (+`tmp_2m`/`pres_sfc`) for the same inits, compute a forecast
 all tested) — not "wait months." Reaching a production number is now bounded
 compute + the humidity-covariate step above, with an honest expectation (per oracle
 vs noise model) of a *modest* real-forecast lift, largest at short lead.
+
+### P0 humidity-covariate experiment — DONE, and it gives REAL lift (confirmed 2026-06-02)
+
+The "exact next experiment" above was executed. `scripts/build_gefs_store.py` pulled a
+**powered** GEFS store — 114 inits, dense across the 2016–2019 Mar–Jun heat seasons, all
+77 provinces, with BOTH `fc_tmax` (daily-max) and `fc_spfh` (daily-mean) → **100% humidity
+coverage** (`data/processed/gefs_forecast_store.parquet`, 61,446 rows). `scripts/train_p0.py`
+builds a forecast **heat-index** covariate (`rh_from_specific_humidity` → `heat_index_c`,
+matching the label + oracle signal) and trains A vs B on identical matched rows
+(train origin <2018, test ≥2018):
+
+| model (identical rows, 2016–17 → 2018–19) | ROC | PR-AUC lift |
+|---|---|---|
+| A antecedent only | 0.578 | 1.22× |
+| **B + GEFS forecast heat-index** | **0.657** | **1.82×** |
+
+**Real lift: ROC +0.079, PR-AUC lift 1.22×→1.82× (+49% rel).** This is the first honest,
+real-data P0 result with genuine lift — not the leaky oracle, not the noise model, not
+analysis-disguised-as-forecast. It confirms the thesis: target-day **heat-index** (temp +
+humidity) is the lever; the earlier temperature-only run (≈no lift) failed because it
+dropped humidity, not because forecasts don't help.
+
+**Per-lead ROC (where the lift lives):**
+
+| lead | n | pos | ROC A | ROC B | ΔROC |
+|---|---|---|---|---|---|
+| 1 | 4004 | 58 | 0.754 | 0.739 | −0.015 |
+| 2 | 4004 | 40 | 0.581 | 0.628 | +0.047 |
+| 3 | 4004 | 82 | 0.531 | 0.674 | **+0.143** |
+| 4 | 4004 | 91 | 0.531 | 0.665 | **+0.134** |
+| 5 | 4004 | 82 | 0.579 | 0.661 | +0.081 |
+| 6 | 4004 | 59 | 0.596 | 0.623 | +0.027 |
+| 7 | 4004 | 40 | 0.468 | 0.550 | +0.082 |
+
+The lift is **concentrated at leads 3–5**, NOT lead 1 — because antecedent/persistence
+already handles lead 1 (ROC 0.754) while it decays by lead 3 (0.531), exactly where the
+forecast covariate restores skill. Practically: **forecasts extend useful lead time from
+~1–2 days (persistence) out to ~5 days.**
+
+**Productionization blocker (the real one now):** the lift is proven on GEFS reforecasts,
+but GEFSv12 reforecast ends 2019 and is a *different NWP system* than what's available at
+serve time (Open-Meteo). Wiring forecast covariates into production needs a **serve-time-
+matched** forecast hindcast → the forward-collector (`scripts/collect_forecast.py`,
+accumulating Open-Meteo forecasts daily) is the clean path; train on it once it spans a
+hot season. GEFS proved the lever works; forward-collection makes it deployable.
