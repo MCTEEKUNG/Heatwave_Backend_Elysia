@@ -10,7 +10,7 @@ import { useProvinceForecast } from '@/hooks/useProvinceForecast';
 import { useWeather } from '@/hooks/useWeather';
 import {
   getForecastMap,
-  alertTierFromRiskLevel,
+  getAlertTier,
   alertTierColor,
   assertAlertThresholdsCurrent,
   formatForecastDate,
@@ -143,7 +143,9 @@ export default function AlertsScreen() {
     let watch = 0;
     let soonest: string | null = null;
     for (const p of mapPoints) {
-      const tier = alertTierFromRiskLevel(p.risk_level);
+      // Alert tier from PROBABILITY (sensitive 0.217/0.281), decoupled from the
+      // calmer map colours (risk_level). See src/risk.py.
+      const tier = getAlertTier(p.probability);
       if (tier === 'warning') warning++;
       else if (tier === 'watch') watch++;
       if (soonest === null || p.target_date < soonest) soonest = p.target_date;
@@ -203,7 +205,7 @@ export default function AlertsScreen() {
   const calendar: CalendarDay[] = useMemo(
     () => provinceDays.map((d) => ({
       date: d.target_date,
-      riskLevel: tierToRisk(alertTierFromRiskLevel(d.risk_level)),
+      riskLevel: tierToRisk(getAlertTier(d.probability)),
       isToday: d.target_date === todayStr,
     })),
     [provinceDays, todayStr],
@@ -217,7 +219,7 @@ export default function AlertsScreen() {
   const todayForecast = provinceDays.length > 0 ? provinceDays[0] : null;
   const todayTemp = Math.round(temperature);
   const todayRisk: RiskLevel = todayForecast
-    ? tierToRisk(alertTierFromRiskLevel(todayForecast.risk_level))
+    ? tierToRisk(getAlertTier(todayForecast.probability))
     : 'safe';
 
   // Summary across the 7-day horizon (predicted_label now carries the tuned

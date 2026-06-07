@@ -107,6 +107,8 @@ export interface Translations {
   riskWarning: string;
   riskWatch: string;
   riskElevated: string;
+  riskHigh: string;
+  riskVeryHigh: string;
   riskChance: string;
   riskLegendTitle: string;
   riskLegendNote: string;
@@ -217,6 +219,8 @@ const en: Record<TranslationKey, string> = {
   riskWarning: 'Warning',
   riskWatch: 'Watch',
   riskElevated: 'Elevated',
+  riskHigh: 'High risk',
+  riskVeryHigh: 'Very high risk',
   riskChance: 'risk',
   riskLegendTitle: 'Risk level',
   riskLegendNote: 'Colors show forecast RISK, not a confirmed heatwave.',
@@ -324,6 +328,8 @@ const th: Record<TranslationKey, string> = {
   riskWarning: 'เตือนภัย',
   riskWatch: 'เฝ้าระวัง',
   riskElevated: 'เฝ้าระวังเบื้องต้น',
+  riskHigh: 'ความเสี่ยงสูง',
+  riskVeryHigh: 'ความเสี่ยงสูงมาก',
   riskChance: 'โอกาสเสี่ยง',
   riskLegendTitle: 'ระดับความเสี่ยง',
   riskLegendNote: 'สีคือ “ความเสี่ยง” ของพยากรณ์ ไม่ใช่การยืนยันว่าเกิดคลื่นความร้อนแล้ว',

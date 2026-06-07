@@ -8,18 +8,23 @@ alert-tier thresholds — change them HERE first, then sync the frontend.
 The four levels match the DB CHECK constraint on ``heatwave.forecasts.risk_level``:
 ``'low' | 'moderate' | 'high' | 'extreme'``.
 
-Default probability bands (policy thresholds; the upper two are the MEASURED
-two-tier operating points selected on the 2025 test year — see
-docs/SESSION-REPORT.html §7):
-    p < 0.10            -> 'low'       (quiet)
-    0.10 <= p < 0.217   -> 'moderate'  (elevated, below watch)
-    0.217 <= p < 0.281  -> 'high'      == WATCH  (precision 0.28 / recall 0.64)
-    p >= 0.281          -> 'extreme'   == WARNING (precision 0.35 / recall 0.46)
+TWO DECOUPLED policies (public map calm, authority alerts sensitive):
 
-Nesting the alert tiers inside the 4-tier bands keeps every surface consistent:
-the map's colour (risk_level), the alerts roll-up (watch/warning), and
-predicted_label's tuned threshold all derive from the same operating points.
-The tier mapping is exactly: extreme -> 'warning', high -> 'watch', else 'none'.
+MAP colour bands (``prob_to_risk`` / ``DEFAULT_BANDS``) — public-facing, calm:
+    p < 0.10           -> 'low'      (green)
+    0.10 <= p < 0.30   -> 'moderate' (yellow)
+    0.30 <= p < 0.45   -> 'high'     (orange)
+    p >= 0.45          -> 'extreme'  (red — only when genuinely high)
+
+ALERT tiers (``prob_to_alert_tier`` / ``ALERT_THRESHOLDS``) — for LINE / the
+alerts roll-up; the MEASURED F2-tuned operating points (2025 test year):
+    p >= 0.217  -> 'watch'    (precision 0.28 / recall 0.64)
+    p >= 0.281  -> 'warning'  (precision 0.35 / recall 0.46)
+
+They are intentionally SEPARATE: a p of 0.25 is only 'moderate' (yellow) on the
+public map but already a 'watch' for authorities. Map colour comes from
+``risk_level``; alert tier comes from the probability. The frontend mirrors both
+(forecastService RISK_BANDS = map; ALERT_THRESHOLDS / getAlertTier = alerts).
 
 NOTE: these thresholds were tuned for model_version 'lgbm-v1' calibrated
 probabilities. Re-measure when the model is retrained (ALERT_TUNED_FOR_VERSION
@@ -36,9 +41,12 @@ RISK_LEVELS = ("low", "moderate", "high", "extreme")
 ALERT_THRESHOLDS = {"watch": 0.217, "warning": 0.281}
 ALERT_TUNED_FOR_VERSION = "lgbm-v1"
 
-# Default upper edges (exclusive) for low / moderate / high; >= the last edge -> extreme.
-# The upper two edges ARE the alert thresholds (see module docstring).
-DEFAULT_BANDS = (0.10, ALERT_THRESHOLDS["watch"], ALERT_THRESHOLDS["warning"])
+# MAP colour bands (public-facing, CONSERVATIVE so the map stays calm): upper
+# edges (exclusive) for low / moderate / high; >= the last edge -> extreme.
+# DECOUPLED from ALERT_THRESHOLDS on purpose — authority alerts (prob_to_alert_tier)
+# fire earlier (0.217/0.281) so they stay sensitive, while the public map only
+# turns orange at 0.30 and red at 0.45 (genuinely high). See module docstring.
+DEFAULT_BANDS = (0.10, 0.30, 0.45)
 
 
 def prob_to_risk(p: float, bands=DEFAULT_BANDS) -> str:
@@ -64,14 +72,19 @@ def prob_to_risk(p: float, bands=DEFAULT_BANDS) -> str:
     return "extreme"
 
 
-def risk_to_alert_tier(risk_level: str) -> str:
-    """Map a 4-tier ``risk_level`` to the public two-tier alert vocabulary.
+def prob_to_alert_tier(p: float) -> str:
+    """Authority two-tier alert from a calibrated probability, at the MEASURED
+    F2-tuned operating points (``ALERT_THRESHOLDS``): ``>= 0.281 -> 'warning'``,
+    ``>= 0.217 -> 'watch'``, else ``'none'``.
 
-    With ``DEFAULT_BANDS`` this is exact (the bands nest the alert thresholds):
-    ``extreme -> 'warning'``, ``high -> 'watch'``, else ``'none'``.
+    Computed from probability (NOT the map ``risk_level``) so alerts stay
+    sensitive even though the public map colours are deliberately calmer.
     """
-    if risk_level == "extreme":
+    if p is None or not (0.0 <= float(p) <= 1.0):
+        raise ValueError(f"probability must be in [0, 1], got {p!r}")
+    p = float(p)
+    if p >= ALERT_THRESHOLDS["warning"]:
         return "warning"
-    if risk_level == "high":
+    if p >= ALERT_THRESHOLDS["watch"]:
         return "watch"
     return "none"

@@ -88,20 +88,18 @@ export function formatGeneratedAt(iso: string | null | undefined): string {
   });
 }
 
-// ─── Severity policy (mirror of src/risk.py — the single source of truth) ────
+// ─── MAP colour bands (mirror of DEFAULT_BANDS in src/risk.py) ───────────────
 //
-// These bands MUST match `DEFAULT_BANDS` in src/risk.py, which is what the
-// backend uses to write `risk_level` into heatwave.forecasts. The upper two
-// edges ARE the measured two-tier alert operating points (2025 test year, see
-// docs/SESSION-REPORT.html §7), so the 4-tier gradation and the watch/warning
-// vocabulary can never disagree:
-//   • WARNING / extreme  p >= 0.281  → precision 0.35 / recall 0.46
-//   • WATCH   / high     p >= 0.217  → precision 0.28 / recall 0.64
-//   • moderate           p >= 0.10   (elevated, below watch)
-//   • low                otherwise
+// CONSERVATIVE public-facing thresholds so the map stays calm — DECOUPLED from
+// the (more sensitive) authority alert thresholds below. The backend writes
+// `risk_level` with these bands; the map colours by it.
+//   • extreme (red)     p >= 0.45
+//   • high    (orange)  p >= 0.30
+//   • moderate(yellow)  p >= 0.10
+//   • low     (green)   otherwise
 // Change policy in src/risk.py FIRST, then sync here.
 
-export const RISK_BANDS = { moderate: 0.10, high: 0.217, extreme: 0.281 } as const;
+export const RISK_BANDS = { moderate: 0.10, high: 0.30, extreme: 0.45 } as const;
 
 /**
  * Probability → 4-tier risk level using the SAME bands as the backend
@@ -119,9 +117,12 @@ export function getHeatwaveRiskLevel(probability: number): 'low' | 'moderate' | 
 
 export type AlertTier = 'warning' | 'watch' | 'none';
 
+// Authority alert thresholds — the MEASURED F2-tuned operating points
+// (mirror of ALERT_THRESHOLDS in src/risk.py). DECOUPLED from RISK_BANDS so
+// alerts stay sensitive (fire from 0.217) while the map stays calm.
 export const ALERT_THRESHOLDS = {
-  warning: RISK_BANDS.extreme,
-  watch: RISK_BANDS.high,
+  warning: 0.281,
+  watch: 0.217,
 } as const;
 
 /**

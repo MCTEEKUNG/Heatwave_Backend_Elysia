@@ -187,9 +187,9 @@ export default function MapScreen() {
   const riskLabel =
     !dataReady
       ? (status === 'loading' ? t('loading') : t('dataUnavailable'))
-    : heroSeverity === 'extreme' ? t('riskWarning')
-    : heroSeverity === 'high' ? t('riskWatch')
-    : heroSeverity === 'moderate' ? t('riskElevated')
+    : heroSeverity === 'extreme' ? t('riskVeryHigh')
+    : heroSeverity === 'high' ? t('riskHigh')
+    : heroSeverity === 'moderate' ? t('moderate')
     : t('lowRisk');
   // Calibrated probability as a percent for the hero ("โอกาสเสี่ยง 35%") — makes
   // clear that orange/red is a CHANCE, not a confirmed event.
@@ -474,9 +474,9 @@ export default function MapScreen() {
             <View style={styles.legendRow}>
               {([
                 ['#22C55E', t('lowRisk')],
-                ['#EAB308', t('riskElevated')],
-                ['#F97316', t('riskWatch')],
-                ['#EF4444', t('riskWarning')],
+                ['#EAB308', t('moderate')],
+                ['#F97316', t('riskHigh')],
+                ['#EF4444', t('riskVeryHigh')],
               ] as const).map(([c, lbl]) => (
                 <View key={lbl} style={styles.legendItem}>
                   <View style={[styles.legendDot, { backgroundColor: c }]} />
