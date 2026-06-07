@@ -116,6 +116,15 @@ export async function promoteModel(name: string): Promise<PromoteResponse> {
   return (await r.json()) as PromoteResponse
 }
 
+export async function rollbackModel(): Promise<{ ok: boolean; restored?: unknown[] }> {
+  const r = await fetch(`${API_BASE}/api/ops/rollback`, { method: 'POST' })
+  if (!r.ok) {
+    const detail = await r.text()
+    throw new Error(`POST /api/ops/rollback → ${r.status}: ${detail}`)
+  }
+  return (await r.json()) as { ok: boolean; restored?: unknown[] }
+}
+
 export async function fetchOpsRuns(): Promise<OpsRunsResponse> {
   const r = await fetch(`${API_BASE}/api/ops/runs`)
   if (!r.ok) throw new Error(`GET /api/ops/runs → ${r.status}`)

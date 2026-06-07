@@ -5,6 +5,7 @@ import {
   fetchOpsModels,
   fetchOpsRuns,
   promoteModel,
+  rollbackModel,
   type DashboardModel,
   type OpsRun,
   type ProductionCard,
@@ -232,6 +233,22 @@ export default function OpsPanel({ connected }: { connected: boolean }) {
   const [runs, setRuns] = useState<OpsRun[] | null>(null)
   const [modelsError, setModelsError] = useState<string | null>(null)
   const [runsError, setRunsError] = useState<string | null>(null)
+  const [rolling, setRolling] = useState(false)
+  const [opsNotice, setOpsNotice] = useState<{ kind: 'success' | 'error'; text: string } | null>(null)
+
+  async function handleRollback() {
+    setRolling(true)
+    setOpsNotice(null)
+    try {
+      await rollbackModel()
+      setOpsNotice({ kind: 'success', text: 'Rolled back to the previous production model.' })
+      await loadModels()
+    } catch (e) {
+      setOpsNotice({ kind: 'error', text: e instanceof Error ? e.message : 'Rollback failed' })
+    } finally {
+      setRolling(false)
+    }
+  }
 
   async function loadModels() {
     setModelsError(null)
@@ -267,7 +284,22 @@ export default function OpsPanel({ connected }: { connected: boolean }) {
     <div className="ops">
       {/* ── Production model ── */}
       <section className="card">
-        <h3 className="ops-section-title">Current production model</h3>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <h3 className="ops-section-title" style={{ margin: 0 }}>Current production model</h3>
+          <button
+            className="btn btn-refresh"
+            disabled={!connected || rolling}
+            onClick={() => void handleRollback()}
+            aria-label="Rollback to the previous production model"
+          >
+            {rolling ? 'Rolling back…' : 'Rollback'}
+          </button>
+        </div>
+        {opsNotice && (
+          <div className={`ops-notice ops-notice-${opsNotice.kind}`} role="status" style={{ marginBottom: 12 }}>
+            {opsNotice.text}
+          </div>
+        )}
         {production === undefined || (models === null && !modelsError) ? (
           <p className="ops-loading">Loading…</p>
         ) : production ? (

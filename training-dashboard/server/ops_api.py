@@ -90,36 +90,43 @@ async def list_models() -> dict[str, Any]:
 
 class PromoteBody(BaseModel):
     name: str
+    force: bool = False
 
 
 @router.post("/api/ops/promote")
 async def promote_model(body: PromoteBody) -> dict[str, Any]:
-    """Copy a dashboard model to the production slot.
-
-    ``name`` is validated against the set of existing dashboard .pkl files
-    (strict whitelist) before any path is constructed from it.
+    """Promote a dashboard model to production via the shared safe-promote core
+    (coverage guard + automatic backup). ``name`` is whitelisted against existing
+    dashboard .pkl files before any path is constructed from it.
     """
-    # Build whitelist from what actually exists on disk — never trust raw input.
+    from src.promote import promote as _promote
+
     allowed = {n for n in _dashboard_model_names()
                if os.path.exists(os.path.join(DASHBOARD_DIR, f"{n}.pkl"))}
     if body.name not in allowed:
         raise HTTPException(status_code=404, detail=f"unknown model: {body.name!r}")
 
-    src_path = os.path.join(DASHBOARD_DIR, f"{body.name}.pkl")
-    shutil.copy2(src_path, PRODUCTION_MODEL_PATH)
+    result = _promote(body.name, dashboard_dir=DASHBOARD_DIR,
+                      prod_model_path=PRODUCTION_MODEL_PATH,
+                      model_card_path=MODEL_CARD_PATH, force=body.force)
+    if not result["ok"]:
+        # 409 Conflict: a known province-coverage regression blocked by the guard.
+        raise HTTPException(status_code=409, detail=result["reason"])
+    return {"promoted": True, "name": body.name,
+            "warnings": result.get("warnings", []),
+            "backups": result.get("backups", [])}
 
-    # Write / update the model card with promotion provenance.
-    sidecar = _read_json_safe(os.path.join(DASHBOARD_DIR, f"{body.name}.json")) or {}
-    card: dict[str, Any] = {
-        "promoted_from": body.name,
-        "promoted_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "source_metrics": sidecar,
-    }
-    os.makedirs(os.path.dirname(MODEL_CARD_PATH) or ".", exist_ok=True)
-    with open(MODEL_CARD_PATH, "w", encoding="utf-8") as f:
-        json.dump(card, f, indent=2)
 
-    return {"promoted": True, "name": body.name, "target": PRODUCTION_MODEL_PATH}
+@router.post("/api/ops/rollback")
+async def rollback_model() -> dict[str, Any]:
+    """Restore the most recent production model + model-card backup."""
+    from src.promote import rollback as _rollback
+
+    result = _rollback(prod_model_path=PRODUCTION_MODEL_PATH,
+                       model_card_path=MODEL_CARD_PATH)
+    if not result["ok"]:
+        raise HTTPException(status_code=404, detail=result.get("reason", "no backup"))
+    return result
 
 
 @router.get("/api/ops/runs")

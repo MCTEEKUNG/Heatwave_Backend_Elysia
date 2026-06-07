@@ -167,6 +167,31 @@ class TestPromoteHappyPath:
 # GET /api/ops/runs
 # ---------------------------------------------------------------------------
 
+class TestRollback:
+    def test_rollback_after_promote_restores(self, patched_paths: dict) -> None:
+        app = FastAPI()
+        app.include_router(router)
+        c = TestClient(app)
+        prod = patched_paths["prod_pkl"]
+        # seed an existing production model so promote makes a backup
+        with open(prod, "wb") as f:
+            f.write(b"OLDPROD")
+        _make_fake_model(patched_paths["dash_dir"], "fake_lgbm")
+        assert c.post("/api/ops/promote", json={"name": "fake_lgbm"}).status_code == 200
+        with open(prod, "rb") as f:
+            assert f.read() != b"OLDPROD"  # promote replaced it
+        r = c.post("/api/ops/rollback")
+        assert r.status_code == 200 and r.json()["ok"] is True
+        with open(prod, "rb") as f:
+            assert f.read() == b"OLDPROD"  # restored
+
+    def test_rollback_no_backup_returns_404(self, patched_paths: dict) -> None:
+        app = FastAPI()
+        app.include_router(router)
+        c = TestClient(app)
+        assert c.post("/api/ops/rollback").status_code == 404
+
+
 class TestOpsRuns:
     def test_returns_200(self, client: TestClient) -> None:
         r = client.get("/api/ops/runs")
