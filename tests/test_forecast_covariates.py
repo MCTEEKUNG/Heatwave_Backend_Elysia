@@ -150,3 +150,19 @@ def test_readiness_gate_false_when_small_true_when_large():
     r2 = forecast_store_readiness(big, min_issue_days=60)
     assert r2["ready"] is True
     assert r2["n_issue_days"] == 70
+
+
+def test_build_serve_covariate_carries_soil_moisture():
+    # when the forecast frame carries soil_moisture, serve emits fc_soil_moisture
+    # (pass-through; same name the store records) -> train/serve parity.
+    fcst = pd.DataFrame({
+        "time": [pd.Timestamp("2026-06-02")],
+        "temperature_2m_max": [40.0],
+        "relative_humidity_2m_mean": [55.0],
+        "soil_moisture": [0.33],
+    })
+    out = build_serve_covariate(fcst, province_id=1,
+                                origin_date=pd.Timestamp("2026-06-01"),
+                                horizons=range(1, 2))
+    assert out["fc_soil_moisture"].iloc[0] == pytest.approx(0.33)
+

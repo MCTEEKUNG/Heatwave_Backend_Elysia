@@ -91,13 +91,18 @@ def build_serve_covariate(forecast_df: pd.DataFrame, province_id,
         r = by_time.loc[target]
         tmax = float(r["temperature_2m_max"])
         rh = float(r["relative_humidity_2m_mean"])
-        rows.append({
+        row = {
             "province_id": province_id,
             "origin_time": origin,
             "target_time": target,
             "horizon_k": int(k),
             "fc_heat_index": float(heat_index_c(tmax, rh)),
-        })
+        }
+        # pass-through forecast soil moisture when present (same name the store
+        # records) so train and serve carry the identical covariate.
+        if "soil_moisture" in by_time.columns and pd.notna(r.get("soil_moisture")):
+            row["fc_soil_moisture"] = float(r["soil_moisture"])
+        rows.append(row)
     return pd.DataFrame(rows)
 
 
