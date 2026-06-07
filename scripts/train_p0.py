@@ -18,24 +18,19 @@ from pipeline.frame_cache import cached_build_frames
 from src.features import feature_columns
 from src.model import train as lgbm_train
 from src.heat_index import rh_from_specific_humidity, heat_index_c
+from src.forecast_covariates import join_forecast_covariates
 
 DATASET = "data/processed/dataset_era5.parquet"
 GEFS = "data/processed/gefs_forecast_store.parquet"
 
 
 def join_forecast(frame: pd.DataFrame, store: pd.DataFrame) -> pd.DataFrame:
-    """Attach fc_tmax to frame rows whose (province, origin, horizon, target) matches
-    a real forecast issued at origin for that target/lead. Inner join -> covered rows."""
-    f = frame.copy()
-    f["origin_d"] = pd.to_datetime(f["origin_time"]).dt.date.astype(str)
-    f["target_d"] = pd.to_datetime(f["target_time"]).dt.date.astype(str)
-    keep = ["province_id", "origin_d", "target_d", "horizon_k", "fc_tmax"]
-    if "fc_spfh" in store.columns:
-        keep.append("fc_spfh")
-    s = store.rename(columns={"issue_date": "origin_d", "target_date": "target_d",
-                              "lead_k": "horizon_k"})[keep]
-    merged = f.merge(s, on=["province_id", "origin_d", "target_d", "horizon_k"], how="inner")
-    return merged
+    """Attach the GEFS forecast covariate(s) to frame rows on (province, origin,
+    target, lead). Thin wrapper over the production join so this harness exercises
+    the SAME code path that train/serve use. Inner join -> covariate-covered rows."""
+    cols = ["fc_tmax"] + (["fc_spfh"] if "fc_spfh" in store.columns else [])
+    return join_forecast_covariates(frame, store, cols=tuple(cols),
+                                    require_coverage=True)
 
 
 def _evaluate(tr, te, feats, label):

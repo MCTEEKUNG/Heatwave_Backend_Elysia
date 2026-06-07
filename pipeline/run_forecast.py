@@ -152,7 +152,29 @@ def build_forecast_rows(provinces, model, generated_at,
         today_rows = today_rows.sort_values("horizon_k").reset_index(drop=True)
 
         feat_cols = features_mod.feature_columns(frame)
-        probs = predict_proba(model, today_rows[feat_cols])
+        # P0 serve: if the loaded model declares forecast covariate(s) (fc_*),
+        # build them from the forecast tail using the SAME heat_index_c the store
+        # writer uses (no train/serve skew) and join onto today's rows, then feed
+        # the model EXACTLY the feature set it trained on. Antecedent-only models
+        # (no feature_cols / no fc_*) take the unchanged path.
+        expected = getattr(model, "feature_cols", None)
+        fc_expected = [c for c in (expected or []) if str(c).startswith("fc_")]
+        if fc_expected:
+            from src.forecast_covariates import (
+                build_serve_covariate, join_forecast_covariates)
+            cov = build_serve_covariate(daily, int(province["id"]),
+                                        generated_ts, horizons)
+            if not cov.empty:
+                cov_store = cov.rename(columns={
+                    "origin_time": "issue_date", "target_time": "target_date",
+                    "horizon_k": "lead_k"})
+                join_cols = [c for c in fc_expected if c in cov_store.columns]
+                today_rows = join_forecast_covariates(
+                    today_rows, cov_store, cols=join_cols, require_coverage=False)
+            pass_cols = list(expected)
+        else:
+            pass_cols = feat_cols
+        probs = predict_proba(model, today_rows[pass_cols])
 
         for i, (_, fr) in enumerate(today_rows.iterrows()):
             k = int(fr["horizon_k"])

@@ -34,7 +34,7 @@ def build_frames(dataset: pd.DataFrame, horizons=range(1, 8)) -> pd.DataFrame:
 
 def train_model(dataset: pd.DataFrame, horizons=range(1, 8),
                 train_end=2023, val_year=2024, test_year=2025,
-                progress_cb=None, frame=None):
+                progress_cb=None, frame=None, forecast_store=None):
     """Train + calibrate + evaluate. Returns ``(bundle, report)``.
 
     ``dataset`` must carry province ``lat``/``lon`` (so features match the
@@ -50,6 +50,13 @@ def train_model(dataset: pd.DataFrame, horizons=range(1, 8),
     skipped entirely, making repeated runs significantly faster.
     """
     frame = build_frames(dataset, horizons=horizons) if frame is None else frame
+    # P0: when a forecast store is provided, join the target-day forecast
+    # covariate(s) (e.g. fc_heat_index) onto the frame BEFORE selecting features,
+    # so they become model inputs. Inner join -> only covariate-covered rows
+    # survive (matched-rows training). Omitting the store keeps antecedent-only.
+    if forecast_store is not None:
+        from src.forecast_covariates import join_forecast_covariates
+        frame = join_forecast_covariates(frame, forecast_store, require_coverage=True)
     feat_cols = feature_columns(frame)
     yr = pd.to_datetime(frame["origin_time"]).dt.year
 
