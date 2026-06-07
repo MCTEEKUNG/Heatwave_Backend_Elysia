@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Heatwave ML — รายงานผลทดลอง Soil Moisture &amp; Skill Metrics</title>
+<style>
+  :root{
+    --bg:#0b0c11; --card:#161922; --line:#262b3a; --txt:#eef1f6; --mut:#9aa3b6; --dim:#6b7280;
+    --grn:#22c55e; --ylw:#eab308; --org:#f97316; --red:#ef4444;
+    --accent:#ff8a4c; --blue:#5b9dff; --cyan:#36d6c3; --violet:#a78bfa;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:radial-gradient(1200px 760px at 72% -12%,#1b2030 0,#0b0c11 56%);
+    color:var(--txt);font-family:"Segoe UI","Noto Sans Thai",system-ui,sans-serif;line-height:1.75;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1000px;margin:0 auto;padding:0 22px}
+  header.hero{padding:74px 0 40px;text-align:center;position:relative;overflow:hidden}
+  .sun{position:absolute;top:-130px;left:50%;transform:translateX(-50%);width:380px;height:380px;border-radius:50%;
+    background:radial-gradient(circle,rgba(255,138,76,.5),rgba(255,138,76,0) 66%);filter:blur(8px);animation:pulse 5s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:.5;transform:translateX(-50%) scale(1)}50%{opacity:.85;transform:translateX(-50%) scale(1.07)}}
+  .hero h1{font-size:clamp(28px,4.6vw,46px);margin:.08em 0;letter-spacing:-.5px;position:relative}
+  .hero .sub{color:var(--mut);font-size:17px;position:relative;max-width:680px;margin:.4em auto 0}
+  .badge{display:inline-block;margin-top:16px;padding:6px 16px;border:1px solid var(--line);border-radius:999px;background:var(--card);color:var(--mut);font-size:13px}
+  section{padding:44px 0;border-top:1px solid var(--line)}
+  .eyebrow{color:var(--accent);font-weight:700;letter-spacing:2px;font-size:12px;text-transform:uppercase}
+  h2{font-size:clamp(21px,3.2vw,29px);margin:.25em 0 .4em}
+  h3{font-size:17px;margin:1.1em 0 .35em;color:#e2e7f1}
+  p{color:#cfd5e2}
+  .reveal{opacity:0;transform:translateY(26px);transition:opacity .7s ease,transform .7s ease}
+  .reveal.in{opacity:1;transform:none}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px 20px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .grid5{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+  @media(max-width:760px){.grid2{grid-template-columns:1fr}.grid5{grid-template-columns:1fr 1fr}}
+  code{background:#0d1017;border:1px solid var(--line);padding:1px 6px;border-radius:6px;font-size:12.5px;color:#dbe6ff}
+  .tag{display:inline-block;padding:2px 9px;border-radius:6px;font-size:12px;font-weight:700}
+  .ok{background:rgba(34,197,94,.16);color:#5ee08c}.warn{background:rgba(234,179,8,.16);color:#f4cf57}.bad{background:rgba(239,68,68,.16);color:#ff8077}
+  .note{font-size:13.5px;color:var(--mut);border-left:3px solid var(--accent);padding:8px 13px;background:rgba(255,138,76,.05);border-radius:0 8px 8px 0;margin-top:14px}
+  .note.g{border-color:var(--grn);background:rgba(34,197,94,.05)}
+  .note.b{border-color:var(--blue);background:rgba(91,157,255,.05)}
+  /* pipeline */
+  .lane{display:flex;align-items:center;flex-wrap:wrap;justify-content:center;margin:22px 0 4px}
+  .stage{flex:1 1 120px;min-width:110px;max-width:175px;text-align:center;padding:14px 9px;border:1px solid var(--line);border-radius:13px;background:linear-gradient(180deg,#141823,#0f121a);position:relative;z-index:2}
+  .stage .ic{font-size:23px}.stage .nm{font-weight:700;font-size:13px;margin-top:5px}.stage .ds{font-size:11px;color:var(--mut)}
+  .conn{flex:0 0 38px;height:42px;position:relative;z-index:1}
+  .conn::before{content:"";position:absolute;top:50%;left:0;right:0;height:3px;transform:translateY(-50%);background:linear-gradient(90deg,var(--line),rgba(255,138,76,.6));border-radius:3px}
+  .conn .pkt{position:absolute;top:50%;left:0;width:9px;height:9px;border-radius:50%;transform:translateY(-50%);background:var(--accent);box-shadow:0 0 9px var(--accent);animation:run 2s linear infinite}
+  @keyframes run{0%{left:-6%;opacity:0}10%{opacity:1}90%{opacity:1}100%{left:104%;opacity:0}}
+  @media(max-width:760px){.conn{flex-basis:100%;width:100%;transform:rotate(90deg);height:30px}}
+  /* bar chart */
+  .bars{margin:16px 0}
+  .barrow{display:grid;grid-template-columns:230px 1fr 86px;align-items:center;gap:12px;margin:11px 0}
+  @media(max-width:680px){.barrow{grid-template-columns:130px 1fr 64px}}
+  .barlabel{font-size:13.5px;color:#dfe5f0}
+  .bartrack{height:26px;background:#0e1118;border:1px solid var(--line);border-radius:8px;overflow:hidden;position:relative}
+  .barfill{height:100%;width:0;border-radius:7px 0 0 7px;transition:width 1.3s cubic-bezier(.2,.7,.2,1)}
+  .barval{font-weight:800;font-size:15px;text-align:right}
+  .scale{display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin:2px 4px 0 242px}
+  @media(max-width:680px){.scale{margin-left:142px}}
+  /* bootstrap number line */
+  .nl{position:relative;height:90px;margin:18px 0 6px;border:1px solid var(--line);border-radius:12px;background:#0e1118}
+  .nl .zero{position:absolute;top:8px;bottom:8px;left:50%;width:2px;background:var(--mut)}
+  .nl .zlab{position:absolute;left:50%;bottom:2px;transform:translateX(-50%);font-size:11px;color:var(--mut)}
+  .ci{position:absolute;height:14px;border-radius:7px;opacity:0;transition:opacity .8s ease, width 1s ease}
+  .ci .dot{position:absolute;top:-3px;width:20px;height:20px;border-radius:50%;transform:translateX(-50%)}
+  .ci .cilab{position:absolute;left:0;top:-22px;font-size:12px;font-weight:700;white-space:nowrap}
+  table{width:100%;border-collapse:collapse;margin-top:8px;font-size:13.5px}
+  th,td{padding:8px 11px;border-bottom:1px solid var(--line);text-align:center}
+  th{color:var(--mut);font-weight:700;font-size:11.5px;text-transform:uppercase}
+  td:first-child,th:first-child{text-align:left}
+  .kpi{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;margin-top:18px}
+  .kpi .b{flex:1 1 120px;max-width:170px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;text-align:center}
+  .kpi .n{font-size:25px;font-weight:800;color:#fff}.kpi .t{font-size:11px;color:var(--mut);margin-top:2px}
+  .sk{background:var(--card);border:1px solid var(--line);border-radius:13px;padding:13px;text-align:center}
+  .sk .v{font-size:21px;font-weight:800;color:var(--cyan)}.sk .k{font-size:12px;font-weight:700;margin-top:3px}.sk .d{font-size:11px;color:var(--mut);margin-top:3px}
+  footer{padding:38px 0 66px;color:var(--dim);text-align:center;font-size:13px;border-top:1px solid var(--line)}
+  @media print{.reveal{opacity:1!important;transform:none!important}}
+</style>
+<noscript><style>.reveal{opacity:1;transform:none}.barfill{transition:none}.ci{opacity:1}</style></noscript>
+</head>
+<body>
+<header class="hero">
+  <div class="sun"></div>
+  <div class="wrap">
+    <div class="eyebrow">Heatwave ML · Experiment Report</div>
+    <h1>Soil Moisture ช่วยทำนายได้จริงไหม?</h1>
+    <p class="sub">วัดจริงแบบ leakage-safe (A/B/C/D) + พิสูจน์นัยสำคัญด้วย bootstrap + เพิ่ม skill metrics ตามงานวิจัย</p>
+    <div class="badge">ข้อมูลจริง · GEFS-matched 2016–2019 · 61,446 แถว · 452 test positives</div>
+    <div class="kpi">
+      <div class="b"><div class="n" data-count="4">0</div><div class="t">โมเดลเทียบ (A–D)</div></div>
+      <div class="b"><div class="n" data-count="1000">0</div><div class="t">bootstrap resamples</div></div>
+      <div class="b"><div class="n" data-count="4">0</div><div class="t">skill metrics ใหม่</div></div>
+      <div class="b"><div class="n" data-count="148">0</div><div class="t">tests ผ่าน</div></div>
+    </div>
+  </div>
+</header>
+
+<!-- 1 QUESTION + METHOD -->
+<section><div class="wrap reveal">
+  <div class="eyebrow">1 · คำถาม &amp; วิธี</div>
+  <h2>“เพิ่มดัชนี soil moisture แล้วโมเดลแม่นขึ้นไหม?”</h2>
+  <p>เทรน 4 โมเดลบน <b>แถวเดียวกันเป๊ะ</b> และ temporal split เดียวกัน (train 2016–17 / test 2018–19) — เทียบกันยุติธรรม leakage-safe:</p>
+  <div class="lane">
+    <div class="stage"><div class="ic">🅰️</div><div class="nm">A · base</div><div class="ds">antecedent ล้วน</div></div>
+    <div class="conn"><span class="pkt"></span></div>
+    <div class="stage"><div class="ic">🅱️</div><div class="nm">B · +soil</div><div class="ds">soil อย่างเดียว</div></div>
+    <div class="conn"><span class="pkt"></span></div>
+    <div class="stage"><div class="ic">🇨</div><div class="nm">C · +forecast</div><div class="ds">forecast heat-index</div></div>
+    <div class="conn"><span class="pkt"></span></div>
+    <div class="stage"><div class="ic">🇩</div><div class="nm">D · +ทั้งคู่</div><div class="ds">forecast + soil</div></div>
+  </div>
+  <div class="note">soil moisture จริงจาก Open-Meteo archive (ERA5-Land <code>soil_moisture_0_to_7cm</code>, 77 จว.) ใช้แบบ antecedent (ค่าก่อนวันต้นทาง → ไม่รั่ว)</div>
+</div></section>
+
+<!-- 2 RESULTS BARS -->
+<section><div class="wrap reveal">
+  <div class="eyebrow">2 · ผลลัพธ์ — ROC-AUC (ยิ่งสูงยิ่งดี)</div>
+  <h2>forecast covariate คือคันโยกจริง</h2>
+  <div class="bars" id="bars">
+    <div class="barrow"><div class="barlabel">A · base (antecedent)</div><div class="bartrack"><div class="barfill" data-roc="0.578" style="background:linear-gradient(90deg,#3a4150,#5b6472)"></div></div><div class="barval">0.578</div></div>
+    <div class="barrow"><div class="barlabel">B · +soil อย่างเดียว</div><div class="bartrack"><div class="barfill" data-roc="0.570" style="background:linear-gradient(90deg,#3a4150,#5b6472)"></div></div><div class="barval">0.570</div></div>
+    <div class="barrow"><div class="barlabel">C · +forecast heat-index</div><div class="bartrack"><div class="barfill" data-roc="0.657" style="background:linear-gradient(90deg,var(--accent),var(--cyan))"></div></div><div class="barval">0.657</div></div>
+    <div class="barrow"><div class="barlabel">D · +forecast + soil</div><div class="bartrack"><div class="barfill" data-roc="0.665" style="background:linear-gradient(90deg,var(--accent),var(--grn))"></div></div><div class="barval">0.665</div></div>
+  </div>
+  <div class="scale"><span>0.50</span><span>0.60</span><span>0.70</span></div>
+  <table>
+    <tr><th>โมเดล</th><th>ROC</th><th>PR-AUC lift</th><th>Δ vs ก่อนหน้า</th></tr>
+    <tr><td>A base</td><td>0.578</td><td>1.22×</td><td>—</td></tr>
+    <tr><td>B +soil only</td><td>0.570</td><td>1.22×</td><td><span class="tag bad">−0.008</span></td></tr>
+    <tr><td>C +forecast</td><td>0.657</td><td>1.82×</td><td><span class="tag ok">+0.079</span></td></tr>
+    <tr><td>D +forecast+soil</td><td>0.665</td><td>1.97×</td><td><span class="tag warn">+0.008</span></td></tr>
+  </table>
+</div></section>
+
+<!-- 3 SIGNIFICANCE -->
+<section><div class="wrap reveal">
+  <div class="eyebrow">3 · นี่คือสัญญาณ หรือ noise?</div>
+  <h2>พิสูจน์ด้วย bootstrap (1000×, 90% CI ของ ΔROC)</h2>
+  <p>±0.008 เล็กมาก (452 positives, SE≈0.02) — ต้องเช็ก. LightGBM deterministic (seed variance = 0.000) → ความไม่แน่นอนมาจาก test sampling. resample test 1000 ครั้ง:</p>
+  <div class="nl" id="numline">
+    <div class="zero"></div><div class="zlab">ΔROC = 0</div>
+    <!-- positions set by JS: line spans -0.02..+0.02 -->
+    <div class="ci" id="ciBA" style="top:20px;background:rgba(154,163,182,.5)">
+      <div class="dot" style="background:var(--mut)"></div>
+      <div class="cilab" style="color:var(--mut)">B−A (soil อย่างเดียว): [−0.018, +0.003] · คร่อม 0 = noise</div>
+    </div>
+    <div class="ci" id="ciDC" style="top:54px;background:rgba(34,197,94,.45)">
+      <div class="dot" style="background:var(--grn)"></div>
+      <div class="cilab" style="color:#5ee08c">D−C (soil ทับ forecast): [+0.002, +0.014] · ไม่คร่อม 0 = ผลจริงเล็กๆ</div>
+    </div>
+  </div>
+  <div class="note g">✅ <b>B−A คร่อม 0 → soil อย่างเดียว = noise</b> &nbsp;|&nbsp; <b>D−C ไม่คร่อม 0 → soil ทับ forecast = ผลจริงเล็กๆ</b> (single split — ยังต้องยืนยันด้วย rolling-origin CV ข้ามปี)</div>
+</div></section>
+
+<!-- 4 VERDICT -->
+<section><div class="wrap reveal">
+  <div class="eyebrow">4 · สรุปคันโยก</div>
+  <h2>ลำดับความสำคัญ</h2>
+  <div class="grid2">
+    <div class="card"><h3 style="margin-top:0">🥇 forecast covariate</h3><p style="font-size:14px;margin:.2em 0">ROC <b>+0.079</b> — คันโยกหลักที่พิสูจน์แล้ว (เห็นอากาศของวันเป้าหมาย = ทะลุเพดาน antecedent)</p></div>
+    <div class="card"><h3 style="margin-top:0">🥈 soil moisture (ตัวเสริม)</h3><p style="font-size:14px;margin:.2em 0">ช่วยเฉพาะ <b>ทับบน forecast</b> (ΔROC +0.008, มีนัยใน split) · <b>อย่างเดียว = noise</b></p></div>
+  </div>
+  <div class="note">เข้ากับหลักฐานเป๊ะ: ดัชนี antecedent (soil/NDVI/drought) ข้ามเพดานเองไม่ได้ — earns its keep เฉพาะ “บน forecast”</div>
+</div></section>
+
+<!-- 5 SKILL METRICS -->
+<section><div class="wrap reveal">
+  <div class="eyebrow">5 · เครื่องมือใหม่ใน evaluation/</div>
+  <h2>เพิ่ม skill metrics ที่งานวิจัยแนะนำ</h2>
+  <p>rare-event literature (Kala 2024; Ahmadzadeh 2021) แนะนำ metric เหล่านี้ — ตอนนี้ <code>compute_metrics()</code> รายงานให้อัตโนมัติทุกครั้ง (TDD, 148 tests):</p>
+  <div class="grid5">
+    <div class="sk"><div class="v">TSS</div><div class="k">Peirce / True Skill</div><div class="d">recall+spec−1</div></div>
+    <div class="sk"><div class="v">HSS</div><div class="k">Heidke Skill</div><div class="d">เทียบ random</div></div>
+    <div class="sk"><div class="v">BA</div><div class="k">Balanced Acc.</div><div class="d">(recall+spec)/2</div></div>
+    <div class="sk"><div class="v">G</div><div class="k">G-mean</div><div class="d">√(recall·spec)</div></div>
+    <div class="sk"><div class="v">+</div><div class="k">เดิม</div><div class="d">PR-AUC·F2·Brier</div></div>
+  </div>
+  <h3>ค่าจริงที่ operating point (C vs D)*</h3>
+  <table>
+    <tr><th>โมเดล</th><th>TSS</th><th>HSS</th><th>Balanced Acc</th><th>G-mean</th></tr>
+    <tr><td>C +forecast</td><td>0.174</td><td>0.008</td><td>0.587</td><td>0.530</td></tr>
+    <tr><td>D +forecast+soil</td><td>0.135</td><td>0.006</td><td>0.568</td><td>0.485</td></tr>
+  </table>
+  <p style="font-size:12px;color:var(--mut)">*split ย่อย (เทรน 1 ปี, threshold F2-tuned บน val, prob ยังไม่ calibrate) → ตัวเลขสัมบูรณ์ต่ำ/noisy; ใช้สาธิตว่า metric ทำงาน และ D≈C ตอกย้ำว่า soil marginal. headline จริงคือ ROC/bootstrap ด้านบน</p>
+</div></section>
+
+<!-- 6 VALIDATED DESIGN -->
+<section><div class="wrap reveal">
+  <div class="eyebrow">6 · งานวิจัยรับรองดีไซน์เดิม</div>
+  <h2>สิ่งที่โปรเจคทำถูกอยู่แล้ว</h2>
+  <div class="grid2">
+    <div class="card"><h3 style="margin-top:0">🚫 ไม่ใช้ SMOTE → calibrate แทน</h3><p style="font-size:13.5px">Carriero 2024: การแก้ imbalance ทำลาย calibration → ตรงกับ unbalanced + isotonic + F2 threshold ของเรา</p></div>
+    <div class="card"><h3 style="margin-top:0">📅 temporal split (ไม่ random CV)</h3><p style="font-size:13.5px">Ahmadzadeh 2021: temporal coherence ทำให้ random CV ให้คะแนนปลอม → ตรงกับกฎ #1 ของเรา</p></div>
+  </div>
+  <div class="note b">ความเข้มงวด (PR-AUC/F2 + temporal split + ไม่ใช้ SMOTE) นำหน้างานวิจัย heatwave-ML ที่รายงาน accuracy 96–99.9% (ตัวเลขลวงจาก imbalance)</div>
+</div></section>
+
+<footer><div class="wrap">Heatwave AI — รายงานผลทดลอง (สร้างอัตโนมัติจากผลรันจริง) · commits 5465438→d5e1f84→355ac84→(skill) · เปิดไฟล์นี้ในเบราว์เซอร์ออฟไลน์ได้</div></footer>
+
+<script>
+  const io=new IntersectionObserver((es)=>es.forEach(e=>{if(e.isIntersecting)e.target.classList.add('in')}),{threshold:.08});
+  document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+  function countUp(el){const t=+el.dataset.count;let n=0;const step=Math.max(1,Math.ceil(t/45));
+    const id=setInterval(()=>{n+=step;if(n>=t){n=t;clearInterval(id)}el.textContent=n.toLocaleString()},20)}
+  const kio=new IntersectionObserver((es)=>es.forEach(e=>{if(e.isIntersecting){countUp(e.target);kio.unobserve(e.target)}}),{threshold:.5});
+  document.querySelectorAll('[data-count]').forEach(el=>kio.observe(el));
+  // bars: map ROC 0.50-0.70 -> 0-100%
+  const bio=new IntersectionObserver((es)=>es.forEach(e=>{if(e.isIntersecting){
+    e.target.querySelectorAll('.barfill').forEach((b,i)=>{const roc=+b.dataset.roc;
+      setTimeout(()=>{b.style.width=Math.max(2,Math.min(100,(roc-0.50)/0.20*100))+'%'},i*180)});
+    bio.unobserve(e.target)}}),{threshold:.4});
+  const bars=document.getElementById('bars'); if(bars) bio.observe(bars);
+  // bootstrap CI: number line spans -0.02..+0.02 (width%) ; map x->% with 0 at 50%
+  function pct(x){return (50 + (x/0.02)*50);}
+  function placeCI(id, lo, hi, med){
+    const el=document.getElementById(id); if(!el) return;
+    const l=pct(lo), h=pct(hi);
+    el.style.left=l+'%'; el.style.width=(h-l)+'%';
+    el.querySelector('.dot').style.left=((pct(med)-l)/(h-l)*100)+'%';
+  }
+  const nio=new IntersectionObserver((es)=>es.forEach(e=>{if(e.isIntersecting){
+    placeCI('ciBA',-0.018,0.003,-0.0076); placeCI('ciDC',0.002,0.014,0.0080);
+    setTimeout(()=>{document.getElementById('ciBA').style.opacity=1;
+                    document.getElementById('ciDC').style.opacity=1;},150);
+    nio.unobserve(e.target)}}),{threshold:.5});
+  const nl=document.getElementById('numline'); if(nl) nio.observe(nl);
+</script>
+</body>
+</html>
