@@ -167,6 +167,18 @@ def main(argv=None) -> None:
         help="Print schedule via plan_schedule and exit without running any "
              "forecasts or sleeping.",
     )
+    parser.add_argument(
+        "--staging",
+        action="store_true",
+        help="Write forecasts to a LOCAL staging JSON file instead of Supabase "
+             "(isolated pre-deploy test; backend serves it via HEATWAVE_FORECAST_FILE).",
+    )
+    parser.add_argument(
+        "--staging-out",
+        default="data/processed/forecast_store_staging.json",
+        metavar="PATH",
+        help="Staging output path (used with --staging).",
+    )
     args = parser.parse_args(argv)
 
     # Load .env so a bare local run picks up DATABASE_URL (the DB write happens
@@ -256,11 +268,14 @@ def main(argv=None) -> None:
     )
 
     total_upserted = 0
+    staging_rows: list = []
     done_ids_set = set(done_ids)
 
+    sink = f"STAGING file {args.staging_out}" if args.staging else "Supabase"
     print(
         f"Starting forecast run: {len(remaining_ids)} provinces, "
-        f"{schedule['n_batches']} batches, sleep={sleep_s}s between batches."
+        f"{schedule['n_batches']} batches, sleep={sleep_s}s between batches. "
+        f"Sink: {sink}."
     )
 
     for batch_num, batch_ids in enumerate(province_batches, start=1):
@@ -281,9 +296,13 @@ def main(argv=None) -> None:
             frame_builder=builder,
             origin_date=origin,
         )
-        n = upsert_forecasts(rows)
-        total_upserted += n
-        print(f"  Upserted {n} rows for batch {batch_num}.")
+        if args.staging:
+            staging_rows.extend(rows)
+            print(f"  Collected {len(rows)} staging rows for batch {batch_num}.")
+        else:
+            n = upsert_forecasts(rows)
+            total_upserted += n
+            print(f"  Upserted {n} rows for batch {batch_num}.")
 
         # Record progress immediately so a crash mid-run can be resumed
         done_ids_set.update(batch_ids)
@@ -294,10 +313,16 @@ def main(argv=None) -> None:
             print(f"  Sleeping {sleep_s}s to respect Open-Meteo rate limit ...")
             time.sleep(sleep_s)
 
-    print(
-        f"Done. Upserted {total_upserted} forecast rows total "
-        f"({len(done_ids_set)} provinces processed) generated_at={generated_at}"
-    )
+    if args.staging:
+        from src.forecast_staging import write_staging
+        n = write_staging(staging_rows, provinces_df, args.staging_out)
+        print(f"Done. Wrote {n} staging rows to {args.staging_out} "
+              f"(LOCAL — Supabase NOT touched) generated_at={generated_at}")
+    else:
+        print(
+            f"Done. Upserted {total_upserted} forecast rows total "
+            f"({len(done_ids_set)} provinces processed) generated_at={generated_at}"
+        )
     if state_file:
         print(f"State saved to: {state_file}")
 

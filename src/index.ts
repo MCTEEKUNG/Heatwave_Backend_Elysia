@@ -7,6 +7,7 @@ import {
   getThresholds,
 } from "./routes/forecast";
 import { getSql } from "./db";
+import { readStaging, stagingMap, stagingProvince } from "./forecast_staging";
 import { verifySignature } from "./line/signature";
 import { createLineClient } from "./line/client";
 import { handleEvents, type LineEvent } from "./line/webhook";
@@ -19,6 +20,13 @@ const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || "")
   .filter(Boolean);
 const corsOrigin: string[] | boolean =
   ALLOWED_ORIGINS.length > 0 ? ALLOWED_ORIGINS : ["http://localhost:3000"];
+
+// Local-prod test (sub-2): when HEATWAVE_FORECAST_FILE is set, the forecast
+// endpoints serve a candidate's LOCAL staging JSON instead of Supabase — fully
+// isolated, no DB. Unset = normal Supabase behaviour.
+const STAGING_FILE = process.env.HEATWAVE_FORECAST_FILE;
+const stagingToday = () =>
+  new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10); // Bangkok date
 
 export const app = new Elysia()
   .use(cors({ origin: corsOrigin }))
@@ -55,6 +63,15 @@ export const app = new Elysia()
     if (!Number.isInteger(days) || days <= 0) days = 7;
     if (days > 16) days = 16;
 
+    if (STAGING_FILE) {
+      try {
+        return stagingProvince(readStaging(STAGING_FILE), id, days, stagingToday());
+      } catch (error: any) {
+        set.status = 503;
+        return { error: `staging: ${error.message}` };
+      }
+    }
+
     try {
       const rows = await getProvinceForecast(id, days);
       return rows;
@@ -65,6 +82,15 @@ export const app = new Elysia()
   })
 
   .get("/api/forecast/map", async ({ set }) => {
+    if (STAGING_FILE) {
+      try {
+        return stagingMap(readStaging(STAGING_FILE), stagingToday());
+      } catch (error: any) {
+        set.status = 503;
+        return { error: `staging: ${error.message}` };
+      }
+    }
+
     try {
       const rows = await getForecastMap();
       return rows;
