@@ -182,12 +182,19 @@ export default function MapScreen() {
     : dataReady ? theme.low
     : theme.textSecondary;   // loading / error / empty → neutral grey
   const heatBorder = isDarkMode ? 'rgba(255,138,76,0.28)' : 'rgba(230,126,34,0.22)';
+  // Public risk-tier wording — colour = RISK level, NOT "a heatwave is happening".
+  // extreme→เตือนภัย(warning), high→เฝ้าระวัง(watch), moderate→เฝ้าระวังเบื้องต้น, low→ความเสี่ยงต่ำ.
   const riskLabel =
     !dataReady
       ? (status === 'loading' ? t('loading') : t('dataUnavailable'))
-    : heroSeverity === 'extreme' ? t('extremeHeat')
-    : (heroSeverity === 'high' || heroSeverity === 'moderate') ? (t('heatRiskLevelMedium').split(': ')[1] || 'Medium')
+    : heroSeverity === 'extreme' ? t('riskWarning')
+    : heroSeverity === 'high' ? t('riskWatch')
+    : heroSeverity === 'moderate' ? t('riskElevated')
     : t('lowRisk');
+  // Calibrated probability as a percent for the hero ("โอกาสเสี่ยง 35%") — makes
+  // clear that orange/red is a CHANCE, not a confirmed event.
+  const riskPct = dataReady && userGridCell &&
+    typeof userGridCell.probability === 'number' ? userGridCell.probability : null;
   // The warning banner only renders for moderate/high/extreme AND only once real
   // data is in — never shift the layout for the neutral placeholder grid.
   const hasBanner = dataReady && (heroSeverity === 'extreme' || heroSeverity === 'high' || heroSeverity === 'moderate');
@@ -415,6 +422,12 @@ export default function MapScreen() {
             </ScaledText>
           </View>
 
+          {riskPct !== null && (
+            <ScaledText style={[styles.heroChance, { color: theme.textSecondary }]}>
+              {t('riskChance')} {riskPct}%
+            </ScaledText>
+          )}
+
           <View style={styles.ctaRow}>
             <ScaledText style={[styles.ctaText, { color: heatColor }]}>ต้องทำยังไง</ScaledText>
             <ScaledText style={[styles.ctaArrow, { color: heatColor }]}>→</ScaledText>
@@ -444,6 +457,38 @@ export default function MapScreen() {
             )}
           </TouchableOpacity>
         </View>
+
+        {/* Risk legend — colour communicates RISK level, not a confirmed heatwave */}
+        {!isShort && (
+          <View
+            pointerEvents="none"
+            style={[
+              styles.legend,
+              GlassStyle[isDarkMode ? 'dark' : 'light'],
+              {
+                bottom: timelineBottom + 76,
+                backgroundColor: isDarkMode ? 'rgba(24,19,15,0.66)' : 'rgba(255,255,255,0.72)',
+              } as any,
+            ]}
+          >
+            <View style={styles.legendRow}>
+              {([
+                ['#22C55E', t('lowRisk')],
+                ['#EAB308', t('riskElevated')],
+                ['#F97316', t('riskWatch')],
+                ['#EF4444', t('riskWarning')],
+              ] as const).map(([c, lbl]) => (
+                <View key={lbl} style={styles.legendItem}>
+                  <View style={[styles.legendDot, { backgroundColor: c }]} />
+                  <ScaledText style={[styles.legendTxt, { color: theme.text }]}>{lbl}</ScaledText>
+                </View>
+              ))}
+            </View>
+            <ScaledText style={[styles.legendNote, { color: theme.textSecondary }]}>
+              {t('riskLegendNote')}
+            </ScaledText>
+          </View>
+        )}
       </View>
 
       {/* Bottom Timeline (hidden on very short viewports) */}
@@ -723,6 +768,22 @@ const styles = StyleSheet.create({
   heroRisk: { fontSize: 21, fontWeight: '700', lineHeight: 24 },
   heroSep: { fontSize: 14, fontWeight: '700', marginHorizontal: 1 },
   heroTemp: { fontSize: 20, fontWeight: '700', lineHeight: 22 },
+  heroChance: { fontSize: 12, fontWeight: '700', marginTop: 1 },
+  legend: {
+    position: 'absolute',
+    left: 24,
+    right: 24,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: DesignTokens.borderRadius.lg,
+    zIndex: 11,
+    gap: 4,
+  },
+  legendRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12, justifyContent: 'center' },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  legendDot: { width: 9, height: 9, borderRadius: 4.5 },
+  legendTxt: { fontSize: 11, fontWeight: '700' },
+  legendNote: { fontSize: 10.5, textAlign: 'center', lineHeight: 14 },
   ctaRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 1 },
   ctaText: { fontSize: 12.5, fontWeight: '700' },
   ctaArrow: { fontSize: 13, fontWeight: '700' },

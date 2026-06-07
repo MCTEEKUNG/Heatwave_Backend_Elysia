@@ -102,6 +102,14 @@ export interface Translations {
   retry: string;
   loadFailed: string;
   dataUnavailable: string;
+
+  // Risk communication (colors = risk level, NOT a confirmed heatwave)
+  riskWarning: string;
+  riskWatch: string;
+  riskElevated: string;
+  riskChance: string;
+  riskLegendTitle: string;
+  riskLegendNote: string;
 }
 
 // Flat translation keys for easy access
@@ -204,6 +212,14 @@ const en: Record<TranslationKey, string> = {
   retry: 'Retry',
   loadFailed: "Couldn't load forecast",
   dataUnavailable: 'No data — tap to retry',
+
+  // Risk communication
+  riskWarning: 'Warning',
+  riskWatch: 'Watch',
+  riskElevated: 'Elevated',
+  riskChance: 'risk',
+  riskLegendTitle: 'Risk level',
+  riskLegendNote: 'Colors show forecast RISK, not a confirmed heatwave.',
 };
 
 const th: Record<TranslationKey, string> = {
@@ -303,6 +319,14 @@ const th: Record<TranslationKey, string> = {
   retry: 'ลองใหม่',
   loadFailed: 'โหลดพยากรณ์ไม่สำเร็จ',
   dataUnavailable: 'ไม่มีข้อมูล — แตะเพื่อลองใหม่',
+
+  // Risk communication
+  riskWarning: 'เตือนภัย',
+  riskWatch: 'เฝ้าระวัง',
+  riskElevated: 'เฝ้าระวังเบื้องต้น',
+  riskChance: 'โอกาสเสี่ยง',
+  riskLegendTitle: 'ระดับความเสี่ยง',
+  riskLegendNote: 'สีคือ “ความเสี่ยง” ของพยากรณ์ ไม่ใช่การยืนยันว่าเกิดคลื่นความร้อนแล้ว',
 };
 
 export const translations: Record<Language, Record<TranslationKey, string>> = {

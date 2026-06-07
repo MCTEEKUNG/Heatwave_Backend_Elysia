@@ -195,6 +195,11 @@ export function getRiskColor(risk: string): string {
   }
 }
 
+/** Calibrated probability (0–1) → integer percent, for public "risk N%" display. */
+export function riskPercent(probability: number | null | undefined): number {
+  return Math.round(((probability ?? 0) as number) * 100);
+}
+
 export function formatForecastDate(dateStr: string): string {
   // Parse as UTC to avoid the date shifting by one day in negative-offset timezones.
   // Dates from the server are plain YYYY-MM-DD strings (no time component), so we
