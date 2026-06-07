@@ -77,21 +77,7 @@ describe("POST /api/line/webhook (real app)", () => {
     expect(res.status).toBe(200);
   });
 
-  it("does not regress other JSON POST routes (/api/predict still parses JSON)", async () => {
-    // /api/predict uses Elysia's auto JSON body; the per-route raw `parse` on the
-    // webhook must not affect it. We expect a normal (non-401) JSON response.
-    const res = await app.handle(
-      new Request("http://localhost/api/predict", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ model: "balanced_rf", inputData: "a,b\n1,2" }),
-      })
-    );
-    // It will fail to actually run python here, but the body must have parsed
-    // (status 200 with a JSON result object, not a 400 validation error).
-    expect(res.status).toBe(200);
-    const json: any = await res.json();
-    expect(json).toHaveProperty("success");
-    expect(json.model).toBe("balanced_rf");
-  });
+  // The former "does not regress /api/predict JSON parsing" case was removed with
+  // the legacy /api/predict route (v1 cleanup). The webhook is now the only POST
+  // route, so there is no second POST route to regress against.
 });
