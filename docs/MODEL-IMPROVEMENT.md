@@ -334,16 +334,27 @@ train origin<2018 / test ≥2018, 61,446 rows, 452 test positives):
 | C + forecast heat-index (P0) | 0.657 (+0.079) | 1.82× |
 | **D + forecast HI + soil** | **0.665 (+0.008)** | **1.97× (+0.15)** |
 
-**Verdict (now empirical, not assumed):**
-1. **Antecedent soil moisture ALONE does not help** (ROC −0.008) — it cannot cross the
-   signal ceiling the oracle measured. This is the same lesson as every other antecedent
-   variable; consistent with §2.
-2. **Soil moisture is a small *complement* to the forecast covariate** (D vs C: ROC +0.008,
-   PR-AUC lift 1.82×→1.97×, +8% rel). Real and in the right direction, but minor next to the
-   forecast covariate itself (+0.079 ROC). One 2-yr split / 452 positives → confirm with
-   rolling-origin CV before banking it.
+**Significance check (`scripts/p0_soil_robustness.py`) — because ±0.008 with 452 positives
+is near the noise floor (SE≈0.02), and §4 mandates "trust the number".** LightGBM is
+deterministic here (seed variance = 0.000), so the only uncertainty is test-set sampling;
+1000× bootstrap of the test ΔROC:
 
-**Takeaway:** the lever ranking is unchanged — **forecast covariates dominate; antecedent
+| comparison | ΔROC median | 90% CI | verdict |
+|---|---|---|---|
+| B−A (soil **alone** over base) | −0.0076 | [−0.018, +0.003] | **includes 0 → noise** |
+| D−C (soil **on top of** P0) | +0.0080 | [+0.002, +0.014] | **excludes 0 → small real effect** |
+
+**Verdict (empirical + significance-tested):**
+1. **Antecedent soil moisture ALONE does not help** — ΔROC indistinguishable from zero
+   (CI includes 0). It cannot cross the signal ceiling the oracle measured; same lesson as
+   every other antecedent variable (§2).
+2. **Soil moisture is a SMALL but bootstrap-significant complement *on top of* the forecast
+   covariate** (D vs C: ΔROC +0.008, 90% CI excludes 0; PR-AUC lift 1.82×→1.97×). Real but
+   minor next to the forecast covariate itself (+0.079 ROC). **Caveat: single temporal split
+   (train<2018/test 2018–19); the bootstrap covers within-split sampling only — confirm with
+   rolling-origin CV (`evaluation/cv.py`) before banking it across years.**
+
+**Takeaway:** lever ranking unchanged — **forecast covariates dominate (+0.079); antecedent
 indices (soil moisture, and by extension NDVI/drought) are marginal and only earn their keep
 *on top of* the forecast.** Plumbing to carry soil moisture as a *forecast* covariate is built
 (`scripts/collect_forecast.py` now records `fc_soil_moisture`); a serve-time soil-moisture

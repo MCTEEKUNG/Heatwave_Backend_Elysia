@@ -62,7 +62,9 @@ def _eval(tr, te, feats, label):
     return dict(roc=roc, lift=lift)
 
 
-def main():
+def prepare():
+    """Return (merged rows with forecast+soil coverage, base feats, fc covariates).
+    Shared by main() and the robustness check so both use identical data prep."""
     frame = cached_build_frames(DATASET, horizons=range(1, 8))
     base = feature_columns(frame)
 
@@ -76,7 +78,12 @@ def main():
 
     soil = pd.read_parquet(SOIL)
     merged = add_antecedent_soil(merged, soil)
-    merged = merged.dropna(subset=SM_COV)  # all models compare identical soil-covered rows
+    merged = merged.dropna(subset=SM_COV)  # identical soil-covered rows for all models
+    return merged, base, fc_cov
+
+
+def main():
+    merged, base, fc_cov = prepare()
     print(f"rows (GEFS-matched + soil-covered)={len(merged)} "
           f"provinces={merged['province_id'].nunique()} pos_rate={merged['y'].mean():.3f}",
           flush=True)
