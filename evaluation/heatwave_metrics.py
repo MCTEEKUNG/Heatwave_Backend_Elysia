@@ -41,6 +41,35 @@ def reliability_table(y_true, y_prob, n_bins=10):
     return rows
 
 
+def skill_scores(y_true, y_pred):
+    """Threshold-dependent imbalance-aware skill scores (Kala 2024, Ahmadzadeh 2021).
+
+    Returns recall (POD), specificity, TSS (= Peirce Skill Score), HSS (Heidke),
+    balanced_accuracy, g_mean. All None on single-class truth (undefined).
+    """
+    y_true = np.asarray(y_true, dtype=int)
+    y_pred = np.asarray(y_pred, dtype=int)
+    pos, neg = (y_true == 1), (y_true == 0)
+    n_pos, n_neg = int(pos.sum()), int(neg.sum())
+    none = {k: None for k in ("recall", "specificity", "tss", "hss",
+                              "balanced_accuracy", "g_mean")}
+    if n_pos == 0 or n_neg == 0:
+        return none
+    tp = int((y_pred[pos] == 1).sum()); fn = n_pos - tp
+    tn = int((y_pred[neg] == 0).sum()); fp = n_neg - tn
+    recall = tp / (tp + fn)            # POD / true positive rate
+    specificity = tn / (tn + fp)       # true negative rate
+    denom = (tp + fn) * (fn + tn) + (tp + fp) * (fp + tn)  # Heidke denominator
+    return {
+        "recall": float(recall),
+        "specificity": float(specificity),
+        "tss": float(recall + specificity - 1),            # Peirce / True Skill Statistic
+        "hss": float(2 * (tp * tn - fp * fn) / denom) if denom else None,
+        "balanced_accuracy": float((recall + specificity) / 2),
+        "g_mean": float(np.sqrt(recall * specificity)),
+    }
+
+
 def compute_metrics(y_true, y_prob, threshold=0.5):
     """Compute the headline forecasting metrics + a reliability table.
 
@@ -72,5 +101,6 @@ def compute_metrics(y_true, y_prob, threshold=0.5):
         "n": n,
         "n_pos": n_pos,
         "base_rate": float(n_pos / n) if n else None,
+        **skill_scores(y_true, y_pred),
         "reliability": reliability_table(y_true, y_prob),
     }
