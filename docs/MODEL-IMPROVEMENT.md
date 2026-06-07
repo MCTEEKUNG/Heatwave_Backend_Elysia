@@ -316,3 +316,35 @@ serve time (Open-Meteo). Wiring forecast covariates into production needs a **se
 matched** forecast hindcast → the forward-collector (`scripts/collect_forecast.py`,
 accumulating Open-Meteo forecasts daily) is the clean path; train on it once it spans a
 hot season. GEFS proved the lever works; forward-collection makes it deployable.
+
+### Antecedent soil moisture — MEASURED, and it confirms the ceiling thesis (2026-06-07)
+
+Question: do other *indices* help? Tested the highest-evidence one (soil moisture; Domeisen
+2022, Felsche 2023, Benson 2020) as a **leakage-safe antecedent** feature. Fetched real
+Open-Meteo archive soil moisture (`soil_moisture_0_to_7cm`, ERA5-Land) per province
+2016–2019 (`scripts/fetch_archive_soil_moisture.py` → `data/processed/era5_soil_moisture.parquet`,
+95,942 rows), built antecedent features (`sm_lag1`, `sm_mean_7d`; strictly < origin), and ran
+A/B/C/D on identical GEFS-matched + soil-covered rows (`scripts/train_p0_soil.py`,
+train origin<2018 / test ≥2018, 61,446 rows, 452 test positives):
+
+| model (identical rows) | ROC | PR-AUC lift |
+|---|---|---|
+| A antecedent base | 0.578 | 1.22× |
+| B + antecedent soil moisture | **0.570 (−0.008)** | 1.22× |
+| C + forecast heat-index (P0) | 0.657 (+0.079) | 1.82× |
+| **D + forecast HI + soil** | **0.665 (+0.008)** | **1.97× (+0.15)** |
+
+**Verdict (now empirical, not assumed):**
+1. **Antecedent soil moisture ALONE does not help** (ROC −0.008) — it cannot cross the
+   signal ceiling the oracle measured. This is the same lesson as every other antecedent
+   variable; consistent with §2.
+2. **Soil moisture is a small *complement* to the forecast covariate** (D vs C: ROC +0.008,
+   PR-AUC lift 1.82×→1.97×, +8% rel). Real and in the right direction, but minor next to the
+   forecast covariate itself (+0.079 ROC). One 2-yr split / 452 positives → confirm with
+   rolling-origin CV before banking it.
+
+**Takeaway:** the lever ranking is unchanged — **forecast covariates dominate; antecedent
+indices (soil moisture, and by extension NDVI/drought) are marginal and only earn their keep
+*on top of* the forecast.** Plumbing to carry soil moisture as a *forecast* covariate is built
+(`scripts/collect_forecast.py` now records `fc_soil_moisture`); a serve-time soil-moisture
+*forecast* (not just antecedent) is the version most likely to add more, once the forward store matures.
