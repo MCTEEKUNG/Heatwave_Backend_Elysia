@@ -21,7 +21,11 @@ concurrency:
 jobs:
   forecast:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    # 77 provinces x 2 Open-Meteo calls each, throttled by the free-tier 429
+    # backoff (see src/openmeteo_client._get_with_retry). A measured run did
+    # 35/77 in ~25m, so the full set needs ~50m; 55 leaves headroom. The proper
+    # durable fix is coordinate-batched fetches — tracked as a follow-up.
+    timeout-minutes: 55
     steps:
       - uses: actions/checkout@v4
         with:
@@ -53,6 +57,10 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           HEATWAVE_SLEEP: "6"
+          # Unbuffered stdout so per-batch progress is flushed live — without
+          # this, Python block-buffers in CI and a killed run loses all output
+          # (a timed-out run showed zero progress lines).
+          PYTHONUNBUFFERED: "1"
         run: |
           python scripts/run_daily_forecast.py --batch-size 5 --state-file forecast_state.json
 
