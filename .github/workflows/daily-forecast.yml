@@ -22,10 +22,12 @@ jobs:
   forecast:
     runs-on: ubuntu-latest
     # 77 provinces x 2 Open-Meteo calls each, throttled by the free-tier 429
-    # backoff (see src/openmeteo_client._get_with_retry). A measured run did
-    # 35/77 in ~25m, so the full set needs ~50m; 55 leaves headroom. The proper
-    # durable fix is coordinate-batched fetches — tracked as a follow-up.
-    timeout-minutes: 55
+    # backoff (see src/openmeteo_client._get_with_retry). Measured rate is a
+    # steady ~3.5 min per 5-province batch: 75/77 done at ~58m. 75 leaves solid
+    # headroom. CI minutes are free (public repo), so the runtime is acceptable;
+    # coordinate-batched fetches (154 calls -> a handful) remain a nice-to-have
+    # speedup, tracked in docs/MODEL-IMPROVEMENT.md, not a blocker.
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
         with:
