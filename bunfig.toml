@@ -1,0 +1,9 @@
+# Bun configuration for the **product backend** (Elysia/Bun) at the repo root.
+#
+# Scope `bun test` to src/ only. Without this, `bun test` walks the whole tree
+# and picks up training-dashboard/web/**/*.test.tsx — those are Vite/**vitest**
+# tests (they use `vi.stubGlobal` and a jsdom `document`, neither of which exists
+# in bun's runner), so they throw 18 phantom failures that bury real backend
+# regressions. The dashboard web suite has its own runner: `cd training-dashboard/web && npm test`.
+[test]
+root = "src"
