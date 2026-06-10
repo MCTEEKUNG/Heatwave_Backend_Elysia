@@ -22,9 +22,19 @@ modern-government-grade. Scope: all 4 tabs (MAP / ALERTS / SAFETY / PROFILE).
 - Components: `Card`, `RiskBadge`, `StatTile`, `SectionHeader`.
 
 ## Screens
-- **MAP (hero):** full-bleed desaturated basemap; warm dots only on at-risk
-  provinces; floating "พื้นที่ของคุณ" card (province, risk %, CTA "ต้องทำยังไง");
-  timestamp chip; anti-panic legend retained.
+- **MAP (hero):** real pan/zoom interactive map (user request 2026-06-10:
+  "Google-Maps-like but OpenStreetMap to save cost"). Stack — all free:
+  Leaflet (already in the app) + OSM data + CARTO Positron light tiles
+  (desaturated, matches theme; free tier). Warm circles only on at-risk
+  provinces (tap → popup with level + probability, fed by `/api/forecast/map`);
+  navy user-location marker; floating "พื้นที่ของคุณ" card (risk %, CTA
+  "ต้องทำยังไง", toggle "🛣️ เส้นทางเลี่ยง"); timestamp chip; anti-panic legend.
+  **Risk-avoiding routes:** normal route (grey dashed) vs avoiding route (navy)
+  around warning zones. Mockup uses hardcoded polylines; production options
+  (free, OSM-based): OSRM demo server (no avoid support — needs detour
+  heuristic via waypoints) or **Valhalla on FOSSGIS (`valhalla1.openstreetmap.de`,
+  supports `exclude_polygons`) — preferred**, or OpenRouteService free key
+  (`avoid_polygons`). Pass warning-province circles as the avoid polygons.
 - **ALERTS:** two tier cards (เตือนภัย / เฝ้าระวัง) with counts + top-province
   chips; calm 7-day calendar; weather strip.
 - **SAFETY:** advice cards grouped by time-of-day (ก่อนออกแดด / กลางวัน / ฉุกเฉิน),
