@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Heatwave AI — อธิบายทั้งโปรเจค</title>
+<style>
+  :root{
+    --bg:#0b0c11; --card:#161922; --card2:#11141c; --line:#262b3a;
+    --txt:#eef1f6; --mut:#9aa3b6; --dim:#6b7280;
+    --grn:#22c55e; --ylw:#eab308; --org:#f97316; --red:#ef4444;
+    --accent:#ff8a4c; --blue:#5b9dff; --cyan:#36d6c3; --violet:#a78bfa;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:radial-gradient(1200px 760px at 72% -12%,#1b2030 0,#0b0c11 56%);
+    color:var(--txt);font-family:"Segoe UI","Noto Sans Thai",system-ui,sans-serif;line-height:1.75;-webkit-font-smoothing:antialiased}
+  a{color:var(--accent);text-decoration:none}
+  .wrap{max-width:1060px;margin:0 auto;padding:0 22px}
+  header.hero{padding:74px 0 40px;text-align:center;position:relative;overflow:hidden}
+  .sun{position:absolute;top:-130px;left:50%;transform:translateX(-50%);width:380px;height:380px;border-radius:50%;
+    background:radial-gradient(circle,rgba(255,138,76,.5),rgba(255,138,76,0) 66%);filter:blur(8px);animation:pulse 5s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:.5;transform:translateX(-50%) scale(1)}50%{opacity:.85;transform:translateX(-50%) scale(1.07)}}
+  .hero h1{font-size:clamp(30px,5vw,52px);margin:.08em 0;letter-spacing:-.5px;position:relative}
+  .hero .sub{color:var(--mut);font-size:18px;position:relative;max-width:700px;margin:.4em auto 0}
+  .badge{display:inline-block;margin-top:16px;padding:6px 16px;border:1px solid var(--line);border-radius:999px;background:var(--card);color:var(--mut);font-size:13px}
+  /* sticky toc */
+  nav.toc{position:sticky;top:0;z-index:50;background:rgba(11,12,17,.82);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+  nav.toc .wrap{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;padding:10px 22px}
+  nav.toc a{font-size:12.5px;color:var(--mut);padding:5px 11px;border-radius:8px;border:1px solid transparent}
+  nav.toc a:hover{color:#fff;border-color:var(--line);background:var(--card)}
+  section{padding:46px 0;border-top:1px solid var(--line);scroll-margin-top:54px}
+  .eyebrow{color:var(--accent);font-weight:700;letter-spacing:2px;font-size:12px;text-transform:uppercase}
+  h2{font-size:clamp(22px,3.4vw,31px);margin:.25em 0 .4em}
+  h3{font-size:17.5px;margin:1.2em 0 .35em;color:#e2e7f1}
+  p{color:#cfd5e2}
+  .reveal{opacity:0;transform:translateY(26px);transition:opacity .7s ease,transform .7s ease}
+  .reveal.in{opacity:1;transform:none}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px 20px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  @media(max-width:760px){.grid2,.grid3,.grid4{grid-template-columns:1fr}}
+  code{background:#0d1017;border:1px solid var(--line);padding:1px 6px;border-radius:6px;font-size:12.5px;color:#dbe6ff}
+  .tag{display:inline-block;padding:2px 9px;border-radius:6px;font-size:12px;font-weight:700}
+  .ok{background:rgba(34,197,94,.16);color:#5ee08c}.warn{background:rgba(234,179,8,.16);color:#f4cf57}.bad{background:rgba(239,68,68,.16);color:#ff8077}.info{background:rgba(91,157,255,.16);color:#9cc0ff}
+  .note{font-size:13.5px;color:var(--mut);border-left:3px solid var(--accent);padding:8px 13px;background:rgba(255,138,76,.05);border-radius:0 8px 8px 0;margin-top:14px}
+  .note.g{border-color:var(--grn);background:rgba(34,197,94,.05)}
+  .note.b{border-color:var(--blue);background:rgba(91,157,255,.05)}
+  .note.r{border-color:var(--red);background:rgba(239,68,68,.05)}
+  /* pipeline */
+  .flow{position:relative;margin:24px 0 6px}
+  .lane{display:flex;align-items:center;gap:0;flex-wrap:wrap;justify-content:center}
+  .stage{flex:1 1 150px;min-width:138px;max-width:185px;text-align:center;padding:15px 10px;border:1px solid var(--line);
+    border-radius:14px;background:linear-gradient(180deg,#141823,#0f121a);position:relative;z-index:2;transition:transform .3s,border-color .3s,box-shadow .3s}
+  .stage:hover{transform:translateY(-5px);border-color:var(--accent);box-shadow:0 8px 26px rgba(255,138,76,.12)}
+  .stage .ic{font-size:26px}.stage .nm{font-weight:700;font-size:13px;margin-top:6px}.stage .ds{font-size:11px;color:var(--mut);margin-top:2px}
+  .stage .pill{display:inline-block;margin-top:7px;font-size:10px;padding:2px 7px;border-radius:6px;background:#0d1017;border:1px solid var(--line);color:var(--cyan)}
+  .conn{flex:0 0 44px;height:46px;position:relative;z-index:1}
+  .conn::before{content:"";position:absolute;top:50%;left:0;right:0;height:3px;transform:translateY(-50%);background:linear-gradient(90deg,var(--line),rgba(255,138,76,.6));border-radius:3px}
+  .conn .pkt{position:absolute;top:50%;left:0;width:10px;height:10px;border-radius:50%;transform:translateY(-50%);background:var(--accent);box-shadow:0 0 10px var(--accent);animation:run 2.1s linear infinite}
+  .conn .pkt.b{background:var(--cyan);box-shadow:0 0 10px var(--cyan);animation-delay:.7s}
+  .conn .pkt.c{background:var(--violet);box-shadow:0 0 10px var(--violet);animation-delay:1.4s}
+  @keyframes run{0%{left:-6%;opacity:0}10%{opacity:1}90%{opacity:1}100%{left:104%;opacity:0}}
+  @media(max-width:760px){.conn{flex-basis:100%;width:100%;transform:rotate(90deg);height:34px}}
+  .inputs{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:6px}
+  .chipin{font-size:12px;padding:7px 12px;border-radius:10px;background:#0e1118;border:1px solid var(--line);color:#cfd5e2}
+  .chipin b{color:var(--cyan)}
+  .toggle{margin:14px auto;display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden}
+  .toggle button{background:transparent;color:var(--mut);border:0;padding:9px 18px;cursor:pointer;font-size:13px;font-weight:700}
+  .toggle button.on{background:var(--accent);color:#1a1208}
+  .panel{display:none}.panel.on{display:block;animation:fade .4s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  table{width:100%;border-collapse:collapse;margin-top:10px;font-size:13.5px}
+  th,td{padding:9px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+  th{color:var(--mut);font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.5px}
+  tr.hl td{background:rgba(255,138,76,.07)}
+  ul.clean{list-style:none;padding:0;margin:.4em 0}
+  ul.clean li{padding:6px 0 6px 26px;position:relative;color:#cfd5e2;font-size:14px}
+  ul.clean li::before{content:"▸";position:absolute;left:4px;color:var(--accent)}
+  .ep{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px}
+  .method{display:inline-block;min-width:42px;text-align:center;font-size:11px;font-weight:800;padding:1px 7px;border-radius:5px;margin-right:7px}
+  .get{background:rgba(91,157,255,.18);color:#9cc0ff}.post{background:rgba(34,197,94,.18);color:#5ee08c}
+  .kpi{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;margin-top:18px}
+  .kpi .b{flex:1 1 130px;max-width:180px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:15px;text-align:center}
+  .kpi .n{font-size:27px;font-weight:800;color:#fff}.kpi .t{font-size:11.5px;color:var(--mut);margin-top:2px}
+  .step{display:flex;gap:12px;align-items:flex-start;margin:10px 0}
+  .step .num{flex:0 0 26px;height:26px;border-radius:50%;background:var(--accent);color:#1a1208;font-weight:800;display:flex;align-items:center;justify-content:center;font-size:13px}
+  .step .tx{font-size:14px;color:#cfd5e2}
+  footer{padding:40px 0 70px;color:var(--dim);text-align:center;font-size:13px;border-top:1px solid var(--line)}
+  @media print{.reveal{opacity:1!important;transform:none!important}nav.toc{display:none}}
+</style>
+<noscript><style>.reveal{opacity:1;transform:none}</style></noscript>
+</head>
+<body>
+<header class="hero">
+  <div class="sun"></div>
+  <div class="wrap">
+    <div class="eyebrow">Heatwave AI · Full Project Explainer</div>
+    <h1>อธิบายทั้งโปรเจค</h1>
+    <p class="sub">ระบบพยากรณ์คลื่นความร้อนรายจังหวัด (77 จังหวัด) ล่วงหน้า 1–7 วัน — ตั้งแต่หลักการ ML, การไหลของข้อมูลจริง, จนถึงแอป &amp; LINE</p>
+    <div class="badge">อ้างอิงจากโค้ด + docs จริง · 2026</div>
+    <div class="kpi">
+      <div class="b"><div class="n" data-count="77">0</div><div class="t">จังหวัด</div></div>
+      <div class="b"><div class="n" data-count="4">0</div><div class="t">codebase</div></div>
+      <div class="b"><div class="n" data-count="7">0</div><div class="t">วันล่วงหน้า</div></div>
+      <div class="b"><div class="n" data-count="34">0</div><div class="t">features</div></div>
+      <div class="b"><div class="n" data-count="75">0</div><div class="t">ROC ×100</div></div>
+    </div>
+  </div>
+</header>
+
+<nav class="toc"><div class="wrap">
+  <a href="#overview">ภาพรวม</a>
+  <a href="#core">หัวใจ ML</a>
+  <a href="#bakeoff">ทำไม LGBM</a>
+  <a href="#flow">การไหลข้อมูล</a>
+  <a href="#input">Input</a>
+  <a href="#product">Product</a>
+  <a href="#retrain">เทรนใหม่</a>
+  <a href="#ops">สถานะ</a>
+  <a href="#card">Model card</a>
+  <a href="#roadmap">Roadmap</a>
+</div></nav>
+
+<!-- 1 OVERVIEW -->
+<section id="overview"><div class="wrap reveal">
+  <div class="eyebrow">1 · ภาพรวม</div>
+  <h2>โปรเจคนี้คืออะไร</h2>
+  <p>พยากรณ์ว่าจะเกิด “คลื่นความร้อน” ในแต่ละจังหวัดล่วงหน้า 1–7 วัน แล้วสื่อสารเป็น <b>สีความเสี่ยง</b>บนแผนที่ + การแจ้งเตือน 2 ระดับ (เฝ้าระวัง/เตือนภัย) ผ่านแอปและ LINE · <b>4 codebase อยู่โฟลเดอร์ราก เดียวกัน</b>:</p>
+  <div class="grid2">
+    <div class="card"><h3 style="margin-top:0">🧮 ML / Forecasting — Python</h3><p style="font-size:13.5px;margin:.2em 0">เทรนโมเดล + รัน forecast รายวัน · <code>src/*.py</code>, <code>pipeline/</code>, <code>scripts/</code>, <code>evaluation/</code></p></div>
+    <div class="card"><h3 style="margin-top:0">🦊 Backend — Elysia + Bun</h3><p style="font-size:13.5px;margin:.2em 0">เสิร์ฟ API ดึงผลจาก Supabase + LINE bot · <code>src/index.ts</code>, <code>src/routes/</code>, <code>src/line/</code></p></div>
+    <div class="card"><h3 style="margin-top:0">📱 Frontend — Expo / React Native</h3><p style="font-size:13.5px;margin:.2em 0">แอปแผนที่/แจ้งเตือน/ความปลอดภัย · <code>HeatMAP-Frontend/</code></p></div>
+    <div class="card"><h3 style="margin-top:0">📊 Training Dashboard — local</h3><p style="font-size:13.5px;margin:.2em 0">FastAPI + Vite UI เทรนสด (sandbox) · <code>training-dashboard/</code></p></div>
+  </div>
+  <div class="note">⚠️ จุดสับสนที่ควรรู้: โฟลเดอร์ <code>src/</code> ปนกัน — มีทั้งโมดูล ML (Python) และ backend (TypeScript) อยู่ที่เดียวกัน · <code>package.json</code> ราก = ของ backend ไม่ใช่ ML</div>
+</div></section>
+
+<!-- 2 CORE DESIGN -->
+<section id="core"><div class="wrap reveal">
+  <div class="eyebrow">2 · หัวใจของระบบ</div>
+  <h2>การพยากรณ์แบบ “ไม่รั่ว” (leakage-safe)</h2>
+  <p>นี่คือดีไซน์ที่สำคัญที่สุด — โปรเจคนี้เกิดใหม่เพราะเวอร์ชันก่อนเคย “โกง” (ได้คะแนนปลอม ~0.99) จากการรั่วของข้อมูล กฎเหล็ก 4 ข้อ:</p>
+  <div class="grid2">
+    <div class="card"><h3 style="margin-top:0">🔒 1. Features ย้อนหลังล้วน</h3><p style="font-size:13.5px">ทุกฟีเจอร์สร้างด้วย <code>.shift(1).rolling(...)</code> — ค่าของวันนี้ <b>ห้าม</b>เข้าไปในฟีเจอร์ของตัวเอง · target = <code>y = heatwave.shift(-k)</code> (คลื่นความร้อนอีก k วัน) · มี <code>LEAKY_COLS</code> กันคอลัมน์ความจริงของวันเป้าหมายหลุดเป็นฟีเจอร์</p></div>
+    <div class="card"><h3 style="margin-top:0">📅 2. แบ่งข้อมูลตามเวลา</h3><p style="font-size:13.5px">train ปีเก่า / val-test ปีใหม่ (train ≤2023 · val 2024 · test 2025) · <b>ห้าม random split</b> เพราะอากาศรายวัน autocorrelated → random = รั่ว = คะแนนปลอม</p></div>
+    <div class="card"><h3 style="margin-top:0">🎯 3. Calibrate + จูน threshold</h3><p style="font-size:13.5px">isotonic calibration ให้ความน่าจะเป็น “ตรงจริง” + จูน threshold ด้วย F2 บน validation (<code>src/calibration.py</code>) — ไม่ใช้ SMOTE (ทำลาย calibration ของ rare event)</p></div>
+    <div class="card"><h3 style="margin-top:0">📏 4. วัดผลแบบ rare-event</h3><p style="font-size:13.5px">ใช้ PR-AUC / F2 / Brier (ไม่ใช่ accuracy) · normalize PR-AUC ด้วย base rate ก่อนเทียบข้ามปี (เพราะ ~4–14% positive)</p></div>
+  </div>
+  <div class="note r">🚫 ERA5 / Open-Meteo “historical forecast” = <b>การวิเคราะห์ (ความจริง)</b> ไม่ใช่คำพยากรณ์อนาคต — ใช้เป็นฟีเจอร์ย้อนหลังได้ แต่ถ้าเอา “ความจริงของวันเป้าหมาย” มาเป็นฟีเจอร์ = รั่วทันที</div>
+  <p style="font-size:13px;color:var(--mut);margin-top:14px">นิยาม label (<code>src/labels.py</code>, <code>src/climatology.py</code>): คลื่นความร้อน = <b>sWBGT ≥ p95 ของวันนั้นในรอบปี</b> (climatology 1991–2020) <b>และ</b> เป็นช่วงร้อนต่อเนื่อง <b>≥ 2 วัน</b> · sWBGT คำนวณจาก temp + ความชื้น (<code>src/swbgt.py</code>)</p>
+</div></section>
+
+<!-- 3 WHY LGBM -->
+<section id="bakeoff"><div class="wrap reveal">
+  <div class="eyebrow">3 · เลือกโมเดล</div>
+  <h2>ทำไมถึงเลือก LightGBM</h2>
+  <p><code>scripts/bakeoff.py</code> เทรนทุกตัวบน frame / temporal split / calibration / F2-tuning <b>ชุดเดียวกัน</b> แล้วจัดอันดับด้วย F2 → PR-AUC (BSS เป็น tiebreak):</p>
+  <table>
+    <thead><tr><th>โมเดล</th><th>F2</th><th>PR-AUC</th><th>ROC</th><th>BSS</th><th>เวลาเทรน</th></tr></thead>
+    <tbody>
+      <tr><td>balanced_rf</td><td><b>0.559</b></td><td>0.329</td><td>0.760</td><td>0.096</td><td>33s</td></tr>
+      <tr class="hl"><td>🟢 lightgbm (เลือก)</td><td>0.556</td><td><b>0.332</b></td><td>0.760</td><td>0.094</td><td>41s</td></tr>
+      <tr><td>ensemble(lgbm+xgb+cat)</td><td>0.553</td><td>0.331</td><td>0.761</td><td>0.093</td><td>—</td></tr>
+      <tr><td>catboost</td><td>0.553</td><td>0.332</td><td><b>0.762</b></td><td><b>0.097</b></td><td>31s</td></tr>
+      <tr><td>random_forest</td><td>0.544</td><td>0.316</td><td>0.752</td><td>0.083</td><td>—</td></tr>
+      <tr><td>xgboost / mlp / kan</td><td colspan="5" style="color:var(--mut)">ตามหลัง · MLP เป็น reference · KAN เลื่อน (ใช้ไม่ได้กับ ~1M แถว)</td></tr>
+    </tbody>
+  </table>
+  <p style="margin-top:14px">เหตุผล (จาก <code>docs/ML-APPROACH.md</code>):</p>
+  <ul class="clean">
+    <li><b>Tree ensemble ชนะบน tabular rare-event</b> — deep nets (MLP/KAN) ไม่ช่วยและช้า; KAN ใช้กับ ~1M แถวไม่ได้</li>
+    <li><b>3 ตัวบนเสมอกันเชิงสถิติ</b> (balanced_rf / lightgbm / catboost) — LGBM ไม่ได้ทิ้งห่าง</li>
+    <li><b>ตัวชี้ขาด = generalization</b>: บน validation หลากหลายกว่า (3 จังหวัด รวมใต้+อีสาน) <b>LightGBM นำ F2 0.58</b> → สกิลโตตามความครอบคลุม</li>
+    <li><b>ปฏิบัติจริง</b>: เร็ว, สเกลถึง ~1M แถว, เข้ากับ pipeline calibration/threshold ได้สะอาด</li>
+  </ul>
+  <div class="note g">ตัดสินใจ: <b>Primary = LightGBM</b> · track <b>balanced_rf + catboost</b> เป็นทางเลือก · ensemble เป็น robustness · เลือกตัวสุดท้ายด้วย F2 → PR-AUC → BSS บน multi-province leaderboard</div>
+</div></section>
+
+<!-- 4 DATA FLOW -->
+<section id="flow"><div class="wrap reveal">
+  <div class="eyebrow">4 · การไหลของข้อมูลใน Product จริง</div>
+  <h2>จาก Open-Meteo → สีบนแผนที่</h2>
+  <p>ทุกครั้งที่รัน forecast ระบบทำ <b>ต่อจังหวัด</b> (วนทีละ batch 5 จังหวัด เว้น 20 วิ กัน rate-limit):</p>
+  <div class="flow"><div class="lane">
+    <div class="stage"><div class="ic">🌤️</div><div class="nm">Open-Meteo</div><div class="ds">ดึงสภาพอากาศ</div><div class="pill">INPUT</div></div>
+    <div class="conn"><span class="pkt"></span><span class="pkt b"></span><span class="pkt c"></span></div>
+    <div class="stage"><div class="ic">💧</div><div class="nm">คำนวณ sWBGT</div><div class="ds">temp + ความชื้น</div></div>
+    <div class="conn"><span class="pkt"></span><span class="pkt b"></span></div>
+    <div class="stage"><div class="ic">🧩</div><div class="nm">สร้าง features</div><div class="ds">antecedent-only + p95</div></div>
+    <div class="conn"><span class="pkt"></span><span class="pkt c"></span></div>
+    <div class="stage"><div class="ic">🤖</div><div class="nm">โมเดลทำนาย</div><div class="ds">predict_proba k=1..7</div></div>
+    <div class="conn"><span class="pkt"></span><span class="pkt b"></span></div>
+    <div class="stage"><div class="ic">🎨</div><div class="nm">แปลงเป็นระดับ</div><div class="ds">prob → risk_level</div></div>
+    <div class="conn"><span class="pkt"></span><span class="pkt c"></span></div>
+    <div class="stage"><div class="ic">🗄️</div><div class="nm">Supabase</div><div class="ds">heatwave.forecasts</div><div class="pill">STORE</div></div>
+    <div class="conn"><span class="pkt"></span><span class="pkt b"></span></div>
+    <div class="stage"><div class="ic">🌐</div><div class="nm">Render API</div><div class="ds">/api/forecast/map</div></div>
+    <div class="conn"><span class="pkt"></span><span class="pkt c"></span></div>
+    <div class="stage"><div class="ic">📱</div><div class="nm">แอป</div><div class="ds">ลงสี grid</div><div class="pill">OUTPUT</div></div>
+  </div></div>
+  <table>
+    <tr><th>ขั้น</th><th>โค้ดจริง</th></tr>
+    <tr><td>🌤️ ดึงข้อมูล</td><td><code>openmeteo_client.fetch_history</code> (ERA5 archive ย้อนหลัง 40 วัน) + <code>fetch_forecast</code> (8 วันหน้า) · <code>temperature_2m_max</code>, <code>relative_humidity_2m_mean</code></td></tr>
+    <tr><td>💧 sWBGT</td><td><code>swbgt(temp, RH)</code> → <code>swbgt_max</code> ต่อวัน</td></tr>
+    <tr><td>🧩 Features</td><td><code>make_forecasting_frame</code> (ย้อนหลังล้วน) + <code>p95</code> จาก <code>province_thresholds.parquet</code></td></tr>
+    <tr><td>🤖 ทำนาย</td><td><code>predict_proba</code> → prob calibrated ต่อ (จังหวัด × k=1..7)</td></tr>
+    <tr><td>🎨 ระดับ</td><td><code>prob_to_risk</code> → low/moderate/high/extreme · <code>predicted_label = prob ≥ model.threshold</code> (≈0.133)</td></tr>
+    <tr><td>🗄️ บันทึก</td><td><code>upsert_forecasts</code> → Supabase <code>heatwave.forecasts</code></td></tr>
+    <tr><td>🌐→📱 เสิร์ฟ</td><td>Backend อ่าน Supabase → แอปลงสี grid ตาม <code>risk_level</code></td></tr>
+  </table>
+  <div class="note b">💡 <b>Render ไม่ได้รันโมเดล</b> — โมเดลรันตอน forecast (เครื่อง/CI) เก็บผลใน Supabase ส่วน Render แค่อ่านมาเสิร์ฟ</div>
+</div></section>
+
+<!-- 5 INPUT -->
+<section id="input"><div class="wrap reveal">
+  <div class="eyebrow">5 · Input ของโมเดล</div>
+  <h2>โมเดลต้องมี input ทุกครั้งที่ทำนาย</h2>
+  <p>โมเดลคือ “ฟังก์ชัน” ไม่ใช่ตารางค่าตายตัว ต่อ 1 จังหวัดต้องป้อน 4 อย่าง:</p>
+  <div class="inputs">
+    <div class="chipin">🌡️ <b>ประวัติ 40 วัน</b> (ERA5) — สร้างฟีเจอร์ rolling</div>
+    <div class="chipin">🔮 <b>พยากรณ์ 8 วัน</b> — ให้ sWBGT วันเป้าหมาย</div>
+    <div class="chipin">📈 <b>p95 climatology</b> — เกณฑ์ความร้อนรายวัน</div>
+    <div class="chipin">📦 <b>heatwave_model.pkl</b> — ฟังก์ชันที่เทรนไว้</div>
+  </div>
+  <div class="note">ฟีเจอร์เป็น antecedent-only จึงต้องมีประวัติ ~40 วันเพื่อคำนวณ rolling window — ไม่มี input ชุดนี้ ทำนายไม่ได้เลย</div>
+</div></section>
+
+<!-- 6 PRODUCT LAYERS -->
+<section id="product"><div class="wrap reveal">
+  <div class="eyebrow">6 · Product จริง (3 layer)</div>
+  <h2>Backend · Frontend · LINE · Database</h2>
+
+  <h3>🦊 Backend API (Elysia + Bun) — อ่านจาก Supabase</h3>
+  <div class="card" style="margin-top:6px">
+    <div class="ep"><span class="method get">GET</span>/api/forecast/map — ค่าเสี่ยงล่าสุดทุกจังหวัด (สำหรับแผนที่)</div>
+    <div class="ep"><span class="method get">GET</span>/api/forecast/province/:id — พยากรณ์ 7 วันของจังหวัดเดียว</div>
+    <div class="ep"><span class="method get">GET</span>/api/provinces — รายชื่อ 77 จังหวัด</div>
+    <div class="ep"><span class="method get">GET</span>/api/thresholds/:id — เกณฑ์ p95 รายจังหวัด</div>
+    <div class="ep"><span class="method get">GET</span>/api/health — health check</div>
+    <div class="ep"><span class="method post">POST</span>/api/line/webhook — LINE Messaging API (verify ลายเซ็น HMAC)</div>
+  </div>
+
+  <div class="grid2" style="margin-top:14px">
+    <div class="card"><h3 style="margin-top:0">📱 Frontend (แอป) — 4 หน้า</h3>
+      <ul class="clean">
+        <li><b>Map</b> — grid 77 จังหวัดลงสีตามความเสี่ยง + การ์ด “พื้นที่ของคุณ” (GPS) + สถานะ loading/ไม่มีข้อมูล</li>
+        <li><b>Alerts</b> — สรุปทั้งประเทศ 2 ระดับ (เฝ้าระวัง/เตือนภัย) + พยากรณ์ราย จังหวัด 7 วัน</li>
+        <li><b>Safety</b> (<code>checklist</code>) — เช็กลิสต์รับมือ + เบอร์ฉุกเฉิน</li>
+        <li><b>Profile</b> (<code>settings</code>) — ธีม/ภาษา/ฟอนต์/แจ้งเตือน</li>
+      </ul>
+      <p style="font-size:12px;color:var(--mut)">+ หน้า <code>liff</code> สำหรับเปิดในแอป LINE</p>
+    </div>
+    <div class="card"><h3 style="margin-top:0">💬 LINE Bot (<code>src/line/</code>)</h3>
+      <ul class="clean">
+        <li><b>signature</b> — ตรวจลายเซ็น HMAC-SHA256 ของ webhook</li>
+        <li><b>webhook</b> — รับ event แล้วตอบ</li>
+        <li><b>flex / push</b> — ส่งการ์ดพยากรณ์ (Flex message)</li>
+        <li><b>nearest</b> — หาจังหวัดใกล้ผู้ใช้ · <b>richmenu</b> — เมนูลัด</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="note b" style="margin-top:14px">🗄️ <b>Database (Supabase):</b> ข้อมูลอยู่ใน schema ส่วนตัว <code>heatwave</code> (ไม่เปิดผ่าน Data API) · backend ต่อด้วย <code>postgres</code> (Bun) · Python เขียนด้วย <code>psycopg</code> (<code>src/db_write.py</code>)</div>
+
+  <div class="note">เกณฑ์สี (ตรงกันทั้ง <code>src/risk.py</code> และ frontend): moderate ≥ 0.10 · high/เฝ้าระวัง ≥ 0.217 · extreme/เตือนภัย ≥ 0.281</div>
+</div></section>
+
+<!-- 7 RETRAIN -->
+<section id="retrain"><div class="wrap reveal">
+  <div class="eyebrow">7 · เทรนใหม่ตอนไหน</div>
+  <h2>“รันรายวัน” ≠ “เทรนใหม่”</h2>
+  <div class="toggle">
+    <button id="tInfer" class="on" onclick="tab('infer')">รันรายวัน (Inference)</button>
+    <button id="tTrain" onclick="tab('train')">เทรนใหม่ (Training)</button>
+  </div>
+  <div id="pInfer" class="panel on"><div class="card">
+    <h3 style="margin-top:0">🔁 รันรายวัน — ใช้โมเดลเดิม ไม่เทรน</h3>
+    <ul class="clean">
+      <li>โหลด <code>heatwave_model.pkl</code> เดิม → ป้อนอากาศล่าสุด → ได้ค่าใหม่</li>
+      <li>เปลี่ยนแค่ <b>input</b> ไม่แตะพารามิเตอร์โมเดล</li>
+      <li>ควรรันทุกวันให้แผนที่สด — <span class="tag warn">ตอนนี้ยัง DORMANT</span></li>
+    </ul>
+  </div></div>
+  <div id="pTrain" class="panel"><div class="card">
+    <h3 style="margin-top:0">🧠 เทรนใหม่ — สร้างโมเดลใหม่ (นานๆ ครั้ง)</h3>
+    <table>
+      <tr><th>เมื่อไหร่</th><th>ทำไม</th></tr>
+      <tr><td>มีข้อมูลปีใหม่ครบ</td><td>เลื่อนหน้าต่าง train/val/test → เทรน ~ปีละครั้ง</td></tr>
+      <tr><td>climatology ขยับ</td><td>รีเฟรช p95 (ฐาน 1991–2020)</td></tr>
+      <tr><td>เปลี่ยน feature/label/pipeline</td><td>ต้องเทรนใหม่</td></tr>
+      <tr><td>rebuild dataset / เพิ่ม coverage</td><td>เช่น 20→77 จังหวัด</td></tr>
+      <tr><td>สกิลตก</td><td>monitor พบ F2/ROC แย่ลง</td></tr>
+    </table>
+    <div class="note">เทรนด้วย <code>scripts/train_production.py</code> หรือ <code>pipeline/train.py</code></div>
+  </div></div>
+  <div class="note g">🎯 คันโยกความแม่นที่แท้จริง: โมเดล antecedent-only เพดาน ~ROC 0.75 — เทรนถี่ขึ้นไม่ช่วย ต้อง <b>เพิ่ม forecast covariates</b> (GEFS) ดู <code>docs/MODEL-IMPROVEMENT.md</code> (P0)</div>
+</div></section>
+
+<!-- 8 OPS -->
+<section id="ops"><div class="wrap reveal">
+  <div class="eyebrow">8 · สถานะ Operational</div>
+  <h2>ตอนนี้ข้อมูลสดแค่ไหน?</h2>
+  <div class="grid2">
+    <div class="card"><h3 style="margin-top:0"><span class="tag warn">DORMANT</span> ตัวรันรายวันอัตโนมัติ</h3>
+      <ul class="clean">
+        <li>GitHub Action <code>daily-forecast.yml</code> มี cron 08:30 แต่ <b>ปิดไว้ตั้งใจ</b></li>
+        <li>Supabase อัปเดตล่าสุดจาก <b>การรันมือ</b></li>
+      </ul></div>
+    <div class="card"><h3 style="margin-top:0"><span class="tag ok">พร้อมเปิด</span> วิธีทำให้สดอัตโนมัติ</h3>
+      <ul class="clean">
+        <li>merge ไป default branch + ใส่ secret <code>DATABASE_URL</code></li>
+        <li>pin <code>lightgbm</code>+<code>scikit-learn</code> (กัน unpickle พัง)</li>
+        <li>โมเดลดึงจาก HF repo สาธารณะ <code>MCTEEKUNG123/Heatwave-AI</code></li>
+      </ul></div>
+  </div>
+  <div class="note">รันมือ: <code>.venv\Scripts\python.exe scripts\run_daily_forecast.py --state-file state.json</code></div>
+</div></section>
+
+<!-- 9 MODEL CARD -->
+<section id="card"><div class="wrap reveal">
+  <div class="eyebrow">9 · สเปคโมเดล</div>
+  <h2>heatwave-lgbm · lgbm-v1</h2>
+  <div class="grid3">
+    <div class="card" style="text-align:center"><div style="font-size:24px;font-weight:800">0.7535</div><div style="color:var(--mut);font-size:12px">ROC-AUC (test 2025)</div></div>
+    <div class="card" style="text-align:center"><div style="font-size:24px;font-weight:800">0.5113</div><div style="color:var(--mut);font-size:12px">F2</div></div>
+    <div class="card" style="text-align:center"><div style="font-size:24px;font-weight:800">0.3333</div><div style="color:var(--mut);font-size:12px">PR-AUC</div></div>
+  </div>
+  <table style="margin-top:12px">
+    <tr><td>อัลกอริทึม</td><td>LightGBM + isotonic calibration + F2-tuned threshold (0.133)</td></tr>
+    <tr><td>ข้อมูล</td><td>77 จังหวัด · 1991–2025 (Open-Meteo archive / ERA5) · 34 features</td></tr>
+    <tr><td>Split</td><td>train ≤2023 · val 2024 · test 2025 (temporal)</td></tr>
+    <tr><td>artifact</td><td><code>models/heatwave_model.pkl</code> (joblib · src.model.CalibratedModel)</td></tr>
+  </table>
+</div></section>
+
+<!-- 10 ROADMAP -->
+<section id="roadmap"><div class="wrap reveal">
+  <div class="eyebrow">10 · ข้อจำกัด &amp; ทิศทาง</div>
+  <h2>เพดาน &amp; คันโยกถัดไป</h2>
+  <div class="step"><div class="num">1</div><div class="tx"><b>เพดาน antecedent-only (~ROC 0.76).</b> ใช้แค่อดีตทำนายอนาคต มีลิมิตธรรมชาติ</div></div>
+  <div class="step"><div class="num">2</div><div class="tx"><b>P0 — Forecast covariates (คันโยกหลัก):</b> ดึงข้อมูลพยากรณ์ล่วงหน้าจริง (NOAA GEFS reforecast / forward-collect) มาเป็นฟีเจอร์ keyed by (province, issue_date, target_date, lead_k)</div></div>
+  <div class="step"><div class="num">3</div><div class="tx"><b>NDVI (พืชพรรณ)</b> — มีโมดูล <code>src/ndvi_*</code> และอยู่ใน config แต่ <b>ยังไม่ wired</b> เข้าการเทรน (aspirational)</div></div>
+  <div class="step"><div class="num">4</div><div class="tx"><b>เปิด pipeline รายวันอัตโนมัติ</b> + monitor สกิลเทียบของจริง เพื่อรู้ว่าควรเทรนใหม่เมื่อไหร่</div></div>
+  <div class="note">รายละเอียด diagnosis + ลำดับความสำคัญอยู่ใน <code>docs/MODEL-IMPROVEMENT.md</code> — ตรวจก่อนแก้โมเดลทุกครั้ง</div>
+</div></section>
+
+<footer><div class="wrap">Heatwave AI — เอกสารอธิบายทั้งโปรเจค (สร้างอัตโนมัติจากโค้ด+docs จริง) · เปิดไฟล์นี้ในเบราว์เซอร์ได้เลย (ออฟไลน์)</div></footer>
+
+<script>
+  const io=new IntersectionObserver((es)=>es.forEach(e=>{if(e.isIntersecting)e.target.classList.add('in')}),{threshold:.08});
+  document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+  function countUp(el){const t=+el.dataset.count;let n=0;const step=Math.max(1,Math.ceil(t/38));
+    const id=setInterval(()=>{n+=step;if(n>=t){n=t;clearInterval(id)}el.textContent=n},22)}
+  const kio=new IntersectionObserver((es)=>es.forEach(e=>{if(e.isIntersecting){countUp(e.target);kio.unobserve(e.target)}}),{threshold:.5});
+  document.querySelectorAll('[data-count]').forEach(el=>kio.observe(el));
+  function tab(which){
+    document.getElementById('tInfer').classList.toggle('on',which==='infer');
+    document.getElementById('tTrain').classList.toggle('on',which==='train');
+    document.getElementById('pInfer').classList.toggle('on',which==='infer');
+    document.getElementById('pTrain').classList.toggle('on',which==='train');
+  }
+</script>
+</body>
+</html>

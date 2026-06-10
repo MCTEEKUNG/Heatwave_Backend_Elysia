@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Heatwave AI — รีวิวโปรเจกต์ฉบับเข้าใจง่าย (10 มิ.ย. 2026)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0d1117; --bg2:#161b22; --card:#1c2330; --line:#2d3748;
+  --txt:#e6edf3; --dim:#9aa7b8; --faint:#6b7787;
+  --heat1:#ff6b35; --heat2:#ff9e2c; --heat3:#ffd166;
+  --ok:#3fb950; --warn:#d29922; --bad:#f85149; --info:#58a6ff;
+  --mono:'JetBrains Mono',monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--txt);font-family:'Prompt',sans-serif;line-height:1.7;overflow-x:hidden}
+::selection{background:var(--heat1);color:#fff}
+
+/* ---------- hero ---------- */
+.hero{position:relative;min-height:88vh;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:60px 24px;overflow:hidden}
+.hero::before{content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse 80% 60% at 50% 110%, rgba(255,107,53,.28), transparent 60%),
+             radial-gradient(ellipse 60% 40% at 20% -10%, rgba(88,166,255,.10), transparent 60%);
+  animation:heatPulse 6s ease-in-out infinite alternate}
+@keyframes heatPulse{from{opacity:.6}to{opacity:1}}
+.sun{position:absolute;bottom:-140px;left:50%;transform:translateX(-50%);width:340px;height:340px;border-radius:50%;
+  background:radial-gradient(circle, var(--heat3), var(--heat1) 55%, transparent 72%);
+  filter:blur(18px);opacity:.5;animation:sunRise 3s ease-out forwards, sunBreath 5s 3s ease-in-out infinite alternate}
+@keyframes sunRise{from{transform:translateX(-50%) translateY(160px) scale(.7);opacity:0}to{transform:translateX(-50%) translateY(0) scale(1);opacity:.5}}
+@keyframes sunBreath{to{transform:translateX(-50%) scale(1.07)}}
+.hero .tag{position:relative;font-size:14px;letter-spacing:3px;text-transform:uppercase;color:var(--heat2);font-weight:600;animation:fadeUp .8s .2s both}
+.hero h1{position:relative;font-size:clamp(34px,6vw,64px);font-weight:800;margin:14px 0 10px;animation:fadeUp .8s .4s both}
+.hero h1 .grad{background:linear-gradient(90deg,var(--heat1),var(--heat3));-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero p.sub{position:relative;max-width:680px;color:var(--dim);font-size:clamp(15px,2vw,19px);animation:fadeUp .8s .6s both}
+.hero .date{position:relative;margin-top:14px;font-family:var(--mono);font-size:13px;color:var(--faint);animation:fadeUp .8s .7s both}
+@keyframes fadeUp{from{opacity:0;transform:translateY(26px)}to{opacity:1;transform:none}}
+.statRow{position:relative;display:flex;flex-wrap:wrap;gap:18px;justify-content:center;margin-top:46px;animation:fadeUp .8s .9s both}
+.stat{background:rgba(28,35,48,.75);backdrop-filter:blur(6px);border:1px solid var(--line);border-radius:16px;padding:18px 28px;min-width:150px}
+.stat .num{font-family:var(--mono);font-size:32px;font-weight:600;color:var(--heat3)}
+.stat .lbl{font-size:13px;color:var(--dim)}
+.scrollHint{position:absolute;bottom:26px;left:50%;transform:translateX(-50%);color:var(--faint);font-size:22px;animation:bob 1.6s ease-in-out infinite}
+@keyframes bob{0%,100%{transform:translate(-50%,0)}50%{transform:translate(-50%,10px)}}
+
+/* ---------- layout ---------- */
+section{max-width:1000px;margin:0 auto;padding:70px 24px}
+h2{font-size:clamp(24px,3.5vw,34px);font-weight:700;margin-bottom:8px}
+h2 .n{font-family:var(--mono);color:var(--heat1);margin-right:10px;font-size:.8em}
+.lede{color:var(--dim);max-width:760px;margin-bottom:34px;font-size:17px}
+.reveal{opacity:0;transform:translateY(34px);transition:opacity .7s ease,transform .7s ease}
+.reveal.in{opacity:1;transform:none}
+
+/* ---------- flow diagram ---------- */
+.flow{display:flex;flex-wrap:wrap;align-items:stretch;justify-content:center;gap:0;margin:30px 0}
+.fnode{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;width:172px;text-align:center;position:relative;transition:transform .3s,border-color .3s}
+.fnode:hover{transform:translateY(-5px);border-color:var(--heat1)}
+.fnode .ico{font-size:30px;margin-bottom:6px}
+.fnode .t{font-weight:600;font-size:14.5px}
+.fnode .d{font-size:12px;color:var(--dim);line-height:1.5;margin-top:4px}
+.farrow{display:flex;align-items:center;padding:0 8px;color:var(--heat2);font-size:22px;position:relative}
+.farrow span{animation:flowDash 1.4s linear infinite;display:inline-block}
+@keyframes flowDash{0%{transform:translateX(-4px);opacity:.3}50%{opacity:1}100%{transform:translateX(4px);opacity:.3}}
+@media (max-width:860px){.flow{flex-direction:column;align-items:center}.farrow{transform:rotate(90deg);padding:6px 0}}
+
+/* ---------- cards ---------- */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:18px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px;transition:transform .3s,border-color .3s,box-shadow .3s}
+.card:hover{transform:translateY(-4px);border-color:var(--heat2);box-shadow:0 12px 30px rgba(0,0,0,.35)}
+.card h3{font-size:17px;margin-bottom:6px;display:flex;align-items:center;gap:8px}
+.card p{font-size:14px;color:var(--dim)}
+.badge{display:inline-block;font-size:11.5px;font-weight:600;padding:2px 10px;border-radius:999px;margin-top:10px}
+.b-ok{background:rgba(63,185,80,.15);color:var(--ok);border:1px solid rgba(63,185,80,.4)}
+.b-warn{background:rgba(210,153,34,.15);color:var(--warn);border:1px solid rgba(210,153,34,.4)}
+.b-info{background:rgba(88,166,255,.15);color:var(--info);border:1px solid rgba(88,166,255,.4)}
+code{font-family:var(--mono);font-size:.86em;background:var(--bg2);border:1px solid var(--line);border-radius:6px;padding:1px 7px;color:var(--heat3);word-break:break-all}
+
+/* ---------- bars ---------- */
+.barWrap{margin:14px 0}
+.barLbl{display:flex;justify-content:space-between;font-size:13.5px;margin-bottom:5px}
+.barLbl b{font-weight:600}
+.barLbl .v{font-family:var(--mono);color:var(--dim)}
+.barTrack{height:14px;background:var(--bg2);border-radius:999px;overflow:hidden;border:1px solid var(--line)}
+.barFill{height:100%;width:0;border-radius:999px;transition:width 1.4s cubic-bezier(.2,.7,.2,1)}
+.bf-ok{background:linear-gradient(90deg,#2ea043,#3fb950)}
+.bf-heat{background:linear-gradient(90deg,var(--heat1),var(--heat3))}
+.bf-info{background:linear-gradient(90deg,#1f6feb,#58a6ff)}
+.bf-dim{background:#3d4654}
+
+/* ---------- metric explain ---------- */
+.metricBox{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:26px;margin-bottom:20px}
+.metricBox h3{font-size:18px;margin-bottom:10px}
+.metricBox h3 .mono{font-family:var(--mono);color:var(--heat3)}
+.analogy{border-left:3px solid var(--heat1);padding:10px 16px;background:rgba(255,107,53,.06);border-radius:0 10px 10px 0;font-size:14.5px;color:var(--dim);margin-top:12px}
+.analogy b{color:var(--txt)}
+
+/* ---------- lead chart ---------- */
+.leadChart{display:flex;gap:14px;align-items:flex-end;height:230px;padding:20px 8px 0;justify-content:center}
+.leadCol{display:flex;flex-direction:column;align-items:center;gap:6px;width:72px}
+.leadBars{display:flex;gap:5px;align-items:flex-end;height:170px}
+.lbar{width:24px;border-radius:6px 6px 0 0;height:0;transition:height 1.2s cubic-bezier(.2,.7,.2,1);position:relative}
+.lbar .tip{position:absolute;top:-22px;left:50%;transform:translateX(-50%);font-family:var(--mono);font-size:10.5px;color:var(--dim);white-space:nowrap}
+.lbar-a{background:#3d4654}
+.lbar-b{background:linear-gradient(180deg,var(--heat3),var(--heat1))}
+.leadCol .cap{font-size:12.5px;color:var(--dim)}
+.legend{display:flex;gap:22px;justify-content:center;margin-top:16px;font-size:13.5px;color:var(--dim)}
+.legend .sw{display:inline-block;width:14px;height:14px;border-radius:4px;margin-right:7px;vertical-align:-2px}
+
+/* ---------- findings ---------- */
+.finding{display:flex;gap:18px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px;margin-bottom:16px;transition:border-color .3s}
+.finding:hover{border-color:var(--heat2)}
+.sev{flex-shrink:0;width:56px;height:56px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;font-family:var(--mono)}
+.sev-1{background:rgba(248,81,73,.14);color:var(--bad);border:1px solid rgba(248,81,73,.45);animation:sevPulse 2s ease-in-out infinite}
+@keyframes sevPulse{0%,100%{box-shadow:0 0 0 0 rgba(248,81,73,.35)}50%{box-shadow:0 0 0 9px rgba(248,81,73,0)}}
+.sev-2{background:rgba(210,153,34,.14);color:var(--warn);border:1px solid rgba(210,153,34,.45)}
+.sev-3{background:rgba(88,166,255,.12);color:var(--info);border:1px solid rgba(88,166,255,.4)}
+.finding h3{font-size:16.5px;margin-bottom:5px}
+.finding p{font-size:14px;color:var(--dim)}
+.finding .fix{margin-top:9px;font-size:13.5px;color:var(--ok)}
+.finding .fix::before{content:'🔧 วิธีแก้: ';color:var(--ok)}
+
+/* ---------- strengths ---------- */
+.strength{display:flex;gap:16px;align-items:flex-start;margin-bottom:22px}
+.strength .ic{flex-shrink:0;width:46px;height:46px;border-radius:12px;background:rgba(63,185,80,.12);border:1px solid rgba(63,185,80,.35);display:flex;align-items:center;justify-content:center;font-size:22px}
+.strength h3{font-size:16.5px}
+.strength p{font-size:14px;color:var(--dim)}
+
+/* ---------- roadmap ---------- */
+.timeline{position:relative;margin-left:18px;padding-left:34px}
+.timeline::before{content:'';position:absolute;left:0;top:6px;bottom:6px;width:3px;border-radius:3px;
+  background:linear-gradient(180deg,var(--heat1),var(--heat3),var(--ok))}
+.tstep{position:relative;margin-bottom:30px}
+.tstep::before{content:'';position:absolute;left:-41px;top:5px;width:17px;height:17px;border-radius:50%;background:var(--bg);border:3px solid var(--heat2)}
+.tstep h3{font-size:16.5px}
+.tstep .when{font-family:var(--mono);font-size:12px;color:var(--heat2);letter-spacing:1px}
+.tstep p{font-size:14px;color:var(--dim)}
+
+/* ---------- big number oracle ---------- */
+.oracleRow{display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:center;margin:26px 0;text-align:center}
+.oNum{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px 30px}
+.oNum .v{font-family:var(--mono);font-size:40px;font-weight:600}
+.oNum .l{font-size:13px;color:var(--dim);max-width:180px}
+.oArrow{font-size:30px;color:var(--heat2);animation:flowDash 1.4s linear infinite}
+
+footer{border-top:1px solid var(--line);text-align:center;padding:40px 20px;color:var(--faint);font-size:13.5px}
+footer code{font-size:12px}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+  .reveal{opacity:1;transform:none}
+  .barFill,.lbar{transition:none}
+}
+</style>
+</head>
+<body>
+
+<!-- ================= HERO ================= -->
+<div class="hero">
+  <div class="sun"></div>
+  <div class="tag">Project Review · ฉบับเข้าใจง่าย</div>
+  <h1>Heatwave <span class="grad">AI</span> ตอนนี้อยู่ตรงไหน?</h1>
+  <p class="sub">รีวิวสุขภาพทั้งโปรเจกต์ — ระบบพยากรณ์คลื่นความร้อนล่วงหน้า 7 วัน
+  ครอบคลุม 77 จังหวัดทั่วไทย ตั้งแต่ข้อมูล โมเดล ไปจนถึงแอปและ LINE bot</p>
+  <div class="date">ตรวจสอบจริงจากโค้ด · 10 มิถุนายน 2026 · branch feat/clean-era5-ndvi-dataset</div>
+  <div class="statRow">
+    <div class="stat"><div class="num" data-count="4">0</div><div class="lbl">codebase ใน repo เดียว</div></div>
+    <div class="stat"><div class="num" data-count="77">0</div><div class="lbl">จังหวัดที่พยากรณ์</div></div>
+    <div class="stat"><div class="num" data-count="984368" data-fmt="comma">0</div><div class="lbl">แถวข้อมูล (1991–2025)</div></div>
+    <div class="stat"><div class="num" data-count="201">0</div><div class="lbl">เทสต์ผ่านทั้งหมด ✅</div></div>
+  </div>
+  <div class="scrollHint">▼</div>
+</div>
+
+<!-- ================= 1. WHAT IS THIS ================= -->
+<section>
+  <div class="reveal">
+    <h2><span class="n">01</span>โปรเจกต์นี้ทำอะไร (อธิบายใน 30 วินาที)</h2>
+    <p class="lede">ระบบนี้ตอบคำถามเดียว: <b style="color:var(--txt)">"อีก 1–7 วันข้างหน้า จังหวัดไหนจะเกิดคลื่นความร้อน?"</b>
+    โดย "คลื่นความร้อน" นิยามแบบวิทยาศาสตร์ คือวันที่ค่าความร้อนรวมความชื้น (sWBGT)
+    สูงกว่า 95% ของวันเดียวกันในอดีต <i>และ</i> ร้อนติดกันอย่างน้อย 2 วัน</p>
+  </div>
+  <div class="flow reveal">
+    <div class="fnode"><div class="ico">🛰️</div><div class="t">ข้อมูลอากาศ 35 ปี</div><div class="d">ERA5 / Open-Meteo<br>1991–2025 รายวัน</div></div>
+    <div class="farrow"><span>➜</span></div>
+    <div class="fnode"><div class="ico">🧮</div><div class="t">สร้างฟีเจอร์</div><div class="d">ใช้เฉพาะ "อดีต"<br>ห้ามแอบดูอนาคต</div></div>
+    <div class="farrow"><span>➜</span></div>
+    <div class="fnode"><div class="ico">🤖</div><div class="t">โมเดล LightGBM</div><div class="d">ทำนายความน่าจะเป็น<br>+ ปรับเทียบ (calibration)</div></div>
+    <div class="farrow"><span>➜</span></div>
+    <div class="fnode"><div class="ico">🗄️</div><div class="t">Backend + DB</div><div class="d">Elysia/Bun + Supabase<br>รันพยากรณ์ทุกวัน</div></div>
+    <div class="farrow"><span>➜</span></div>
+    <div class="fnode"><div class="ico">📱</div><div class="t">ผู้ใช้</div><div class="d">แผนที่ความเสี่ยงในแอป<br>+ แจ้งเตือนผ่าน LINE</div></div>
+  </div>
+</section>
+
+<!-- ================= 2. FOUR CODEBASES ================= -->
+<section>
+  <div class="reveal">
+    <h2><span class="n">02</span>4 ส่วนของโปรเจกต์ — สุขภาพเป็นยังไง</h2>
+    <p class="lede">repo เดียวแต่มี 4 ระบบอยู่ด้วยกัน ผลตรวจวันนี้ (รันเทสต์จริง):</p>
+  </div>
+  <div class="grid reveal">
+    <div class="card">
+      <h3>🐍 ML / Forecasting</h3>
+      <p>Python — หัวใจของงานวิจัย: features, labels, เทรน, ประเมินผล, สคริปต์ทดลองกว่า 25 ตัว</p>
+      <div class="barWrap"><div class="barLbl"><b>pytest</b><span class="v">161 / 161</span></div>
+      <div class="barTrack"><div class="barFill bf-ok" data-w="100"></div></div></div>
+      <span class="badge b-ok">✅ ผ่านทั้งหมด · แข็งแรงมาก</span>
+    </div>
+    <div class="card">
+      <h3>⚡ Product Backend</h3>
+      <p>Elysia + Bun — เสิร์ฟ API พยากรณ์ + LINE bot (webhook, flex message, rich menu)</p>
+      <div class="barWrap"><div class="barLbl"><b>bun test</b><span class="v">40 / 40</span></div>
+      <div class="barTrack"><div class="barFill bf-ok" data-w="100"></div></div></div>
+      <span class="badge b-ok">✅ ผ่านทั้งหมด · ทน DB ล่มได้</span>
+    </div>
+    <div class="card">
+      <h3>📱 Frontend (HeatMAP)</h3>
+      <p>Expo / React Native — แผนที่ความเสี่ยง 77 จังหวัด, ระบบเตือน 2 ระดับ (เฝ้าระวัง/เตือนภัย), โทนสีไม่สร้างความตื่นตระหนก</p>
+      <span class="badge b-ok">✅ Deploy แล้ว ใช้งานได้จริง</span>
+    </div>
+    <div class="card">
+      <h3>📊 Training Dashboard</h3>
+      <p>FastAPI + React — UI เทรนโมเดลแบบเห็นสด ใช้เฉพาะในเครื่อง (local-only) มีระบบ promote โมเดลอย่างปลอดภัย (guard + backup + rollback)</p>
+      <span class="badge b-info">🧪 เครื่องมือภายใน · ทำงานได้</span>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 3. MODEL SKILL ================= -->
+<section>
+  <div class="reveal">
+    <h2><span class="n">03</span>โมเดลเก่งแค่ไหน — อ่านตัวเลขให้เป็น</h2>
+    <p class="lede">โมเดลที่ใช้งานจริงตอนนี้คือ <code>lgbm-v1</code> (เทรน 5 มิ.ย. 2026, 77 จังหวัด, 34 ฟีเจอร์)
+    ทดสอบกับปี 2025 ที่โมเดล<b style="color:var(--txt)">ไม่เคยเห็นมาก่อน</b>:</p>
+  </div>
+
+  <div class="metricBox reveal">
+    <h3>📊 ตัวเลขหลัก (ทดสอบปี 2025)</h3>
+    <div class="barWrap"><div class="barLbl"><b>ROC-AUC — แยก "วันอันตราย" ออกจาก "วันปกติ" ได้ดีแค่ไหน</b><span class="v">0.754</span></div>
+    <div class="barTrack"><div class="barFill bf-heat" data-w="75.4"></div></div></div>
+    <div class="barWrap"><div class="barLbl"><b>F2 score — คะแนนรวมที่ให้น้ำหนัก "ห้ามพลาดเหตุการณ์จริง" เป็น 2 เท่า</b><span class="v">0.511</span></div>
+    <div class="barTrack"><div class="barFill bf-heat" data-w="51.1"></div></div></div>
+    <div class="barWrap"><div class="barLbl"><b>PR-AUC — ความแม่นเมื่อเหตุการณ์หายาก</b><span class="v">0.333</span></div>
+    <div class="barTrack"><div class="barFill bf-heat" data-w="33.3"></div></div></div>
+    <div class="analogy">🧠 <b>เปรียบเทียบง่าย ๆ:</b> โมเดลเหมือนยามเฝ้าหมู่บ้านที่ขยันมาก —
+    <b>จับขโมยได้เกือบทุกครั้งที่มาจริง (recall สูง)</b> แต่ก็เป่านกหวีดผิดบ่อย (precision ต่ำ ~0.23)
+    ทีมจึงออกแบบระบบเตือน 2 ระดับ: "เฝ้าระวัง" สำหรับสัญญาณอ่อน และ "เตือนภัย" สำหรับสัญญาณแรง
+    เพื่อไม่ให้คนเลิกเชื่อการเตือน</div>
+  </div>
+
+  <div class="metricBox reveal">
+    <h3>🏆 ชนะ baseline ไหม? <span style="color:var(--ok);font-size:14px">ชนะ — นี่คือเกณฑ์ที่ถูกต้อง</span></h3>
+    <p style="color:var(--dim);font-size:14.5px;margin-bottom:14px">คะแนนเดี่ยว ๆ ไม่มีความหมาย ต้องเทียบกับ "วิธีโง่ที่สุดที่ใช้ได้":</p>
+    <div class="barWrap"><div class="barLbl"><b>โมเดลของเรา (LightGBM)</b><span class="v">F2 ≈ 0.51–0.56</span></div>
+    <div class="barTrack"><div class="barFill bf-heat" data-w="56"></div></div></div>
+    <div class="barWrap"><div class="barLbl"><b>Climatology — "เดือนนี้ปีก่อน ๆ ร้อนไหม"</b><span class="v">F2 ≈ 0.47</span></div>
+    <div class="barTrack"><div class="barFill bf-dim" data-w="47"></div></div></div>
+    <div class="barWrap"><div class="barLbl"><b>Persistence — "พรุ่งนี้เหมือนวันนี้"</b><span class="v">F2 ≈ 0.42</span></div>
+    <div class="barTrack"><div class="barFill bf-dim" data-w="42"></div></div></div>
+  </div>
+
+  <div class="metricBox reveal">
+    <h3>🔭 การค้นพบสำคัญที่สุดของโปรเจกต์: "เพดาน" อยู่ที่ข้อมูล ไม่ใช่โมเดล</h3>
+    <p style="color:var(--dim);font-size:14.5px">ลองโมเดล 7 ตระกูล (RF, XGBoost, CatBoost, LightGBM, MLP, ensemble…)
+    ทุกตัวได้คะแนนเท่ากันหมด → แปลว่าอัลกอริทึมไม่ใช่คอขวด
+    ทีมจึงทำ <b style="color:var(--txt)">"oracle experiment"</b>: แอบใส่อากาศจริงของวันเป้าหมายเข้าไป (ทำไม่ได้จริง แต่ใช้วัดเพดาน)</p>
+    <div class="oracleRow">
+      <div class="oNum"><div class="v" style="color:var(--dim)">0.33</div><div class="l">PR-AUC ปัจจุบัน<br>(เห็นแค่อดีต)</div></div>
+      <div class="oArrow">➜</div>
+      <div class="oNum" style="border-color:rgba(255,158,44,.5)"><div class="v" style="color:var(--heat3)">0.88</div><div class="l">PR-AUC ถ้ารู้อากาศวันเป้าหมาย<br>(เพดานทางทฤษฎี)</div></div>
+    </div>
+    <div class="analogy">💡 <b>ความหมาย:</b> โมเดลตอนนี้ "ตาบอด" ต่ออากาศของวันที่มันกำลังทำนาย
+    ช่องว่าง 0.33 → 0.88 คือขุมทรัพย์ที่เหลืออยู่ และทางเดียวที่จะไปถึงคือป้อน
+    <b>ข้อมูลพยากรณ์อากาศ (NWP forecast)</b> เข้าเป็นฟีเจอร์ — เรียกว่าแผน P0</div>
+  </div>
+
+  <div class="metricBox reveal">
+    <h3>🧪 P0 พิสูจน์แล้วด้วยข้อมูลจริง (NOAA GEFS reforecast)</h3>
+    <p style="color:var(--dim);font-size:14.5px;margin-bottom:6px">ใช้พยากรณ์จริงที่ออกล่วงหน้าจริง ๆ ปี 2016–2019 (ไม่ใช่ข้อมูลย้อนหลังปลอมตัวมา)
+    เปรียบเทียบโมเดล A (เห็นแค่อดีต) กับ B (+ พยากรณ์ heat-index ของวันเป้าหมาย) — ROC แยกตามระยะล่วงหน้า:</p>
+    <div class="leadChart" id="leadChart">
+      <div class="leadCol"><div class="leadBars"><div class="lbar lbar-a" data-h="75.4"><span class="tip">.75</span></div><div class="lbar lbar-b" data-h="73.9"><span class="tip">.74</span></div></div><div class="cap">1 วัน</div></div>
+      <div class="leadCol"><div class="leadBars"><div class="lbar lbar-a" data-h="58.1"><span class="tip">.58</span></div><div class="lbar lbar-b" data-h="62.8"><span class="tip">.63</span></div></div><div class="cap">2 วัน</div></div>
+      <div class="leadCol"><div class="leadBars"><div class="lbar lbar-a" data-h="53.1"><span class="tip">.53</span></div><div class="lbar lbar-b" data-h="67.4"><span class="tip">.67</span></div></div><div class="cap">3 วัน ⭐</div></div>
+      <div class="leadCol"><div class="leadBars"><div class="lbar lbar-a" data-h="53.1"><span class="tip">.53</span></div><div class="lbar lbar-b" data-h="66.5"><span class="tip">.67</span></div></div><div class="cap">4 วัน ⭐</div></div>
+      <div class="leadCol"><div class="leadBars"><div class="lbar lbar-a" data-h="57.9"><span class="tip">.58</span></div><div class="lbar lbar-b" data-h="66.1"><span class="tip">.66</span></div></div><div class="cap">5 วัน</div></div>
+      <div class="leadCol"><div class="leadBars"><div class="lbar lbar-a" data-h="59.6"><span class="tip">.60</span></div><div class="lbar lbar-b" data-h="62.3"><span class="tip">.62</span></div></div><div class="cap">6 วัน</div></div>
+      <div class="leadCol"><div class="leadBars"><div class="lbar lbar-a" data-h="46.8"><span class="tip">.47</span></div><div class="lbar lbar-b" data-h="55.0"><span class="tip">.55</span></div></div><div class="cap">7 วัน</div></div>
+    </div>
+    <div class="legend">
+      <span><span class="sw" style="background:#3d4654"></span>A — เห็นแค่อดีต</span>
+      <span><span class="sw" style="background:linear-gradient(180deg,var(--heat3),var(--heat1))"></span>B — + พยากรณ์วันเป้าหมาย</span>
+    </div>
+    <div class="analogy">📈 <b>อ่านกราฟ:</b> ระยะ 1 วัน อดีตก็พอ (อากาศพรุ่งนี้คล้ายวันนี้)
+    แต่พอ <b>3–5 วัน</b> ข้อมูลอดีตเริ่มหมดแรง — ตรงนั้นแหละที่พยากรณ์อากาศเข้ามาช่วยมากที่สุด
+    สรุปเชิงปฏิบัติ: <b>ยืดระยะเตือนภัยที่ใช้ได้จริงจาก ~1–2 วัน เป็น ~5 วัน</b></div>
+  </div>
+</section>
+
+<!-- ================= 4. STRENGTHS ================= -->
+<section>
+  <div class="reveal">
+    <h2><span class="n">04</span>จุดแข็ง — สิ่งที่โปรเจกต์นี้ทำได้ดีจริง</h2>
+    <p class="lede">ในมุมผู้รีวิว นี่ไม่ใช่โปรเจกต์ ML ทั่วไป — วินัยทางวิทยาศาสตร์อยู่ระดับงานวิจัย:</p>
+  </div>
+  <div class="reveal">
+    <div class="strength"><div class="ic">🔒</div><div>
+      <h3>ออกแบบกัน Data Leakage ตั้งแต่ราก</h3>
+      <p>ทุกฟีเจอร์ใช้ <code>.shift(1)</code> — ค่าของ "วันนี้" ไม่มีทางหลุดเข้าไปทำนายตัวเอง
+      มีลิสต์ <code>LEAKY_COLS</code> ห้ามคอลัมน์ต้องห้าม และแบ่งข้อมูลตามเวลาเสมอ (เทรนปีเก่า ทดสอบปีใหม่)
+      เพราะการสุ่มแบ่งข้อมูลอากาศรายวันจะได้คะแนนปลอม ~0.99</p>
+    </div></div>
+    <div class="strength"><div class="ic">🔬</div><div>
+      <h3>ซื่อสัตย์กับผลการทดลอง — รวมถึงผลที่ "ไม่สวย"</h3>
+      <p>ตอนพบว่า API คืนค่า "พยากรณ์ย้อนหลัง" ที่จริง ๆ คือเฉลย (corr = 1.0000) ทีมทิ้งผลคะแนนสวยหรู F2 0.90 ทันที
+      และบันทึกไว้เป็นบทเรียน เช่นเดียวกับ dataset ERA5 ใหม่ที่คะแนน<i>ต่ำลง</i> — ก็รายงานตรง ๆ พร้อมวินิจฉัยสาเหตุ</p>
+    </div></div>
+    <div class="strength"><div class="ic">🎲</div><div>
+      <h3>ทดสอบนัยสำคัญทางสถิติ ไม่เชื่อตัวเลขลอย ๆ</h3>
+      <p>ผลของ soil moisture (+0.008 ROC) เล็กจนใกล้ noise — ทีม bootstrap 1,000 รอบเพื่อพิสูจน์ว่า
+      ผลจริงหรือบังเอิญ (CI ไม่ครอบ 0 = จริงแต่เล็ก) นี่คือมาตรฐานเดียวกับ paper วิชาการ</p>
+    </div></div>
+    <div class="strength"><div class="ic">🔁</div><div>
+      <h3>ทำซ้ำได้ทั้งหมด (Reproducible)</h3>
+      <p><code>data/</code> ไม่เก็บใน git — สิ่งที่เป็น "ความจริง" คือสคริปต์สร้างข้อมูล
+      ใครก็รันสร้าง dataset เดิมขึ้นมาใหม่ได้ มีเทสต์ 161 ตัวคุมทุกชิ้นส่วน</p>
+    </div></div>
+    <div class="strength"><div class="ic">🚀</div><div>
+      <h3>ครบวงจรถึงผู้ใช้จริง</h3>
+      <p>ไม่ได้จบแค่ notebook — มี backend รันพยากรณ์รายวันอัตโนมัติ, แผนที่ในแอป, LINE bot
+      และระบบ promote โมเดลที่มี guard + backup + rollback กันพังเวลาอัปเดต</p>
+    </div></div>
+  </div>
+</section>
+
+<!-- ================= 5. FINDINGS ================= -->
+<section>
+  <div class="reveal">
+    <h2><span class="n">05</span>จุดที่ควรแก้ — เรียงตามความเร่งด่วน</h2>
+    <p class="lede">ตรวจเจอจากการรันจริงวันนี้ ไม่ใช่จากเอกสาร:</p>
+  </div>
+  <div class="reveal">
+    <div class="finding">
+      <div class="sev sev-1">P1</div>
+      <div>
+        <h3>ตัวเก็บข้อมูลพยากรณ์รายวัน "ขาดวัน" — กระทบข้อมูลที่สำคัญที่สุดของอนาคตโปรเจกต์</h3>
+        <p>Scheduled task <code>HeatwaveForecastCollect</code> ตั้งเป็น <b>"Interactive only"</b> — รันเฉพาะตอนล็อกอินเครื่องเท่านั้น
+        ผลคือ 11 วันที่ผ่านมาเก็บได้แค่ <b>9 วัน</b> (หายไป 2 วัน) ข้อมูลชุดนี้คือวัตถุดิบของแผน P0
+        ที่ต้องเก็บต่อเนื่องข้ามฤดูร้อน — ทุกวันที่หายคือรูในชุดข้อมูลที่ย้อนเก็บไม่ได้ตลอดกาล</p>
+        <p class="fix">เปลี่ยน task ให้รันแบบ "ไม่ต้องล็อกอิน" (<code>schtasks /RU SYSTEM</code> หรือ "Run whether user is logged on or not")
+        หรือย้ายไปรันบน cloud cron (มี Render cron อยู่แล้ว) จะเสถียรกว่าแลปท็อปมาก</p>
+      </div>
+    </div>
+    <div class="finding">
+      <div class="sev sev-2">P2</div>
+      <div>
+        <h3>เส้นทาง API เก่ายังเสิร์ฟโมเดลรุ่นเก่า</h3>
+        <p>หน้า Map/Alerts ใช้โมเดลใหม่ (77 จังหวัด lgbm-v1) แล้ว แต่ route เก่า <code>/forecast/latest</code>
+        ยังตอบด้วยโมเดล v1 (balanced_rf) ที่ล้าสมัย — ถ้ามีใครเรียกใช้จะได้คำตอบคนละเวอร์ชันกับแผนที่</p>
+        <p class="fix">ลบหรือ redirect route เก่าให้ชี้ไปข้อมูลชุดเดียวกับหน้า Map</p>
+      </div>
+    </div>
+    <div class="finding">
+      <div class="sev sev-2">P2</div>
+      <div>
+        <h3>PR ค้าง 2 อันตั้งแต่เดือนพฤษภาคม — เนื้อหาล้าสมัยแล้ว</h3>
+        <p>PR #1 (EDA/WBGT) เปิดก่อนการ rebuild dataset ใหญ่วันที่ 5 มิ.ย. และ PR #2 (AsyncStorage) ค้างมา 2 สัปดาห์
+        PR ที่ค้างนานจะ conflict สะสมและกลายเป็นขยะทางจิตใจ</p>
+        <p class="fix">ตัดสินใจอย่างใดอย่างหนึ่ง: rebase แล้ว merge หรือปิดทิ้งพร้อมโน้ตว่าเนื้อหาถูกแทนที่ด้วยอะไร</p>
+      </div>
+    </div>
+    <div class="finding">
+      <div class="sev sev-3">P3</div>
+      <div>
+        <h3>Branch ปัจจุบันยาวเกินไป (25+ commits ยังไม่เข้า master)</h3>
+        <p><code>feat/clean-era5-ndvi-dataset</code> กลายเป็น branch หลักโดยพฤตินัย — มีทั้งงาน ML, UX, ops ปนกัน
+        ถ้าเครื่องพังหรือ branch เสีย งานทั้งหมดเสี่ยง และชื่อ branch ไม่ตรงเนื้อหาแล้ว</p>
+        <p class="fix">merge เข้า master เป็นช่วง ๆ (งานทดสอบผ่านครบแล้ว ไม่มีเหตุผลต้องรอ)</p>
+      </div>
+    </div>
+    <div class="finding">
+      <div class="sev sev-3">P3</div>
+      <div>
+        <h3>เศษไฟล์และความสับสนเล็กน้อย</h3>
+        <p>ไฟล์ untracked ค้าง (<code>bun_test_out.txt</code>, <code>docs/PROJECT-EXPLAINER.html</code>),
+        <code>config.yaml</code> อธิบายระบบที่ไม่ได้ใช้จริง (มีหมายเหตุใน docs แล้วแต่ยังหลอกคนใหม่ได้),
+        และ <code>src/</code> ปน Python กับ TypeScript ในโฟลเดอร์เดียว</p>
+        <p class="fix">ลบไฟล์ขยะ / commit ไฟล์เอกสาร, ใส่หมายเหตุหัวไฟล์ config.yaml ว่า "ไม่ได้ wired" — ส่วน src/ ปนภาษา รับรู้ไว้พอ (ย้ายตอนนี้ได้ไม่คุ้มเสี่ยง)</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 6. ROADMAP ================= -->
+<section>
+  <div class="reveal">
+    <h2><span class="n">06</span>ควรทำอะไรต่อ — เรียงตามลำดับ</h2>
+    <p class="lede">มองทั้งมุม "ทำให้ระบบดีขึ้น" และมุม "เตรียมไปแข่ง YSC":</p>
+  </div>
+  <div class="timeline reveal">
+    <div class="tstep">
+      <div class="when">ทันที · 10 นาที</div>
+      <h3>แก้ scheduled task ให้รันแบบไม่ต้องล็อกอิน</h3>
+      <p>หยุดเลือดไหลก่อน — ทุกวันที่ task ไม่รัน คือข้อมูล P0 ที่หายถาวร นี่คืองานที่คุ้มที่สุดต่อนาทีของทั้งรายการ</p>
+    </div>
+    <div class="tstep">
+      <div class="when">สัปดาห์นี้</div>
+      <h3>เคลียร์หนี้ git: merge branch + จัดการ PR เก่า 2 อัน</h3>
+      <p>เทสต์ผ่านครบ 201 ตัวอยู่แล้ว merge เข้า master ได้เลย แล้ว repo จะกลับมาสะอาดพร้อมโชว์กรรมการ</p>
+    </div>
+    <div class="tstep">
+      <div class="when">สัปดาห์นี้ · ต่อเนื่อง</div>
+      <h3>เริ่มร่างข้อเสนอโครงงาน YSC จากเรื่อง "เพดานของการพยากรณ์"</h3>
+      <p>โครงเรื่องวิจัยเสร็จแล้วในมือ: สังเกต (โมเดล 7 ตัวตัน) → สมมติฐาน (ข้อมูลคือคอขวด) →
+      พิสูจน์ (oracle 0.33→0.88) → ทดลองจริง (GEFS, lift ที่ 3–5 วัน) → ประยุกต์ (ระบบเตือนจริง)
+      สิ่งที่ต้องทำคือเรียบเรียง + ฝึกอธิบายคณิต 5 หัวข้อ (percentile, confusion matrix, F2, ROC, bootstrap)</p>
+    </div>
+    <div class="tstep">
+      <div class="when">ก.ค.–ก.ย. 2026</div>
+      <h3>ปล่อยให้ forecast store โตต่อ + ทดลอง retrain ครั้งแรก</h3>
+      <p>เมื่อข้อมูลพยากรณ์ที่เก็บเองครอบคลุมหลายเดือน จะเทรนโมเดลที่ใช้ forecast covariates
+      แบบตรงกับของจริงตอน serve ได้เป็นครั้งแรก — นี่คือการทดลอง "ของสด" ที่ทีมอื่นลอกไม่ได้</p>
+    </div>
+    <div class="tstep">
+      <div class="when">ฤดูร้อน 2027 (มี.ค.–พ.ค.)</div>
+      <h3>วัดผลจริงกลางฤดูร้อน → ปิดวงจรวิจัย</h3>
+      <p>เทียบการเตือนของระบบกับเหตุการณ์จริงรายวัน ได้ตัวเลข precision/recall จากโลกจริง
+      ซึ่งเป็นหลักฐานที่ทรงพลังที่สุดในรอบชิง</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================= VERDICT ================= -->
+<section style="padding-top:20px">
+  <div class="metricBox reveal" style="border-color:rgba(255,158,44,.4);background:linear-gradient(180deg,rgba(255,107,53,.07),var(--card))">
+    <h3>🏁 สรุปผลรีวิว</h3>
+    <p style="font-size:15.5px;color:var(--dim)">
+    <b style="color:var(--txt)">สุขภาพโดยรวม: ดีมาก (A−)</b> — เทสต์ผ่านครบทั้ง 201 ตัว, สถาปัตยกรรมกัน leakage แน่นระดับงานวิจัย,
+    มีระบบใช้งานจริงครบวงจร และมีผลการทดลองที่ซื่อสัตย์พร้อมอ้างอิงได้
+    จุดหักคะแนนเดียวที่<b style="color:var(--bad)">ต้องรีบแก้</b>คือตัวเก็บข้อมูลรายวันที่ขาดวัน (P1)
+    เพราะมันกัดกร่อนข้อมูลที่อนาคตของโมเดล (และโครงงาน YSC) ต้องพึ่ง
+    ส่วนหนี้ git (branch ยาว + PR ค้าง) เป็นเรื่องวินัยที่เคลียร์ได้ในไม่กี่ชั่วโมง</p>
+  </div>
+</section>
+
+<footer>
+  สร้างจากการตรวจสอบโค้ดและรันเทสต์จริง · 10 มิถุนายน 2026<br>
+  อ้างอิง: <code>models/model_card.json</code> · <code>docs/MODEL-IMPROVEMENT.md</code> · <code>pytest 161 pass</code> · <code>bun test 40 pass</code>
+</footer>
+
+<script>
+// scroll reveal
+const io = new IntersectionObserver(es => es.forEach(e => {
+  if (!e.isIntersecting) return;
+  e.target.classList.add('in');
+  // animate bars inside
+  e.target.querySelectorAll('.barFill').forEach(b => { b.style.width = b.dataset.w + '%'; });
+  e.target.querySelectorAll('.lbar').forEach(b => { b.style.height = (b.dataset.h * 1.7) + 'px'; });
+  io.unobserve(e.target);
+}), { threshold: 0.18 });
+document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+
+// counters
+function animateCount(el) {
+  const target = +el.dataset.count, comma = el.dataset.fmt === 'comma';
+  const dur = 1600, t0 = performance.now();
+  function tick(t) {
+    const p = Math.min((t - t0) / dur, 1), ease = 1 - Math.pow(1 - p, 3);
+    const v = Math.round(target * ease);
+    el.textContent = comma ? v.toLocaleString('en-US') : v;
+    if (p < 1) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+const cio = new IntersectionObserver(es => es.forEach(e => {
+  if (e.isIntersecting) { animateCount(e.target); cio.unobserve(e.target); }
+}), { threshold: 0.6 });
+document.querySelectorAll('[data-count]').forEach(el => cio.observe(el));
+</script>
+</body>
+</html>
