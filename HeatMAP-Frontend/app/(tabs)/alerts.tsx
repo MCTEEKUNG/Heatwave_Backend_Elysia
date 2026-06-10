@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { Colors, DesignTokens, GlassStyle, BottomNavStyle } from '@/constants/theme';
+import { Colors, DesignTokens, GlassStyle } from '@/constants/theme';
+import { GlassTabBar } from '@/components/ui/GlassTabBar';
 import { useSettings } from '@/hooks/useSettings';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { ScaledText } from '@/components/ui/ScaledText';
@@ -601,29 +602,8 @@ export default function AlertsScreen() {
         </TouchableOpacity>
       </ScrollView>
 
-      {/* Bottom Navigation */}
-      <View style={[styles.bottomNav, BottomNavStyle.container, isDarkMode ? BottomNavStyle.dark : {}]}>
-        <TouchableOpacity style={styles.navItem} onPress={() => router.push('/(tabs)/map')}>
-          <IconSymbol size={28} name="map.fill" color={theme.tabIconDefault} />
-          <ScaledText variant="labelSmall" style={[styles.navLabel, { color: theme.tabIconDefault }]}>{t('navMap')}</ScaledText>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.navItem}>
-          <IconSymbol size={28} name="notifications" color={theme.primary} />
-          <ScaledText variant="labelSmall" style={[styles.navLabel, { color: theme.primary }]}>{t('navAlerts')}</ScaledText>
-          <View style={[styles.activeDot, { backgroundColor: theme.primary }]} />
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.navItem} onPress={() => router.push('/checklist')}>
-          <IconSymbol size={28} name="shield.fill" color={theme.tabIconDefault} />
-          <ScaledText variant="labelSmall" style={[styles.navLabel, { color: theme.tabIconDefault }]}>{t('navSafety')}</ScaledText>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.navItem} onPress={() => router.push('/(tabs)/settings')}>
-          <IconSymbol size={28} name="person.fill" color={theme.tabIconDefault} />
-          <ScaledText variant="labelSmall" style={[styles.navLabel, { color: theme.tabIconDefault }]}>{t('navProfile')}</ScaledText>
-        </TouchableOpacity>
-      </View>
+      {/* Floating liquid-glass tab bar (shared) */}
+      <GlassTabBar active="alerts" />
     </SafeAreaView>
   );
 }

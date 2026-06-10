@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
-import { Colors, DesignTokens, GlassStyle, BottomNavStyle, useResponsive } from '@/constants/theme';
+import { Colors, DesignTokens, GlassStyle, useResponsive } from '@/constants/theme';
+import { GlassTabBar } from '@/components/ui/GlassTabBar';
 import { useSettings } from '@/hooks/useSettings';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { MapGrid, generateThailandGrid, type GridCell, type Severity } from '@/components/map';
@@ -531,42 +532,8 @@ export default function MapScreen() {
       </View>
       )}
 
-      {/* Bottom Navigation */}
-      <View style={[
-        styles.bottomNav, 
-        BottomNavStyle.container,
-        isDarkMode ? BottomNavStyle.dark : {}
-      ]}>
-        <TouchableOpacity style={styles.navItem}>
-          <IconSymbol size={28} name="map.fill" color={theme.primary} />
-          <ScaledText variant="labelSmall" style={[styles.navLabel, { color: theme.primary }]}>{t('navMap')}</ScaledText>
-          <View style={[styles.activeDot, { backgroundColor: theme.primary }]} />
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={styles.navItem}
-          onPress={() => router.push('/(tabs)/alerts')}
-        >
-          <IconSymbol size={28} name="notifications" color={theme.tabIconDefault} />
-          <ScaledText variant="labelSmall" style={[styles.navLabel, { color: theme.tabIconDefault }]}>{t('navAlerts')}</ScaledText>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={styles.navItem}
-          onPress={() => router.push('/checklist')}
-        >
-          <IconSymbol size={28} name="shield.fill" color={theme.tabIconDefault} />
-          <ScaledText variant="labelSmall" style={[styles.navLabel, { color: theme.tabIconDefault }]}>{t('navSafety')}</ScaledText>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={styles.navItem}
-          onPress={() => router.push('/(tabs)/settings')}
-        >
-          <IconSymbol size={28} name="person.fill" color={theme.tabIconDefault} />
-          <ScaledText variant="labelSmall" style={[styles.navLabel, { color: theme.tabIconDefault }]}>{t('navProfile')}</ScaledText>
-        </TouchableOpacity>
-      </View>
+      {/* Floating liquid-glass tab bar (shared) */}
+      <GlassTabBar active="map" />
     </View>
   );
 }
