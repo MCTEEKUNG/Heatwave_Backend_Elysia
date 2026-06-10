@@ -1,11 +1,5 @@
-import { useEffect, useState } from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-} from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 
 import { BottomNavStyle, Colors, FontFamily } from '@/constants/theme';
@@ -22,33 +16,24 @@ const TABS: { key: TabKey; icon: string; labelKey: string; route: string }[] = [
   { key: 'profile', icon: 'person.fill', labelKey: 'navProfile', route: '/(tabs)/settings' },
 ];
 
-const PAD = 6; // inner padding around the sliding pill
+const SLOT_PCT = 100 / TABS.length;
 
 /**
  * Floating liquid-glass tab bar (Calm Authority): one shared pill nav used by
- * all four screens. A navy "liquid" pill springs to the active tab; the active
- * icon/label render white on navy (high contrast), inactive stay soft navy.
- * Web gets a real backdrop blur (BottomNavStyle); native falls back to a
- * near-opaque surface.
+ * all four screens. The navy pill sits behind the active tab; the active
+ * icon/label render white on navy, inactive stay soft navy. Web gets a real
+ * backdrop blur (BottomNavStyle); native falls back to a near-opaque surface.
+ *
+ * NOTE — the pill is positioned with PERCENTAGES, deliberately not animated:
+ * every screen renders its own GlassTabBar instance, so a mount-time spring
+ * made the pill "fly in" from slot 0 on every navigation (and overshoot off
+ * the bar entirely on wide/resized viewports). Static placement is correct
+ * here; press feedback comes from the Pressable opacity instead.
  */
 export function GlassTabBar({ active }: { active: TabKey }) {
   const { isDarkMode, t } = useSettings();
   const theme = Colors[isDarkMode ? 'dark' : 'light'];
-  const [barWidth, setBarWidth] = useState(0);
-
-  const itemWidth = barWidth > 0 ? (barWidth - PAD * 2) / TABS.length : 0;
-  const activeIndex = TABS.findIndex((tab) => tab.key === active);
-  const pillX = useSharedValue(0);
-
-  useEffect(() => {
-    if (itemWidth > 0) {
-      pillX.value = withSpring(activeIndex * itemWidth, { damping: 18, stiffness: 160 });
-    }
-  }, [activeIndex, itemWidth, pillX]);
-
-  const pillStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: pillX.value }],
-  }));
+  const activeIndex = Math.max(0, TABS.findIndex((tab) => tab.key === active));
 
   const onPress = (tab: (typeof TABS)[number]) => {
     if (tab.key === active) return;
@@ -59,55 +44,59 @@ export function GlassTabBar({ active }: { active: TabKey }) {
   };
 
   return (
-    <View
-      style={[BottomNavStyle.container, isDarkMode ? BottomNavStyle.dark : null, styles.bar]}
-      onLayout={(e) => setBarWidth(e.nativeEvent.layout.width)}
-    >
-      {itemWidth > 0 && (
-        <Animated.View
+    <View style={[BottomNavStyle.container, isDarkMode ? BottomNavStyle.dark : null, styles.bar]}>
+      <View style={styles.inner}>
+        <View
+          pointerEvents="none"
           style={[
             styles.pill,
-            { width: itemWidth, backgroundColor: theme.primary },
-            pillStyle,
+            {
+              left: `${activeIndex * SLOT_PCT}%`,
+              width: `${SLOT_PCT}%`,
+              backgroundColor: theme.primary,
+            },
           ]}
         />
-      )}
-      {TABS.map((tab) => {
-        const isActive = tab.key === active;
-        const color = isActive ? '#FFFFFF' : theme.tabIconDefault;
-        return (
-          <Pressable
-            key={tab.key}
-            style={styles.item}
-            onPress={() => onPress(tab)}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: isActive }}
-            accessibilityLabel={t(tab.labelKey)}
-          >
-            <IconSymbol size={22} name={tab.icon as never} color={color} />
-            <ScaledText variant="labelSmall" style={[styles.label, { color }]}>
-              {t(tab.labelKey)}
-            </ScaledText>
-          </Pressable>
-        );
-      })}
+        {TABS.map((tab) => {
+          const isActive = tab.key === active;
+          const color = isActive ? '#FFFFFF' : theme.tabIconDefault;
+          return (
+            <Pressable
+              key={tab.key}
+              style={({ pressed }) => [styles.item, pressed && !isActive && styles.itemPressed]}
+              onPress={() => onPress(tab)}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: isActive }}
+              accessibilityLabel={t(tab.labelKey)}
+            >
+              <IconSymbol size={22} name={tab.icon as never} color={color} />
+              <ScaledText variant="labelSmall" style={[styles.label, { color }]}>
+                {t(tab.labelKey)}
+              </ScaledText>
+            </Pressable>
+          );
+        })}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   bar: {
+    paddingHorizontal: 6,
+    paddingVertical: 6,
+    zIndex: 40,
+  },
+  inner: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'stretch',
-    paddingHorizontal: PAD,
-    paddingVertical: PAD,
-    zIndex: 40,
+    position: 'relative',
   },
   pill: {
     position: 'absolute',
-    top: PAD,
-    bottom: PAD,
-    left: PAD,
+    top: 0,
+    bottom: 0,
     borderRadius: 999,
     shadowColor: '#16324F',
     shadowOffset: { width: 0, height: 4 },
@@ -121,6 +110,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 2,
     minHeight: 44,
+  },
+  itemPressed: {
+    opacity: 0.55,
   },
   label: {
     fontSize: 10,
