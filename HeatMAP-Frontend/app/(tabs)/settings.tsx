@@ -1,282 +1,182 @@
 import { View, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { CustomSwitch } from '@/components/ui/CustomSwitch';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Colors, DesignTokens, GlassStyle, useResponsive } from '@/constants/theme';
+import { Colors, FontFamily, SoftShadow } from '@/constants/theme';
 import { GlassTabBar } from '@/components/ui/GlassTabBar';
 import { useSettings, Language, FontSize } from '@/hooks/useSettings';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { ScaledText } from '@/components/ui/ScaledText';
 import { scheduleLocalNotification } from '@/services/NotificationService';
 
+// Keep in sync with models/model_card.json (served model) — judges read this.
+const MODEL_INFO = {
+  model: 'LightGBM · lgbm-v1',
+  coverage: '77 จังหวัด · พยากรณ์ 7 วัน',
+  source: 'Open-Meteo / ERA5 (1991–2025)',
+};
+
+/**
+ * SETTINGS — "ตั้งค่า" (Calm Authority). Deliberately NOT a profile screen:
+ * this app has no login — everyone receives the same public information.
+ * What lives here instead: notification + display preferences, and the
+ * "เกี่ยวกับระบบพยากรณ์" transparency card (model, data sources, heatwave
+ * definition) so anyone — including science-fair judges — can see exactly
+ * how the forecast is made.
+ */
 export default function SettingsScreen() {
-  const { 
-    isDarkMode, 
-    setThemeMode, 
-    language, 
-    setLanguage, 
-    fontSize, 
+  const {
+    isDarkMode,
+    setThemeMode,
+    language,
+    setLanguage,
+    fontSize,
     setFontSize,
-    t,
     pushNotifications,
     setPushNotifications,
     hapticFeedback,
-    setHapticFeedback
+    setHapticFeedback,
   } = useSettings();
   const theme = Colors[isDarkMode ? 'dark' : 'light'];
-  const { isDesktop } = useResponsive();
 
-  const handleLogout = () => {
-    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Sign Out', style: 'destructive' },
-    ]);
-  };
+  const card = [styles.card, { backgroundColor: theme.surface, borderColor: theme.border }, SoftShadow.light];
 
-  const toggleDarkMode = (value: boolean) => {
-    setThemeMode(value ? 'dark' : 'light');
-  };
+  const SectionH = ({ children }: { children: string }) => (
+    <ScaledText style={[styles.sectionH, { color: theme.textMuted }]}>{children}</ScaledText>
+  );
 
-  const handleLanguageChange = (lang: Language) => {
-    setLanguage(lang);
-  };
+  const Row = ({ icon, label, sub, right, last }: {
+    icon: string; label: string; sub?: string; right: React.ReactNode; last?: boolean;
+  }) => (
+    <View style={[styles.row, !last && { borderBottomWidth: 1, borderBottomColor: theme.border }]}>
+      <View style={styles.rowLeft}>
+        <IconSymbol size={20} name={icon as never} color={theme.icon} />
+        <View style={styles.rowText}>
+          <ScaledText style={[styles.rowLabel, { color: theme.text }]}>{label}</ScaledText>
+          {sub ? <ScaledText style={[styles.rowSub, { color: theme.textMuted }]}>{sub}</ScaledText> : null}
+        </View>
+      </View>
+      {right}
+    </View>
+  );
 
-  const handleFontSizeChange = (size: FontSize) => {
-    setFontSize(size);
-  };
+  const Segmented = <T extends string>({ value, options, onChange }: {
+    value: T; options: { v: T; label: string }[]; onChange: (v: T) => void;
+  }) => (
+    <View style={[styles.segmented, { backgroundColor: theme.background, borderColor: theme.border }]}>
+      {options.map((opt) => (
+        <TouchableOpacity
+          key={opt.v}
+          style={[styles.segment, value === opt.v && { backgroundColor: theme.primary }]}
+          onPress={() => onChange(opt.v)}
+          accessibilityRole="button"
+          accessibilityState={{ selected: value === opt.v }}
+        >
+          <ScaledText style={[styles.segmentText, { color: value === opt.v ? '#FFFFFF' : theme.textMuted }]}>
+            {opt.label}
+          </ScaledText>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
-      {/* Header */}
-      <View style={[
-        styles.header, 
-        { 
-          backgroundColor: isDarkMode ? 'rgba(26, 21, 18, 0.85)' : 'rgba(255, 255, 255, 0.85)',
-          backdropFilter: 'blur(12px)'
-        }
-      ]}>
-        <View style={styles.headerSpacer} />
-        <ScaledText variant="h3" style={[styles.headerTitle, { color: theme.text }]}>{t('settingsTitle')}</ScaledText>
-        <View style={styles.headerSpacer} />
-      </View>
-
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={[styles.scrollContent, isDesktop && styles.scrollContentDesktop]}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Profile Section */}
-        <View style={[styles.profileCard, GlassStyle[isDarkMode ? 'dark' : 'light']]}>
-          <View style={styles.profileContent}>
-            <View style={[styles.avatar, { borderColor: `${theme.primary}30` }]}>
-              <ScaledText variant="h4" style={[styles.avatarText, { color: theme.primary }]}>JD</ScaledText>
-            </View>
-            <View style={styles.profileInfo}>
-              <ScaledText variant="h4" style={[styles.profileName, { color: theme.text }]}>John Doe</ScaledText>
-              <ScaledText variant="bodySmall" style={[styles.profileEmail, { color: theme.textSecondary }]}>
-                johndoe@example.com
-              </ScaledText>
-            </View>
-          </View>
-          <TouchableOpacity 
-            style={[styles.editButton, { backgroundColor: theme.primary }]}
-          >
-            <ScaledText variant="labelLarge" style={styles.editButtonText}>{t('editProfile')}</ScaledText>
-          </TouchableOpacity>
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* App bar */}
+        <View style={styles.appbar}>
+          <ScaledText style={[styles.appbarTitle, { color: theme.primary }]}>ตั้งค่า</ScaledText>
         </View>
 
-        {/* Appearance Section - Theme Toggle */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <IconSymbol size={18} name="palette" color={theme.textSecondary} />
-            <ScaledText variant="labelSmall" style={[styles.sectionTitle, { color: theme.textSecondary }]}>{t('appearance')}</ScaledText>
-          </View>
-          
-          <View style={[styles.settingRow, GlassStyle[isDarkMode ? 'dark' : 'light']]}>
-            <View style={styles.settingLeft}>
-              <IconSymbol size={20} name={isDarkMode ? 'dark_mode' : 'light_mode'} color={theme.primary} />
-              <View>
-                <ScaledText variant="labelLarge" style={[styles.settingLabel, { color: theme.text }]}>{t('darkMode')}</ScaledText>
-                <ScaledText variant="bodySmall" style={[styles.settingDescription, { color: theme.textSecondary }]}>
-                  {isDarkMode ? t('darkModeOn') : t('darkModeOff')}
-                </ScaledText>
-              </View>
-            </View>
-            <CustomSwitch
-              value={isDarkMode}
-              onValueChange={toggleDarkMode}
-            />
-          </View>
+        <SectionH>การแจ้งเตือน</SectionH>
+        <View style={card}>
+          <Row
+            icon="notifications_active"
+            label="แจ้งเตือนความเสี่ยง"
+            sub="เตือนเมื่อพื้นที่ของคุณเข้าเกณฑ์เฝ้าระวัง/เตือนภัย"
+            right={<CustomSwitch value={pushNotifications} onValueChange={setPushNotifications} />}
+          />
+          <Row
+            icon="vibration"
+            label="สั่นตอบสนอง"
+            right={<CustomSwitch value={hapticFeedback} onValueChange={setHapticFeedback} />}
+          />
+          <Row
+            last
+            icon="send"
+            label="ทดสอบการแจ้งเตือน"
+            right={
+              <TouchableOpacity
+                style={[styles.testBtn, { borderColor: theme.primary }]}
+                onPress={async () => {
+                  if (!pushNotifications) {
+                    Alert.alert('ปิดอยู่', 'เปิด "แจ้งเตือนความเสี่ยง" ก่อนทดสอบ');
+                    return;
+                  }
+                  await scheduleLocalNotification(
+                    'ทดสอบการแจ้งเตือนความร้อน',
+                    'นี่คือข้อความทดสอบจากหน้าตั้งค่า',
+                    { url: '/(tabs)/alerts' },
+                  );
+                }}
+              >
+                <ScaledText style={[styles.testBtnText, { color: theme.primary }]}>ส่งทดสอบ</ScaledText>
+              </TouchableOpacity>
+            }
+          />
         </View>
 
-        {/* Language Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <IconSymbol size={18} name="language" color={theme.textSecondary} />
-            <ScaledText variant="labelSmall" style={[styles.sectionTitle, { color: theme.textSecondary }]}>{t('language')} / ภาษา</ScaledText>
-          </View>
-          
-          <View style={[styles.toggleContainer, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0, 0, 0, 0.05)' }]}>
-            <TouchableOpacity
-              style={[
-                styles.toggleOption,
-                language === 'en' && [styles.toggleActive, { backgroundColor: isDarkMode ? '#3D3530' : '#fff' }]
-              ]}
-              onPress={() => handleLanguageChange('en')}
-            >
-              <ScaledText variant="labelMedium" style={[
-                styles.toggleText,
-                { color: language === 'en' ? theme.primary : theme.textSecondary }
-              ]}>
-                ENGLISH (EN)
-              </ScaledText>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.toggleOption,
-                language === 'th' && [styles.toggleActive, { backgroundColor: isDarkMode ? '#3D3530' : '#fff' }]
-              ]}
-              onPress={() => handleLanguageChange('th')}
-            >
-              <ScaledText variant="labelMedium" style={[
-                styles.toggleText,
-                { color: language === 'th' ? theme.primary : theme.textSecondary }
-              ]}>
-                ไทย (TH)
-              </ScaledText>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Alert Settings Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <IconSymbol size={18} name="notifications" color={theme.textSecondary} />
-            <ScaledText variant="labelSmall" style={[styles.sectionTitle, { color: theme.textSecondary }]}>{t('notifications')}</ScaledText>
-          </View>
-          
-          <View style={styles.settingsList}>
-            {/* Push Notifications */}
-            <View style={[styles.settingRow, GlassStyle[isDarkMode ? 'dark' : 'light']]}>
-              <View style={styles.settingLeft}>
-                <IconSymbol size={20} name="notifications_active" color={theme.textSecondary} />
-                <ScaledText variant="labelLarge" style={[styles.settingLabel, { color: theme.text }]}>{t('pushNotifications')}</ScaledText>
-              </View>
-              <CustomSwitch
-                value={pushNotifications}
-                onValueChange={setPushNotifications}
-                trackColorOff={isDarkMode ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)'}
+        <SectionH>การแสดงผล</SectionH>
+        <View style={card}>
+          <Row
+            icon="language"
+            label="ภาษา"
+            right={
+              <Segmented<Language>
+                value={language}
+                options={[{ v: 'th', label: 'ไทย' }, { v: 'en', label: 'EN' }]}
+                onChange={setLanguage}
               />
-            </View>
-            
-            {/* Haptic Feedback */}
-            <View style={[styles.settingRow, GlassStyle[isDarkMode ? 'dark' : 'light']]}>
-              <View style={styles.settingLeft}>
-                <IconSymbol size={20} name="vibration" color={theme.textSecondary} />
-                <ScaledText variant="labelLarge" style={[styles.settingLabel, { color: theme.text }]}>{t('hapticFeedback')}</ScaledText>
-              </View>
-              <CustomSwitch
-                value={hapticFeedback}
-                onValueChange={setHapticFeedback}
-                trackColorOff={isDarkMode ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)'}
+            }
+          />
+          <Row
+            icon="format_size"
+            label="ขนาดตัวอักษร"
+            right={
+              <Segmented<FontSize>
+                value={fontSize}
+                options={[{ v: 'small', label: 'เล็ก' }, { v: 'default', label: 'กลาง' }, { v: 'large', label: 'ใหญ่' }]}
+                onChange={setFontSize}
               />
-            </View>
-
-            {/* Test Notification Button */}
-            <TouchableOpacity 
-              style={[styles.settingRow, GlassStyle[isDarkMode ? 'dark' : 'light'], { justifyContent: 'center', backgroundColor: `${theme.primary}15` }]}
-              onPress={async () => {
-                if (!pushNotifications) {
-                  Alert.alert("Disabled", "Push notifications are disabled in your settings.");
-                  return;
-                }
-                await scheduleLocalNotification(
-                  "🔥 Heatwave Alert Simulated", 
-                  "This is a test notification from your settings.",
-                  { url: "/(tabs)/alerts" }
-                );
-              }}
-            >
-              <View style={styles.settingLeft}>
-                <IconSymbol size={20} name="notifications_active" color={theme.primary} />
-                <ScaledText variant="labelLarge" style={[styles.settingLabel, { color: theme.primary }]}>{t('testNotification') || "Test Notification"}</ScaledText>
-              </View>
-            </TouchableOpacity>
-            
-            {/* Font Size */}
-            <View style={[styles.settingRowInner, GlassStyle[isDarkMode ? 'dark' : 'light']]}>
-              <View style={styles.settingLeft}>
-                <IconSymbol size={20} name="format_size" color={theme.textSecondary} />
-                <View>
-                  <ScaledText variant="labelLarge" style={{ color: theme.text }}>{t('fontSize')}</ScaledText>
-                  <ScaledText variant="bodySmall" style={{ color: theme.textSecondary }}>
-                    {fontSize === 'small' ? 'Small (85%)' : fontSize === 'default' ? 'Medium (100%)' : 'Large (125%)'}
-                  </ScaledText>
-                </View>
-              </View>
-              <View style={[styles.fontSizeContainer, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0, 0, 0, 0.05)' }]}>
-                {(['small', 'default', 'large'] as FontSize[]).map((size) => (
-                  <TouchableOpacity
-                    key={size}
-                    style={[
-                      styles.fontSizeOption,
-                      fontSize === size && [styles.fontSizeActive, { backgroundColor: isDarkMode ? '#3D3530' : '#fff' }]
-                    ]}
-                    onPress={() => handleFontSizeChange(size)}
-                  >
-                    <ScaledText 
-                      variant="labelLarge"
-                      style={{ color: fontSize === size ? theme.primary : theme.textSecondary }}
-                    >
-                      {size === 'small' ? 'S' : size === 'default' ? 'M' : 'L'}
-                    </ScaledText>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-            
-            {/* Font Size Preview */}
-            <View style={[styles.fontPreviewCard, GlassStyle[isDarkMode ? 'dark' : 'light']]}>
-              <ScaledText variant="labelSmall" style={{ color: theme.textSecondary, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Preview</ScaledText>
-              <ScaledText variant="h3" style={{ color: theme.text, marginBottom: 8 }}>Heading Text</ScaledText>
-              <ScaledText variant="bodyMedium" style={{ color: theme.text, marginBottom: 8 }}>Body text sample - This is how normal text appears.</ScaledText>
-              <ScaledText variant="labelMedium" style={{ color: theme.textSecondary }}>Label text - Buttons and UI elements</ScaledText>
-            </View>
-          </View>
+            }
+          />
+          <Row
+            last
+            icon={isDarkMode ? 'dark_mode' : 'light_mode'}
+            label="ธีมมืด"
+            right={<CustomSwitch value={isDarkMode} onValueChange={(v) => setThemeMode(v ? 'dark' : 'light')} />}
+          />
         </View>
 
-        {/* Heat Alert Preferences */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <IconSymbol size={18} name="warning" color={theme.extreme} />
-            <ScaledText variant="labelSmall" style={[styles.sectionTitle, { color: theme.textSecondary }]}>{t('heatAlerts')}</ScaledText>
-          </View>
-          
-          <View style={[styles.infoCard, { backgroundColor: `${theme.warning}15`, borderColor: theme.warning }]}>
-            <IconSymbol size={24} name="info" color={theme.warning} />
-            <View style={styles.infoContent}>
-              <ScaledText variant="labelLarge" style={[styles.infoTitle, { color: theme.text }]}>{t('heatAlerts')}</ScaledText>
-              <ScaledText variant="bodySmall" style={[styles.infoText, { color: theme.textSecondary }]}>
-                {t('heatAlertsInfo')}
-              </ScaledText>
+        <SectionH>เกี่ยวกับระบบพยากรณ์</SectionH>
+        <View style={[...card, styles.aboutCard]}>
+          {([
+            ['โมเดล', MODEL_INFO.model],
+            ['ครอบคลุม', MODEL_INFO.coverage],
+            ['แหล่งข้อมูล', MODEL_INFO.source],
+          ] as const).map(([k, v], i, arr) => (
+            <View key={k} style={[styles.aboutRow, i < arr.length - 1 && { borderBottomWidth: 1, borderBottomColor: theme.border, borderStyle: 'dashed' as never }]}>
+              <ScaledText style={[styles.aboutKey, { color: theme.textMuted }]}>{k}</ScaledText>
+              <ScaledText style={[styles.aboutVal, { color: theme.text }]}>{v}</ScaledText>
             </View>
-          </View>
+          ))}
+          <ScaledText style={[styles.aboutNote, { color: theme.textMuted }]}>
+            {'"คลื่นความร้อน" ในระบบนี้ = วันที่ดัชนีความร้อน (รวมความชื้น) สูงกว่า 95% ของวันเดียวกันในรอบ 30 ปี และร้อนติดต่อกันอย่างน้อย 2 วัน — เกณฑ์เฉพาะพื้นที่ของแต่ละจังหวัด'}
+          </ScaledText>
         </View>
 
-        {/* Secondary Actions */}
-        <View style={styles.actionsSection}>
-          <TouchableOpacity style={[styles.actionButton, GlassStyle[isDarkMode ? 'dark' : 'light']]}>
-            <ScaledText variant="labelLarge" style={[styles.actionText, { color: theme.text }]}>{t('securityPrivacy')}</ScaledText>
-            <IconSymbol size={20} name="chevron_right" color={theme.textSecondary} />
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={[styles.actionButton, { backgroundColor: `${theme.primary}10` }]}
-            onPress={handleLogout}
-          >
-            <ScaledText variant="labelLarge" style={[styles.actionText, { color: theme.primary }]}>{t('signOut')}</ScaledText>
-            <IconSymbol size={20} name="logout" color={theme.primary} />
-          </TouchableOpacity>
-        </View>
+        <ScaledText style={[styles.footerNote, { color: theme.textMuted }]}>
+          แอปนี้ไม่ต้องสมัครสมาชิก — ทุกคนเข้าถึงข้อมูลพยากรณ์ชุดเดียวกันได้อย่างทั่วถึง
+        </ScaledText>
       </ScrollView>
 
       {/* Floating liquid-glass tab bar (shared) */}
@@ -286,244 +186,82 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: DesignTokens.spacing.lg,
-    paddingVertical: DesignTokens.spacing.md,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    letterSpacing: -0.5,
-  },
-  headerSpacer: {
-    width: 40,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: DesignTokens.spacing.md,
-    paddingBottom: 120,
-  },
-  scrollContentDesktop: {
-    maxWidth: 600,
-    alignSelf: 'center',
-    width: '100%',
-  },
-  profileCard: {
-    padding: DesignTokens.spacing.lg,
-    borderRadius: DesignTokens.borderRadius.xl,
-    marginBottom: DesignTokens.spacing.lg,
-  },
-  profileContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: DesignTokens.spacing.md,
-  },
-  avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    borderWidth: 3,
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarText: {
-    fontSize: 28,
-    fontWeight: '700',
-  },
-  profileInfo: {
-    flex: 1,
-    marginLeft: DesignTokens.spacing.md,
-  },
-  profileName: {
-    fontSize: 24,
-    fontWeight: '700',
-  },
-  profileEmail: {
-    fontSize: 14,
-    marginTop: 4,
-  },
-  editButton: {
-    paddingVertical: DesignTokens.spacing.sm + 2,
-    paddingHorizontal: DesignTokens.spacing.md,
-    borderRadius: DesignTokens.borderRadius.full,
-    alignItems: 'center',
-  },
-  editButtonText: {
-    color: '#fff',
-    fontSize: 14,
+  container: { flex: 1 },
+  scrollView: { flex: 1 },
+  scrollContent: { paddingBottom: 104, paddingHorizontal: 16 },
+  appbar: { paddingTop: 14, paddingBottom: 6 },
+  appbarTitle: { fontSize: 20, fontFamily: FontFamily.display, fontWeight: '700' },
+  sectionH: {
+    fontSize: 12.5,
+    fontFamily: FontFamily.displaySemi,
     fontWeight: '600',
-  },
-  section: {
-    marginBottom: DesignTokens.spacing.lg,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: DesignTokens.spacing.sm,
-    marginBottom: DesignTokens.spacing.md,
-    paddingHorizontal: DesignTokens.spacing.sm,
-  },
-  sectionTitle: {
-    fontSize: 12,
-    fontWeight: '700',
+    letterSpacing: 1.2,
     textTransform: 'uppercase',
-    letterSpacing: 1,
+    marginTop: 18,
+    marginBottom: 8,
+    marginLeft: 4,
   },
-  toggleContainer: {
-    flexDirection: 'row',
-    borderRadius: DesignTokens.borderRadius.lg,
-    padding: 4,
-  },
-  toggleOption: {
-    flex: 1,
-    paddingVertical: DesignTokens.spacing.sm + 2,
-    alignItems: 'center',
-    borderRadius: DesignTokens.borderRadius.md,
-  },
-  toggleActive: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  toggleText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  settingsList: {
-    gap: DesignTokens.spacing.md,
-  },
-  settingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: DesignTokens.spacing.md,
-    borderRadius: DesignTokens.borderRadius.xl,
-  },
-  settingRowInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: DesignTokens.spacing.md,
-    borderRadius: DesignTokens.borderRadius.xl,
-    gap: DesignTokens.spacing.md,
-  },
-  settingLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: DesignTokens.spacing.md,
-  },
-  settingLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  settingDescription: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-  fontSizeContainer: {
-    flexDirection: 'row',
-    borderRadius: DesignTokens.borderRadius.lg,
-    padding: 4,
-  },
-  fontSizeOption: {
-    width: 40,
-    paddingVertical: DesignTokens.spacing.sm,
-    alignItems: 'center',
-    borderRadius: DesignTokens.borderRadius.md,
-  },
-  fontSizeActive: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  fontSizeText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  fontPreviewCard: {
-    marginTop: DesignTokens.spacing.md,
-    padding: DesignTokens.spacing.md,
-    borderRadius: DesignTokens.borderRadius.xl,
-  },
-  fontPreviewTitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: DesignTokens.spacing.sm,
-  },
-  infoCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: DesignTokens.spacing.md,
-    borderRadius: DesignTokens.borderRadius.xl,
+  card: {
     borderWidth: 1,
-    gap: DesignTokens.spacing.md,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    marginBottom: 4,
   },
-  infoContent: {
-    flex: 1,
-  },
-  infoTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  infoText: {
-    fontSize: 13,
-    marginTop: 4,
-    lineHeight: 18,
-  },
-  actionsSection: {
-    gap: DesignTokens.spacing.md,
-    marginTop: DesignTokens.spacing.md,
-  },
-  actionButton: {
+  row: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: DesignTokens.spacing.md,
-    borderRadius: DesignTokens.borderRadius.xl,
+    gap: 12,
+    paddingVertical: 13,
+    minHeight: 52,
   },
-  actionText: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  bottomNav: {
+  rowLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flexShrink: 1 },
+  rowText: { flexShrink: 1 },
+  rowLabel: { fontSize: 14, fontFamily: FontFamily.bodyMedium },
+  rowSub: { fontSize: 11.5, fontFamily: FontFamily.body, marginTop: 1 },
+  segmented: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    paddingHorizontal: DesignTokens.spacing.md,
+    borderWidth: 1,
+    borderRadius: 9,
+    padding: 2,
+    gap: 2,
   },
-  navItem: {
+  segment: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 7,
+    minHeight: 32,
     alignItems: 'center',
     justifyContent: 'center',
-    width: 64,
-    position: 'relative',
   },
-  navLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginTop: 4,
+  segmentText: { fontSize: 12, fontFamily: FontFamily.bodySemi, fontWeight: '600' },
+  testBtn: {
+    borderWidth: 1.5,
+    borderRadius: 9,
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+    minHeight: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  activeDot: {
-    position: 'absolute',
-    bottom: -8,
-    width: 4,
-    height: 4,
-    borderRadius: 2,
+  testBtnText: { fontSize: 12.5, fontFamily: FontFamily.bodySemi, fontWeight: '600' },
+  aboutCard: { paddingVertical: 6 },
+  aboutRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+    gap: 12,
+    paddingVertical: 9,
+  },
+  aboutKey: { fontSize: 12.5, fontFamily: FontFamily.body },
+  aboutVal: { fontSize: 12.5, fontFamily: FontFamily.bodySemi, fontWeight: '600', textAlign: 'right', flexShrink: 1 },
+  aboutNote: { fontSize: 12, fontFamily: FontFamily.body, lineHeight: 20, paddingVertical: 10 },
+  footerNote: {
+    fontSize: 11.5,
+    fontFamily: FontFamily.body,
+    textAlign: 'center',
+    marginTop: 18,
+    paddingHorizontal: 12,
+    lineHeight: 18,
   },
 });

@@ -14,6 +14,7 @@ export interface Translations {
   navAlerts: string;
   navSafety: string;
   navProfile: string;
+  navSettings: string;
   
   // Settings Page
   settingsTitle: string;
@@ -126,6 +127,7 @@ const en: Record<TranslationKey, string> = {
   navAlerts: 'ALERTS',
   navSafety: 'SAFETY',
   navProfile: 'PROFILE',
+  navSettings: 'SETTINGS',
   
   // Settings Page
   settingsTitle: 'Settings & Profile',
@@ -235,6 +237,7 @@ const th: Record<TranslationKey, string> = {
   navAlerts: 'แจ้งเตือน',
   navSafety: 'ความปลอดภัย',
   navProfile: 'โปรไฟล์',
+  navSettings: 'ตั้งค่า',
   
   // Settings Page
   settingsTitle: 'การตั้งค่าและโปรไฟล์',
