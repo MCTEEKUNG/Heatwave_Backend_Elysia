@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -6,19 +6,41 @@ import { Colors, DesignTokens, GlassStyle, BottomNavStyle } from '@/constants/th
 import { useSettings } from '@/hooks/useSettings';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { ScaledText } from '@/components/ui/ScaledText';
-import { useForecast, type CalendarDay, type RiskLevel } from '@/hooks/useForecast';
+import { useProvinceForecast } from '@/hooks/useProvinceForecast';
 import { useWeather } from '@/hooks/useWeather';
 import {
   getForecastMap,
   getAlertTier,
   alertTierColor,
+  assertAlertThresholdsCurrent,
+  formatForecastDate,
+  formatGeneratedAt,
+  type AlertTier,
   type MapForecastPoint,
 } from '@/services/forecastService';
 
 // ─── 3-tier risk colour helpers ───────────────────────────────────────────────
-// safe    = 🟢 Green  — no heatwave predicted
-// caution = 🟡 Yellow — heatwave predicted, probability < 70%
-// danger  = 🔴 Red    — heatwave predicted, probability ≥ 70%
+// CONVERGED: this screen now reads ONLY the 77-province model
+// (/api/forecast/map + /api/forecast/province/:id) — the legacy
+// single-location /api/forecast/latest hook has been retired here, so one
+// screen can no longer mix two models. The 3-tier display maps 1:1 onto the
+// unified alert vocabulary (src/risk.py):
+// safe    = 🟢 Green  — tier 'none'    (risk_level low/moderate)
+// caution = 🟡 Yellow — tier 'watch'   (risk_level high)
+// danger  = 🔴 Red    — tier 'warning' (risk_level extreme)
+
+type RiskLevel = 'safe' | 'caution' | 'danger';
+
+function tierToRisk(tier: AlertTier): RiskLevel {
+  return tier === 'warning' ? 'danger' : tier === 'watch' ? 'caution' : 'safe';
+}
+
+/** One calendar day derived from the per-province forecast. */
+interface CalendarDay {
+  date: string;       // YYYY-MM-DD (target_date)
+  riskLevel: RiskLevel;
+  isToday: boolean;
+}
 
 const RISK_COLORS = {
   safe:    { bg: 'rgba(34,197,94,0.18)',  border: '#22C55E', text: { dark: '#4ADE80', light: '#16A34A' } },
@@ -57,12 +79,13 @@ function buildMonthGrid(calendarDays: CalendarDay[]): {
   const daysInMonth    = new Date(year, month + 1, 0).getDate();
   const startWeekday   = new Date(year, month, 1).getDay(); // 0 = Sunday
 
-  // Map day-of-month → CalendarDay for fast lookup
+  // Map day-of-month → CalendarDay for fast lookup (dates are YYYY-MM-DD,
+  // parsed as UTC to avoid off-by-one in negative-offset timezones)
   const riskMap = new Map<number, CalendarDay>();
   calendarDays.forEach((c) => {
-    const d = new Date(c.date);
-    if (d.getFullYear() === year && d.getMonth() === month) {
-      riskMap.set(d.getDate(), c);
+    const d = new Date(`${c.date}T00:00:00Z`);
+    if (d.getUTCFullYear() === year && d.getUTCMonth() === month) {
+      riskMap.set(d.getUTCDate(), c);
     }
   });
 
@@ -80,36 +103,137 @@ export default function AlertsScreen() {
   const { isDarkMode, t } = useSettings();
   const theme = Colors[isDarkMode ? 'dark' : 'light'];
 
-  // Real AI forecast data from the backend
-  const { calendar, summary, loading: forecastLoading, error: forecastError, refresh } = useForecast(1);
-
   // Real weather data from Open-Meteo (Bangkok default, no GPS needed)
   const { temperature, wetBulb, uvIndex, humidity, aqi, aqiLabel, daily } = useWeather();
 
   // National two-tier alert roll-up (watch / warning) from the per-province map.
-  // Tiers are derived client-side via getAlertTier() — no backend change needed.
+  // Tier comes from the server's risk_level (single source of truth: src/risk.py
+  // bands nest the alert thresholds — extreme==warning, high==watch).
   const [mapPoints, setMapPoints] = useState<MapForecastPoint[]>([]);
-  useEffect(() => {
+  const [mapLoading, setMapLoading] = useState(true);
+  const [mapError, setMapError] = useState(false);
+  const fetchMap = useCallback(() => {
     let alive = true;
+    setMapLoading(true);
+    setMapError(false);
     getForecastMap()
-      .then((pts) => { if (alive) setMapPoints(pts); })
-      .catch(() => { /* non-blocking: banner just stays hidden */ });
+      .then((pts) => {
+        if (!alive) return;
+        setMapPoints(pts);
+        // Empty result is "no data", not a real all-clear — flag it as such.
+        setMapError(pts.length === 0);
+        setMapLoading(false);
+        // Dev-visible guard: client alert thresholds are tuned per model version.
+        assertAlertThresholdsCurrent(pts[0]?.model_version);
+      })
+      .catch(() => {
+        if (!alive) return;
+        setMapError(true);
+        setMapLoading(false);
+      });
     return () => { alive = false; };
   }, []);
-  const warningCount = mapPoints.filter((p) => getAlertTier(p.probability) === 'warning').length;
-  const watchCount = mapPoints.filter((p) => getAlertTier(p.probability) === 'watch').length;
+  useEffect(() => fetchMap(), [fetchMap]);
+  const mapGeneratedAt = useMemo(
+    () => formatGeneratedAt(mapPoints[0]?.generated_at),
+    [mapPoints],
+  );
+  const { warningCount, watchCount, rollupDate } = useMemo(() => {
+    let warning = 0;
+    let watch = 0;
+    let soonest: string | null = null;
+    for (const p of mapPoints) {
+      // Alert tier from PROBABILITY (sensitive 0.217/0.281), decoupled from the
+      // calmer map colours (risk_level). See src/risk.py.
+      const tier = getAlertTier(p.probability);
+      if (tier === 'warning') warning++;
+      else if (tier === 'watch') watch++;
+      if (soonest === null || p.target_date < soonest) soonest = p.target_date;
+    }
+    return { warningCount: warning, watchCount: watch, rollupDate: soonest };
+  }, [mapPoints]);
+
+  // The user's province: nearest map point to the weather location (Bangkok
+  // default — same assumption useWeather makes on this screen). When GPS is
+  // wired into this screen, swap these coords for the fix; everything below
+  // adapts automatically.
+  const HOME_LAT = 13.7563;
+  const HOME_LON = 100.5018;
+  const provinceId = useMemo(() => {
+    if (mapPoints.length === 0) return null;
+    let best: MapForecastPoint = mapPoints[0];
+    let bestD = Infinity;
+    for (const p of mapPoints) {
+      const dLat = HOME_LAT - p.lat;
+      const dLon = HOME_LON - p.lon;
+      const d = dLat * dLat + dLon * dLon;
+      if (d < bestD) { bestD = d; best = p; }
+    }
+    return best.province_id;
+  }, [mapPoints]);
+
+  // 7-day per-province forecast — the SAME model the map and roll-up use.
+  const {
+    days: provinceDays,
+    generatedAt: provinceGeneratedAt,
+    loading: forecastLoading,
+    error: forecastError,
+    refresh: refreshProvince,
+  } = useProvinceForecast(provinceId, 7);
+
+  // Combined state for the per-province hero/calendar. Because `provinceId` is
+  // derived from the national map, a map cold-start/timeout leaves the province
+  // hook idle (loading=false, error=null, days=[]) — so we must fold the map
+  // stage in, or the hero falsely renders "🟢 Safe" while data is missing.
+  // Empty `provinceDays` WITHOUT an error means the province hook simply hasn't
+  // started yet (the frame right after the map resolves and sets provinceId) —
+  // treat that as still-loading so we never flash "no data" on the happy path.
+  const provinceLoading =
+    mapLoading ||
+    forecastLoading ||
+    (provinceId != null && !mapError && !forecastError && provinceDays.length === 0);
+  const provinceFailed = !provinceLoading && (mapError || Boolean(forecastError));
+  const provinceAsOf = formatGeneratedAt(provinceGeneratedAt);
+
+  const refresh = useCallback(async () => {
+    fetchMap();
+    await refreshProvince();
+  }, [fetchMap, refreshProvince]);
+
+  // Calendar days derived from the province forecast (tier ← server risk_level)
+  const todayStr = new Date().toISOString().split('T')[0];
+  const calendar: CalendarDay[] = useMemo(
+    () => provinceDays.map((d) => ({
+      date: d.target_date,
+      riskLevel: tierToRisk(getAlertTier(d.probability)),
+      isToday: d.target_date === todayStr,
+    })),
+    [provinceDays, todayStr],
+  );
 
   // Build dynamic calendar grid for the current month
   const { year, month, startWeekday, daysInMonth, riskMap } = buildMonthGrid(calendar);
 
-  // Derive today's forecast headline
-  const todayForecast = summary.today;
-  const todayTemp     = todayForecast ? Math.round(todayForecast.temperature_c) : Math.round(temperature);
+  // Derive today's headline from the SOONEST province forecast day (today or
+  // the nearest upcoming target_date), live temp from Open-Meteo.
+  const todayForecast = provinceDays.length > 0 ? provinceDays[0] : null;
+  const todayTemp = Math.round(temperature);
   const todayRisk: RiskLevel = todayForecast
-    ? (todayForecast.predicted_heatwave !== 1
-        ? 'safe'
-        : todayForecast.heatwave_probability >= 0.70 ? 'danger' : 'caution')
+    ? tierToRisk(getAlertTier(todayForecast.probability))
     : 'safe';
+
+  // Summary across the 7-day horizon (predicted_label now carries the tuned
+  // operating point from the model bundle — see pipeline/run_forecast.py)
+  const heatwaveDays = useMemo(
+    () => provinceDays.filter((d) => Boolean(d.predicted_label)).length,
+    [provinceDays],
+  );
+  const avgProbability = useMemo(
+    () => provinceDays.length === 0
+      ? 0
+      : provinceDays.reduce((s, d) => s + Number(d.probability ?? 0), 0) / provinceDays.length,
+    [provinceDays],
+  );
 
   const todayLabel =
     todayRisk === 'danger'  ? '🔴 DANGER — Check Safety Guide Now' :
@@ -178,39 +302,61 @@ export default function AlertsScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Forecast unavailable banner (non-blocking) ── */}
-        {forecastError && calendar.length === 0 && (
-          <View style={[styles.forecastBanner, { backgroundColor: isDarkMode ? 'rgba(239,68,68,0.12)' : 'rgba(239,68,68,0.08)', borderColor: isDarkMode ? '#F87171' : '#EF4444' }]}>
-            <IconSymbol size={16} name="error_outline" color={isDarkMode ? '#F87171' : '#EF4444'} />
-            <ScaledText variant="bodySmall" style={{ color: isDarkMode ? '#F87171' : '#EF4444', flex: 1, marginLeft: 8 }}>
-              AI forecast unavailable — backend is waking up. Weather data below is live.
-            </ScaledText>
-            <TouchableOpacity onPress={refresh} disabled={forecastLoading}>
-              {forecastLoading
-                ? <ActivityIndicator size="small" color={isDarkMode ? '#F87171' : '#EF4444'} />
-                : <ScaledText variant="labelSmall" style={{ color: isDarkMode ? '#F87171' : '#EF4444', fontWeight: '700' }}>Retry</ScaledText>}
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* ── National two-tier alert roll-up ── */}
-        {mapPoints.length > 0 && (warningCount > 0 || watchCount > 0) && (
-          <View style={[styles.nationalCard, GlassStyle[isDarkMode ? 'dark' : 'light']]}>
-            <ScaledText variant="labelMedium" style={[styles.sectionTitle, { color: theme.textSecondary, marginBottom: DesignTokens.spacing.sm }]}>
-              {`ภาพรวมทั้งประเทศ · ${mapPoints.length} จังหวัด`}
-            </ScaledText>
-            <View style={styles.nationalRow}>
-              <View style={[styles.tierChip, { borderColor: alertTierColor('warning') }]}>
-                <ScaledText variant="displaySmall" style={[styles.tierNum, { color: alertTierColor('warning') }]}>{warningCount}</ScaledText>
-                <ScaledText variant="labelSmall" style={[styles.tierLab, { color: alertTierColor('warning') }]}>🔴 เตือนภัย</ScaledText>
-              </View>
-              <View style={[styles.tierChip, { borderColor: alertTierColor('watch') }]}>
-                <ScaledText variant="displaySmall" style={[styles.tierNum, { color: alertTierColor('watch') }]}>{watchCount}</ScaledText>
-                <ScaledText variant="labelSmall" style={[styles.tierLab, { color: alertTierColor('watch') }]}>🟡 เฝ้าระวัง</ScaledText>
-              </View>
+        {/* ── National two-tier alert roll-up ──
+            Four explicit states so "all clear" is never confused with "no data":
+            loading → spinner; error OR empty fetch → message + Retry;
+            data + alerts → counts; data + none → 🟢 all-clear line. */}
+        <View style={[styles.nationalCard, GlassStyle[isDarkMode ? 'dark' : 'light']]}>
+          {mapLoading ? (
+            <View style={styles.stateRow}>
+              <ActivityIndicator size="small" color={theme.primary} />
+              <ScaledText variant="bodySmall" style={{ color: theme.textSecondary, marginLeft: DesignTokens.spacing.sm }}>
+                {t('loading')}
+              </ScaledText>
             </View>
-          </View>
-        )}
+          ) : mapError ? (
+            <View style={styles.stateRow}>
+              <IconSymbol size={16} name="error_outline" color={isDarkMode ? '#F87171' : '#EF4444'} />
+              <ScaledText variant="bodySmall" style={{ color: isDarkMode ? '#F87171' : '#EF4444', flex: 1, marginLeft: 8 }}>
+                {t('loadFailed')}
+              </ScaledText>
+              <TouchableOpacity style={[styles.retryChip, { borderColor: isDarkMode ? '#F87171' : '#EF4444' }]} onPress={fetchMap}>
+                <ScaledText variant="labelSmall" style={{ color: isDarkMode ? '#F87171' : '#EF4444', fontWeight: '700' }}>
+                  {t('retry')}
+                </ScaledText>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <>
+              <ScaledText variant="labelMedium" style={[styles.sectionTitle, { color: theme.textSecondary, marginBottom: DesignTokens.spacing.sm }]}>
+                {`ภาพรวมทั้งประเทศ · ${mapPoints.length} จังหวัด${rollupDate ? ` · พยากรณ์ ${formatForecastDate(rollupDate)}` : ''}`}
+              </ScaledText>
+              {warningCount > 0 || watchCount > 0 ? (
+                <View style={styles.nationalRow}>
+                  <View style={[styles.tierChip, { borderColor: alertTierColor('warning', isDarkMode) }]}>
+                    <ScaledText variant="displaySmall" style={[styles.tierNum, { color: alertTierColor('warning', isDarkMode) }]}>{warningCount}</ScaledText>
+                    <ScaledText variant="labelSmall" style={[styles.tierLab, { color: alertTierColor('warning', isDarkMode) }]}>🔴 เตือนภัย</ScaledText>
+                  </View>
+                  <View style={[styles.tierChip, { borderColor: alertTierColor('watch', isDarkMode) }]}>
+                    <ScaledText variant="displaySmall" style={[styles.tierNum, { color: alertTierColor('watch', isDarkMode) }]}>{watchCount}</ScaledText>
+                    <ScaledText variant="labelSmall" style={[styles.tierLab, { color: alertTierColor('watch', isDarkMode) }]}>🟡 เฝ้าระวัง</ScaledText>
+                  </View>
+                </View>
+              ) : (
+                <View style={[styles.allClearRow, { borderColor: alertTierColor('none', isDarkMode) }]}>
+                  <ScaledText variant="labelMedium" style={[styles.allClearText, { color: alertTierColor('none', isDarkMode) }]}>
+                    🟢 ปกติทุกจังหวัด — ไม่มีการแจ้งเตือนคลื่นความร้อน
+                  </ScaledText>
+                </View>
+              )}
+              {mapGeneratedAt !== '' && (
+                <ScaledText variant="labelSmall" style={[styles.asOfText, { color: theme.textSecondary }]}>
+                  {`${t('asOf')} ${mapGeneratedAt}`}
+                </ScaledText>
+              )}
+            </>
+          )}
+        </View>
 
         {/* ── Hero Forecast Card ── */}
         <View style={[styles.heroCard, GlassStyle[isDarkMode ? 'dark' : 'light']]}>
@@ -229,27 +375,79 @@ export default function AlertsScreen() {
             {todayTemp}°C
           </ScaledText>
 
-          <ScaledText
-            variant="h4"
-            style={[styles.heatStatus, { color: riskTextColor(todayRisk, isDarkMode) }]}
-          >
-            {todayLabel}
-          </ScaledText>
+          {/* AI risk headline — never assert "Safe" while the forecast is
+              loading, failed, or empty (the original misleading-state bug). */}
+          {provinceLoading ? (
+            <View style={styles.stateRow}>
+              <ActivityIndicator size="small" color={theme.primary} />
+              <ScaledText variant="bodyMedium" style={{ color: theme.textSecondary, marginLeft: DesignTokens.spacing.sm }}>
+                {t('loading')}
+              </ScaledText>
+            </View>
+          ) : provinceFailed ? (
+            <View style={styles.heroErrorBox}>
+              <ScaledText variant="h4" style={[styles.heatStatus, { color: isDarkMode ? '#F87171' : '#EF4444', marginBottom: DesignTokens.spacing.sm }]}>
+                {forecastError ? t('loadFailed') : t('noForecastData')}
+              </ScaledText>
+              <TouchableOpacity style={[styles.retryChip, { borderColor: isDarkMode ? '#F87171' : '#EF4444' }]} onPress={refresh}>
+                <ScaledText variant="labelSmall" style={{ color: isDarkMode ? '#F87171' : '#EF4444', fontWeight: '700' }}>
+                  {t('retry')}
+                </ScaledText>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <>
+              <ScaledText
+                variant="h4"
+                style={[styles.heatStatus, { color: riskTextColor(todayRisk, isDarkMode) }]}
+              >
+                {todayLabel}
+              </ScaledText>
 
-          {todayForecast && (
-            <ScaledText variant="bodyMedium" style={[styles.forecastDesc, { color: theme.textSecondary }]}>
-              {`${Math.round(summary.heatwaveDays)} heatwave days predicted in the next ${summary.totalDays} days — ${(summary.avgProbability * 100).toFixed(0)}% average risk`}
-            </ScaledText>
+              {todayForecast && (
+                <ScaledText variant="bodyMedium" style={[styles.forecastDesc, { color: theme.textSecondary }]}>
+                  {`${heatwaveDays} heatwave days predicted in the next ${provinceDays.length} days — ${(avgProbability * 100).toFixed(0)}% average risk`}
+                </ScaledText>
+              )}
+
+              {provinceAsOf !== '' && (
+                <ScaledText variant="labelSmall" style={[styles.asOfText, { color: theme.textSecondary }]}>
+                  {`${t('asOf')} ${provinceAsOf}`}
+                </ScaledText>
+              )}
+            </>
           )}
         </View>
 
         {/* ── AI-powered Calendar ── */}
         <View style={styles.calendarSection}>
           <ScaledText variant="labelMedium" style={[styles.sectionTitle, { color: theme.textSecondary }]}>
-            {`${MONTH_NAMES[month]} ${year} — AI Heatwave Forecast`}
+            {`${MONTH_NAMES[month]} ${year} — AI Heatwave Forecast (7-day)`}
           </ScaledText>
 
           <View style={[styles.calendarCard, GlassStyle[isDarkMode ? 'dark' : 'light']]}>
+            {/* Distinguish loading / no-data from a genuine all-safe month:
+                only paint the colour-coded grid when real forecast days exist. */}
+            {provinceLoading ? (
+              <View style={styles.stateRow}>
+                <ActivityIndicator size="small" color={theme.primary} />
+                <ScaledText variant="bodySmall" style={{ color: theme.textSecondary, marginLeft: DesignTokens.spacing.sm }}>
+                  {t('loading')}
+                </ScaledText>
+              </View>
+            ) : provinceFailed ? (
+              <View style={styles.stateRow}>
+                <ScaledText variant="bodySmall" style={{ color: theme.textSecondary, flex: 1 }}>
+                  {t('dataUnavailable')}
+                </ScaledText>
+                <TouchableOpacity style={[styles.retryChip, { borderColor: theme.primary }]} onPress={refresh}>
+                  <ScaledText variant="labelSmall" style={{ color: theme.primary, fontWeight: '700' }}>
+                    {t('retry')}
+                  </ScaledText>
+                </TouchableOpacity>
+              </View>
+            ) : (
+            <>
             {/* Week-day headers */}
             <View style={styles.weekHeader}>
               {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
@@ -317,6 +515,8 @@ export default function AlertsScreen() {
                 </View>
               ))}
             </View>
+            </>
+            )}
           </View>
         </View>
 
@@ -454,14 +654,26 @@ const styles = StyleSheet.create({
   scrollView:   { flex: 1 },
   scrollContent:{ padding: DesignTokens.spacing.lg, paddingBottom: 120 },
 
-  // Forecast banner
-  forecastBanner: {
+  // Shared load-state primitives (loading / error / empty rows)
+  stateRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: DesignTokens.spacing.md,
+    paddingVertical: DesignTokens.spacing.sm,
+  },
+  retryChip: {
+    paddingVertical: DesignTokens.spacing.xs,
+    paddingHorizontal: DesignTokens.spacing.md,
     borderRadius: DesignTokens.borderRadius.lg,
     borderWidth: 1,
-    marginBottom: DesignTokens.spacing.md,
+  },
+  asOfText: {
+    fontSize: 10,
+    marginTop: DesignTokens.spacing.sm,
+    textAlign: 'center',
+  },
+  heroErrorBox: {
+    alignItems: 'center',
+    marginBottom: DesignTokens.spacing.xl,
   },
 
   // National two-tier roll-up
@@ -471,6 +683,13 @@ const styles = StyleSheet.create({
     marginBottom: DesignTokens.spacing.lg,
   },
   nationalRow: { flexDirection: 'row', gap: DesignTokens.spacing.md },
+  allClearRow: {
+    alignItems: 'center',
+    paddingVertical: DesignTokens.spacing.sm,
+    borderRadius: DesignTokens.borderRadius.lg,
+    borderWidth: 1,
+  },
+  allClearText: { fontWeight: '700' },
   tierChip: {
     flex: 1,
     alignItems: 'center',

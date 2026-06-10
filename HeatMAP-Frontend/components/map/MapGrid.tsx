@@ -42,7 +42,9 @@ const GRID_CONFIG = {
 //   high     = HI 35–40°C → ORANGE
 //   moderate = HI 28–34°C → YELLOW
 //   low      = HI < 28°C  → GREEN
-export type Severity = 'extreme' | 'high' | 'moderate' | 'low';
+// Plus a non-data 'neutral' tier (GREY) used while the forecast is loading or
+// failed — so "no data yet" is visually distinct from genuine low risk.
+export type Severity = 'extreme' | 'high' | 'moderate' | 'low' | 'neutral';
 
 export interface GridCell {
   id: string;
@@ -132,6 +134,7 @@ export const getSeverityColor = (severity: Severity): string => {
     case 'high':     return 'rgba(249, 115, 22, 0.80)';  // ORANGE — HI 35–40°C
     case 'moderate': return 'rgba(234, 179, 8, 0.75)';   // YELLOW — HI 28–34°C
     case 'low':      return 'rgba(34, 197, 94, 0.55)';   // GREEN  — HI < 28°C
+    case 'neutral':  return 'rgba(148, 163, 184, 0.35)'; // GREY   — no data / loading
     default:         return 'transparent';
   }
 };
@@ -143,21 +146,24 @@ export const getSeverityBorderColor = (severity: Severity): string => {
     case 'high':     return 'rgba(249, 115, 22, 0.9)';
     case 'moderate': return 'rgba(234, 179, 8, 0.9)';
     case 'low':      return 'rgba(52, 197, 89, 0.7)';
+    case 'neutral':  return 'rgba(148, 163, 184, 0.55)'; // GREY — no data / loading
     default:         return 'transparent';
   }
 };
 
 // Web Leaflet Map Component
-function WebLeafletMap({ 
-  gridData, 
+function WebLeafletMap({
+  gridData,
   userLocation,
   onGetLocation,
   isDarkMode,
-}: { 
+  neutral,
+}: {
   gridData: GridCell[];
   userLocation: { latitude: number; longitude: number } | null;
   onGetLocation: () => void;
   isDarkMode: boolean;
+  neutral: boolean;
 }) {
   const [MapView, setMapView] = useState<any>(null);
 
@@ -270,19 +276,22 @@ function WebLeafletMap({
       
       <MapController userLoc={userLocation} />
       
-      {/* Grid overlay polygons */}
-      {gridData.map((cell) => (
-        <Polygon
-          key={cell.id}
-          positions={getPolygonPositions(cell)}
-          pathOptions={{
-            fillColor: getSeverityColor(cell.severity),
-            fillOpacity: 0.7,
-            color: getSeverityBorderColor(cell.severity),
-            weight: 2,
-          }}
-        />
-      ))}
+      {/* Grid overlay polygons — grey ('neutral') while data isn't ready */}
+      {gridData.map((cell) => {
+        const sev: Severity = neutral ? 'neutral' : cell.severity;
+        return (
+          <Polygon
+            key={cell.id}
+            positions={getPolygonPositions(cell)}
+            pathOptions={{
+              fillColor: getSeverityColor(sev),
+              fillOpacity: 0.7,
+              color: getSeverityBorderColor(sev),
+              weight: 2,
+            }}
+          />
+        );
+      })}
       
       {/* User location marker - ANCHORED TO MAP, not screen */}
       {userLocation && (
@@ -296,16 +305,18 @@ function WebLeafletMap({
 }
 
 // Native Map Component using react-native-maps
-function NativeMapView({ 
-  gridData, 
+function NativeMapView({
+  gridData,
   userLocation,
   onGetLocation,
   isDarkMode,
-}: { 
+  neutral,
+}: {
   gridData: GridCell[];
   userLocation: { latitude: number; longitude: number } | null;
   onGetLocation: () => void;
   isDarkMode: boolean;
+  neutral: boolean;
 }) {
   const [mapModule, setMapModule] = useState<any>(null);
 
@@ -349,21 +360,24 @@ function NativeMapView({
       showsMyLocationButton={false}
       showsCompass={false}
     >
-      {/* Grid overlay polygons */}
-      {gridData.map((cell) => (
-        <Polygon
-          key={cell.id}
-          coordinates={[
-            { latitude: cell.north, longitude: cell.west },
-            { latitude: cell.north, longitude: cell.east },
-            { latitude: cell.south, longitude: cell.east },
-            { latitude: cell.south, longitude: cell.west },
-          ]}
-          fillColor={getSeverityColor(cell.severity)}
-          strokeColor={getSeverityBorderColor(cell.severity)}
-          strokeWidth={2}
-        />
-      ))}
+      {/* Grid overlay polygons — grey ('neutral') while data isn't ready */}
+      {gridData.map((cell) => {
+        const sev: Severity = neutral ? 'neutral' : cell.severity;
+        return (
+          <Polygon
+            key={cell.id}
+            coordinates={[
+              { latitude: cell.north, longitude: cell.west },
+              { latitude: cell.north, longitude: cell.east },
+              { latitude: cell.south, longitude: cell.east },
+              { latitude: cell.south, longitude: cell.west },
+            ]}
+            fillColor={getSeverityColor(sev)}
+            strokeColor={getSeverityBorderColor(sev)}
+            strokeWidth={2}
+          />
+        );
+      })}
 
       {/* User location marker - ANCHORED TO MAP COORDINATES */}
       {userLocation && (
@@ -386,18 +400,22 @@ function NativeMapView({
 }
 
 // Main component
-export function MapGrid({ 
+export function MapGrid({
   gridData = generateThailandGrid(),
   userLocation = null,
   onUserLocationRequest,
   style,
   isDarkMode = false,
-}: { 
+  neutral = false,
+}: {
   gridData?: GridCell[];
   userLocation?: { latitude: number; longitude: number } | null;
   onUserLocationRequest?: () => void;
   style?: any;
   isDarkMode?: boolean;
+  // When true, every cell renders GREY instead of its real severity colour —
+  // used while the forecast is loading / failed so "no data" ≠ "low risk".
+  neutral?: boolean;
 }) {
   const [isWeb, setIsWeb] = useState(false);
   
@@ -410,18 +428,20 @@ export function MapGrid({
   return (
     <View style={[styles.container, style]}>
       {isWeb ? (
-        <WebLeafletMap 
-          gridData={gridData} 
-          userLocation={userLocation}
-          onGetLocation={handleGetLocation}
-          isDarkMode={isDarkMode}
-        />
-      ) : (
-        <NativeMapView 
+        <WebLeafletMap
           gridData={gridData}
           userLocation={userLocation}
           onGetLocation={handleGetLocation}
           isDarkMode={isDarkMode}
+          neutral={neutral}
+        />
+      ) : (
+        <NativeMapView
+          gridData={gridData}
+          userLocation={userLocation}
+          onGetLocation={handleGetLocation}
+          isDarkMode={isDarkMode}
+          neutral={neutral}
         />
       )}
     </View>

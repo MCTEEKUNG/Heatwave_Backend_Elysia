@@ -7,7 +7,7 @@ import {
   getForecastMap,
   getThresholds,
 } from "./routes/forecast";
-import { promises as fsAsync, existsSync, readdirSync, mkdirSync } from "fs";
+import { promises as fsAsync, existsSync, readdirSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
 import { randomUUID } from "crypto";
@@ -19,16 +19,12 @@ const BACKEND_ROOT = process.cwd();
 const TRAIN_DIR = BACKEND_ROOT;
 const MODELS_DIR = join(BACKEND_ROOT, "models");
 const RESULTS_DIR = join(BACKEND_ROOT, "experiments", "results");
-const FORECASTS_DIR = join(BACKEND_ROOT, "experiments", "forecasts");
 
 // Whitelist of supported model keys
 const VALID_MODELS = new Set(["balanced_rf", "xgboost", "lightgbm", "mlp", "kan"]);
 
 // Max CSV payload size: 1 MB
 const MAX_CSV_BYTES = 1_048_576;
-
-// Keep only the latest N forecast files (prevents disk exhaustion)
-const MAX_FORECAST_FILES = 50;
 
 // Rate limiting: max requests per IP per window
 const RATE_LIMIT_MAX = 10;
@@ -93,23 +89,6 @@ async function readJsonFile(filePath: string): Promise<unknown> {
   if (!existsSync(filePath)) return null;
   const content = await fsAsync.readFile(filePath, "utf-8");
   return JSON.parse(content);
-}
-
-/** Trim old forecast files, keeping only the latest `keep` JSON+CSV pairs. */
-async function cleanupOldForecasts(dir: string, keep: number): Promise<void> {
-  try {
-    const all = readdirSync(dir).filter(f => f.endsWith(".json")).sort();
-    if (all.length <= keep) return;
-    const toDelete = all.slice(0, all.length - keep);
-    for (const file of toDelete) {
-      const base = file.replace(".json", "");
-      await fsAsync.unlink(join(dir, file)).catch(() => {});
-      await fsAsync.unlink(join(dir, `${base}.csv`)).catch(() => {});
-    }
-    log("INFO", "Cleaned up old forecast files", { deleted: toDelete.length });
-  } catch (err: any) {
-    log("WARN", "Forecast cleanup failed", { error: err.message });
-  }
 }
 
 /** Parse CSV text into an array of objects; throws on bad format. */
@@ -278,89 +257,13 @@ const app = new Elysia()
     }),
   })
 
-  .get("/api/forecast/latest", async () => {
-    if (!existsSync(FORECASTS_DIR)) return { error: "No forecasts available" };
-
-    const files = readdirSync(FORECASTS_DIR)
-      .filter(f => f.endsWith(".json"))
-      .sort()
-      .reverse();
-
-    if (files.length === 0) return { error: "No forecast files found" };
-
-    const data = await readJsonFile(join(FORECASTS_DIR, files[0]));
-    return {
-      filename: files[0],
-      forecast: data,
-      totalDays: Array.isArray(data) ? data.length : 0,
-    };
-  })
-
-  .post("/api/forecast", async ({ body, request }) => {
-    // Rate limiting
-    const clientIp = request.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? "unknown";
-    if (isRateLimited(clientIp)) {
-      log("WARN", "Rate limit exceeded", { ip: clientIp });
-      return { success: false, error: "Too many requests. Please wait before trying again." };
-    }
-
-    const { model, days = 7 } = body as {
-      model: string;
-      days?: number;
-    };
-
-    // Validate model against whitelist
-    if (!VALID_MODELS.has(model)) {
-      return { success: false, error: "Invalid model selection" };
-    }
-
-    // Cap at Open-Meteo's 16-day limit
-    const forecastDays = Math.min(Math.max(1, days), 16);
-
-    if (!existsSync(FORECASTS_DIR)) {
-      mkdirSync(FORECASTS_DIR, { recursive: true });
-    }
-
-    const args = [
-      "--model", model,
-      "--days", String(forecastDays),
-      "--config", join(TRAIN_DIR, "config.yaml"),
-    ];
-
-    try {
-      const result = await runPythonScript(join(TRAIN_DIR, "prediction", "forecast.py"), args);
-
-      const files = readdirSync(FORECASTS_DIR)
-        .filter(f => f.endsWith(".json"))
-        .sort()
-        .reverse();
-
-      if (files.length === 0) {
-        return { success: false, error: "Forecast generated but no output file found" };
-      }
-
-      const data = await readJsonFile(join(FORECASTS_DIR, files[0]));
-
-      // Clean up old forecasts in the background
-      cleanupOldForecasts(FORECASTS_DIR, MAX_FORECAST_FILES);
-
-      log("INFO", "Forecast completed", { model, days: forecastDays, file: files[0] });
-      return {
-        success: true,
-        filename: files[0],
-        forecast: data,
-        totalDays: Array.isArray(data) ? data.length : 0,
-        log: result.stdout,
-      };
-    } catch (error: any) {
-      log("ERROR", "Forecast failed", { model, error: error.message });
-      return { success: false, error: "Forecast generation failed. Check server logs for details." };
-    }
-  }, {
-    body: t.Object({
-      model: t.String(),
-      days: t.Optional(t.Number()),  // 1–16, defaults to 7 (Open-Meteo limit)
-    }),
+  // Retired 2026-06-10: GET /api/forecast/latest and POST /api/forecast served
+  // on-box forecasts from the stale v1 balanced_rf model. The live forecast
+  // path is the Supabase-backed Forecast Service API below (written daily by
+  // the lgbm-v1 77-province job). Old clients receive 410 Gone.
+  .get("/api/forecast/latest", ({ set }) => {
+    set.status = 410;
+    return { error: "Retired endpoint. Use /api/forecast/map or /api/forecast/province/:id" };
   })
 
   // ─── Forecast Service API (private `heatwave` schema via direct Postgres) ─────

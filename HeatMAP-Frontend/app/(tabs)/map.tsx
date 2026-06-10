@@ -58,7 +58,12 @@ export default function MapScreen() {
   const theme = Colors[isDarkMode ? 'dark' : 'light'];
   // Start with a neutral (uncoloured) grid — overwritten once forecast loads
   const [gridData, setGridData] = useState<GridCell[]>(generateThailandGrid());
-  const [, setIsLoadingData] = useState(true);
+  // Explicit load state so "no real data" is visually distinct from "low risk":
+  //   loading → fetch in flight (grey grid + spinner)
+  //   error   → fetch threw / timed out (grey grid + Retry)
+  //   empty   → fetch ok but no forecast yet (grey grid + Retry)
+  //   ready   → real per-province colours shown
+  const [status, setStatus] = useState<'loading' | 'error' | 'empty' | 'ready'>('loading');
   // "As of" timestamp from the model run (generated_at on /api/forecast/map)
   const [mapGeneratedAt, setMapGeneratedAt] = useState<string | null>(null);
   const { isDesktop, isTablet, width: viewportW, height: viewportH } = useResponsive();
@@ -113,43 +118,45 @@ export default function MapScreen() {
   // Load REAL per-province risk from /api/forecast/map (one calibrated value
   // per province centroid). Each grid cell is coloured by its NEAREST province
   // point's risk_level — no synthetic temperature/Math.sin severity.
-  useEffect(() => {
-    const loadForecastMap = async () => {
-      setIsLoadingData(true);
-      try {
-        const points = await getForecastMap();
+  const loadForecastMap = useCallback(async () => {
+    setStatus('loading');
+    try {
+      const points = await getForecastMap();
 
-        if (!Array.isArray(points) || points.length === 0) {
-          // No forecast available yet — leave the neutral grid
-          setMapGeneratedAt(null);
-          return;
-        }
-
-        setMapGeneratedAt(points[0]?.generated_at ?? null);
-
-        const baseGrid = generateThailandGrid();
-        const updated = baseGrid.map(cell => {
-          const lat = (cell.north + cell.south) / 2;
-          const lng = (cell.east  + cell.west)  / 2;
-          const np = nearestPoint(lat, lng, points);
-          if (!np) return cell;
-          const severity: Severity = riskLevelToSeverity(np.risk_level);
-          // probability stored as 0–100 for the cell metadata
-          const probability = Math.round((np.probability ?? 0) * 100);
-          return { ...cell, severity, probability } as GridCell;
-        });
-        setGridData(updated);
-      } catch {
-        // Network error — neutral grid rather than fake data
+      if (!Array.isArray(points) || points.length === 0) {
+        // Fetch succeeded but no forecast yet — grey grid + retry, not green
         setGridData(generateThailandGrid());
         setMapGeneratedAt(null);
-      } finally {
-        setIsLoadingData(false);
+        setStatus('empty');
+        return;
       }
-    };
 
-    loadForecastMap();
+      setMapGeneratedAt(points[0]?.generated_at ?? null);
+
+      const baseGrid = generateThailandGrid();
+      const updated = baseGrid.map(cell => {
+        const lat = (cell.north + cell.south) / 2;
+        const lng = (cell.east  + cell.west)  / 2;
+        const np = nearestPoint(lat, lng, points);
+        if (!np) return cell;
+        const severity: Severity = riskLevelToSeverity(np.risk_level);
+        // probability stored as 0–100 for the cell metadata
+        const probability = Math.round((np.probability ?? 0) * 100);
+        return { ...cell, severity, probability } as GridCell;
+      });
+      setGridData(updated);
+      setStatus('ready');
+    } catch {
+      // Network error / timeout — grey grid + retry rather than fake data
+      setGridData(generateThailandGrid());
+      setMapGeneratedAt(null);
+      setStatus('error');
+    }
   }, []);
+
+  useEffect(() => {
+    loadForecastMap();
+  }, [loadForecastMap]);
   
   // Calculate user's current grid cell based on location
   const userGridCell = useMemo(() => {
@@ -160,20 +167,37 @@ export default function MapScreen() {
   // Get current severity level (null if low/no risk)
   const currentSeverity = userGridCell?.severity || null;
 
+  // The hero "your area" card must reflect data availability, not just severity:
+  // when the forecast isn't loaded the grid is the neutral (all-'low') grid, so
+  // trusting severity here would show a misleading "Low Risk" green that's
+  // indistinguishable from a real low-risk reading. Only honour severity when
+  // status === 'ready'; otherwise show a neutral loading/no-data state.
+  const dataReady = status === 'ready';
+  const heroSeverity = dataReady ? currentSeverity : null;
   // Heat accent colour + label derived from the current risk level
   const heatColor =
-    currentSeverity === 'extreme' ? theme.extreme
-    : currentSeverity === 'high' ? '#F97316'
-    : currentSeverity === 'moderate' ? theme.medium
-    : theme.low;
+    heroSeverity === 'extreme' ? theme.extreme
+    : heroSeverity === 'high' ? '#F97316'
+    : heroSeverity === 'moderate' ? theme.medium
+    : dataReady ? theme.low
+    : theme.textSecondary;   // loading / error / empty → neutral grey
   const heatBorder = isDarkMode ? 'rgba(255,138,76,0.28)' : 'rgba(230,126,34,0.22)';
+  // Public risk-tier wording — colour = RISK level, NOT "a heatwave is happening".
+  // extreme→เตือนภัย(warning), high→เฝ้าระวัง(watch), moderate→เฝ้าระวังเบื้องต้น, low→ความเสี่ยงต่ำ.
   const riskLabel =
-    currentSeverity === 'extreme' ? t('extremeHeat')
-    : (currentSeverity === 'high' || currentSeverity === 'moderate') ? (t('heatRiskLevelMedium').split(': ')[1] || 'Medium')
+    !dataReady
+      ? (status === 'loading' ? t('loading') : t('dataUnavailable'))
+    : heroSeverity === 'extreme' ? t('riskVeryHigh')
+    : heroSeverity === 'high' ? t('riskHigh')
+    : heroSeverity === 'moderate' ? t('moderate')
     : t('lowRisk');
-  // The warning banner only renders for moderate/high/extreme — only then must
-  // the top control row shift down to clear it (was wrongly shifting for 'low').
-  const hasBanner = currentSeverity === 'extreme' || currentSeverity === 'high' || currentSeverity === 'moderate';
+  // Calibrated probability as a percent for the hero ("โอกาสเสี่ยง 35%") — makes
+  // clear that orange/red is a CHANCE, not a confirmed event.
+  const riskPct = dataReady && userGridCell &&
+    typeof userGridCell.probability === 'number' ? userGridCell.probability : null;
+  // The warning banner only renders for moderate/high/extreme AND only once real
+  // data is in — never shift the layout for the neutral placeholder grid.
+  const hasBanner = dataReady && (heroSeverity === 'extreme' || heroSeverity === 'high' || heroSeverity === 'moderate');
 
   // The user's own province — nearest of the 77 centroids to their GPS fix.
   // (provinces always populated: getProvinces falls back to a bundled list.)
@@ -226,15 +250,15 @@ export default function MapScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      {/* Dynamic Warning Banner based on user's current grid cell */}
-      {currentSeverity === 'extreme' && (
+      {/* Dynamic Warning Banner — only on real data (heroSeverity is null until ready) */}
+      {heroSeverity === 'extreme' && (
         <View style={[styles.warningBanner, { backgroundColor: theme.extreme }]}>
           <IconSymbol size={20} name="warning" color="#fff" />
           <ScaledText variant="labelLarge" style={styles.warningText}>{t('dangerZoneDetected')}</ScaledText>
         </View>
       )}
 
-      {(currentSeverity === 'high' || currentSeverity === 'moderate') && (
+      {(heroSeverity === 'high' || heroSeverity === 'moderate') && (
         <View style={[styles.warningBanner, { backgroundColor: theme.medium }]}>
           <IconSymbol size={20} name="warning" color="#fff" />
           <ScaledText variant="labelLarge" style={styles.warningText}>{t('mediumRiskArea')}</ScaledText>
@@ -255,8 +279,75 @@ export default function MapScreen() {
           userLocation={locationCoords}
           onUserLocationRequest={handleGetLocation}
           isDarkMode={isDarkMode}
+          neutral={status !== 'ready'}
           style={styles.mapGrid}
         />
+
+        {/* Load-state overlays — keep "no data" visually distinct from low risk */}
+        {status === 'loading' && (
+          <View
+            pointerEvents="none"
+            style={[styles.statusOverlay, { top: hasBanner ? 110 : 56 }]}
+          >
+            <View
+              style={[
+                styles.statusPill,
+                GlassStyle[isDarkMode ? 'dark' : 'light'],
+                { backgroundColor: isDarkMode ? 'rgba(24,19,15,0.72)' : 'rgba(255,255,255,0.82)' },
+              ]}
+            >
+              <ActivityIndicator size="small" color={theme.primary} />
+              <ScaledText style={[styles.statusText, { color: theme.text }]}>
+                {t('loading')}
+              </ScaledText>
+            </View>
+          </View>
+        )}
+
+        {(status === 'error' || status === 'empty') && (
+          <View
+            style={[styles.statusOverlay, { top: hasBanner ? 110 : 56 }]}
+          >
+            <View
+              style={[
+                styles.statusPill,
+                GlassStyle[isDarkMode ? 'dark' : 'light'],
+                { backgroundColor: isDarkMode ? 'rgba(24,19,15,0.78)' : 'rgba(255,255,255,0.88)' },
+              ]}
+            >
+              <IconSymbol size={18} name="warning" color={theme.textSecondary} />
+              <ScaledText style={[styles.statusText, { color: theme.text }]}>
+                {status === 'error' ? t('loadFailed') : t('noForecastData')}
+              </ScaledText>
+              <TouchableOpacity
+                onPress={loadForecastMap}
+                style={[styles.retryButton, { backgroundColor: theme.primary }]}
+              >
+                <IconSymbol size={16} name="refresh" color="#fff" />
+                <ScaledText style={styles.retryText}>{t('retry')}</ScaledText>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {/* "As of" pill — only when real data is showing. Centered at the top so
+            it clears the left-anchored hero card and the right-anchored FAB. */}
+        {status === 'ready' && mapGeneratedAt && (
+          <View style={[styles.topControls, { top: hasBanner ? 110 : 56 }]} pointerEvents="none">
+            <View
+              style={[
+                styles.asOfPill,
+                GlassStyle[isDarkMode ? 'dark' : 'light'],
+                { backgroundColor: isDarkMode ? 'rgba(24,19,15,0.62)' : 'rgba(255,255,255,0.7)' },
+              ]}
+            >
+              <IconSymbol size={14} name="clock" color={theme.textSecondary} />
+              <ScaledText style={[styles.asOfText, { color: theme.textSecondary }]}>
+                {t('asOf')} {formatGeneratedAt(mapGeneratedAt)}
+              </ScaledText>
+            </View>
+          </View>
+        )}
 
         {/* Atmosphere scrims — legibility + heat vignette (web gradient; no input block) */}
         <View
@@ -295,7 +386,7 @@ export default function MapScreen() {
             pointerEvents="none"
             style={styles.heatHalo}
             // @ts-expect-error web glow class, intensity by risk
-            className={`heat-halo ${currentSeverity || 'low'}`}
+            className={`heat-halo ${heroSeverity || 'low'}`}
           />
 
           <ScaledText
@@ -311,7 +402,7 @@ export default function MapScreen() {
             <View
               style={[styles.heroDot, { backgroundColor: heatColor }]}
               // @ts-expect-error web pulse only on extreme
-              className={currentSeverity === 'extreme' ? 'thermal-pulse' : undefined}
+              className={heroSeverity === 'extreme' ? 'thermal-pulse' : undefined}
             />
             <ScaledText
               numberOfLines={1}
@@ -330,6 +421,12 @@ export default function MapScreen() {
               {Math.round(liveTemp)}°C
             </ScaledText>
           </View>
+
+          {riskPct !== null && (
+            <ScaledText style={[styles.heroChance, { color: theme.textSecondary }]}>
+              {t('riskChance')} {riskPct}%
+            </ScaledText>
+          )}
 
           <View style={styles.ctaRow}>
             <ScaledText style={[styles.ctaText, { color: heatColor }]}>ต้องทำยังไง</ScaledText>
@@ -360,6 +457,38 @@ export default function MapScreen() {
             )}
           </TouchableOpacity>
         </View>
+
+        {/* Risk legend — colour communicates RISK level, not a confirmed heatwave */}
+        {!isShort && (
+          <View
+            pointerEvents="none"
+            style={[
+              styles.legend,
+              GlassStyle[isDarkMode ? 'dark' : 'light'],
+              {
+                bottom: timelineBottom + 76,
+                backgroundColor: isDarkMode ? 'rgba(24,19,15,0.66)' : 'rgba(255,255,255,0.72)',
+              } as any,
+            ]}
+          >
+            <View style={styles.legendRow}>
+              {([
+                ['#22C55E', t('lowRisk')],
+                ['#EAB308', t('moderate')],
+                ['#F97316', t('riskHigh')],
+                ['#EF4444', t('riskVeryHigh')],
+              ] as const).map(([c, lbl]) => (
+                <View key={lbl} style={styles.legendItem}>
+                  <View style={[styles.legendDot, { backgroundColor: c }]} />
+                  <ScaledText style={[styles.legendTxt, { color: theme.text }]}>{lbl}</ScaledText>
+                </View>
+              ))}
+            </View>
+            <ScaledText style={[styles.legendNote, { color: theme.textSecondary }]}>
+              {t('riskLegendNote')}
+            </ScaledText>
+          </View>
+        )}
       </View>
 
       {/* Bottom Timeline (hidden on very short viewports) */}
@@ -452,15 +581,56 @@ const styles = StyleSheet.create({
     right: 24,
     zIndex: 30,
     gap: 8,
+    alignItems: 'center',
   },
   asOfPill: {
-    alignSelf: 'flex-start',
+    alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: DesignTokens.borderRadius.full,
+  },
+  asOfText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  // Load-state overlay (loading spinner / error + retry) — centred near the top,
+  // above the scrims and hero card so the Retry button is reachable.
+  statusOverlay: {
+    position: 'absolute',
+    left: 24,
+    right: 24,
+    zIndex: 28,
+    alignItems: 'center',
+  },
+  statusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: DesignTokens.borderRadius.full,
+    maxWidth: '100%',
+  },
+  statusText: {
+    fontSize: 13,
+    fontWeight: '600',
+    flexShrink: 1,
+  },
+  retryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: DesignTokens.borderRadius.full,
+  },
+  retryText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700',
   },
   provincePanel: {
     position: 'absolute',
@@ -598,6 +768,22 @@ const styles = StyleSheet.create({
   heroRisk: { fontSize: 21, fontWeight: '700', lineHeight: 24 },
   heroSep: { fontSize: 14, fontWeight: '700', marginHorizontal: 1 },
   heroTemp: { fontSize: 20, fontWeight: '700', lineHeight: 22 },
+  heroChance: { fontSize: 12, fontWeight: '700', marginTop: 1 },
+  legend: {
+    position: 'absolute',
+    left: 24,
+    right: 24,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: DesignTokens.borderRadius.lg,
+    zIndex: 11,
+    gap: 4,
+  },
+  legendRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12, justifyContent: 'center' },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  legendDot: { width: 9, height: 9, borderRadius: 4.5 },
+  legendTxt: { fontSize: 11, fontWeight: '700' },
+  legendNote: { fontSize: 10.5, textAlign: 'center', lineHeight: 14 },
   ctaRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 1 },
   ctaText: { fontSize: 12.5, fontWeight: '700' },
   ctaArrow: { fontSize: 13, fontWeight: '700' },
