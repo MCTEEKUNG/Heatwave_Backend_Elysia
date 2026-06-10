@@ -236,6 +236,15 @@ at `target_date` into the forecasting frame as P0 covariates and retrained — t
 configuration that can realistically approach the oracle headroom (PR-AUC 0.33→0.88).
 This is the path to production; the clock is now running.
 
+**Reliability fix (2026-06-10):** the task originally ran "Interactive only" at a
+fixed 08:00 and silently skipped days the laptop was asleep (9/11 issue dates in the
+first 11 days). Re-registered with `StartWhenAvailable` so a missed 08:00 fires as
+soon as the machine is next usable (the collector is idempotent per issue_date, so
+catch-up runs are safe). **Residual limitation:** a day the laptop never powers on is
+still lost forever. The durable fix is cloud collection — needs a persistence target
+for `forecast_store.parquet` (HF repo or a Supabase table) before the GH-Actions cron
+can host it; tracked as follow-up, not done yet.
+
 ### P0 unblocked NOW with REAL multi-year forecasts: NOAA GEFS reforecast
 
 The forward-collector waits months; we don't have to. **NOAA GEFSv12 reforecast**
