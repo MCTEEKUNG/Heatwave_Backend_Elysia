@@ -5,6 +5,8 @@
     "": {
       "name": "my-app",
       "dependencies": {
+        "@expo-google-fonts/anuphan": "^0.4.1",
+        "@expo-google-fonts/bai-jamjuree": "^0.4.1",
         "@expo-google-fonts/inter": "^0.4.2",
         "@expo-google-fonts/open-sans": "^0.4.2",
         "@expo-google-fonts/space-grotesk": "^0.4.1",
@@ -262,6 +264,10 @@
     "@eslint/object-schema": ["@eslint/object-schema@2.1.7", "", {}, "sha512-VtAOaymWVfZcmZbp6E2mympDIHvyjXs/12LqWYjVw6qjrfF+VK+fyG33kChz3nnK+SU5/NeHOqrTEHS8sXO3OA=="],
 
     "@eslint/plugin-kit": ["@eslint/plugin-kit@0.4.1", "", { "dependencies": { "@eslint/core": "^0.17.0", "levn": "^0.4.1" } }, "sha512-43/qtrDUokr7LJqoF2c3+RInu/t4zfrpYdoSDfYyhg52rwLV6TnOvdG4fXm7IkSB3wErkcmJS9iEhjVtOSEjjA=="],
+
+    "@expo-google-fonts/anuphan": ["@expo-google-fonts/anuphan@0.4.1", "", {}, "sha512-Iflz4uCPYkXVhc6O2jA37ceNtJrcobt/Ly2XJC+/h9qOFWP38154VXcHJirPcTkr58b9F5TrsASJsCSa3/zXiQ=="],
+
+    "@expo-google-fonts/bai-jamjuree": ["@expo-google-fonts/bai-jamjuree@0.4.1", "", {}, "sha512-fKDcWm8yPLnnNwIe1i2e4U4Ys+k1VYWiMzpaEdqGnlZQRU82O7ZfZKj0wjSpwM9SDMqVy4hWKfvgm24OZv/lgA=="],
 
     "@expo-google-fonts/inter": ["@expo-google-fonts/inter@0.4.2", "", {}, "sha512-syfiImMaDmq7cFi0of+waE2M4uSCyd16zgyWxdPOY7fN2VBmSLKEzkfbZgeOjJq61kSqPBNNtXjggiQiSD6gMQ=="],
 

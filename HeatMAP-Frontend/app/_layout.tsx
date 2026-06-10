@@ -4,6 +4,8 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator, StyleSheet, Platform } from 'react-native';
 import { useFonts, OpenSans_300Light, OpenSans_400Regular, OpenSans_500Medium, OpenSans_600SemiBold, OpenSans_700Bold } from '@expo-google-fonts/open-sans';
+import { Anuphan_400Regular, Anuphan_500Medium, Anuphan_600SemiBold } from '@expo-google-fonts/anuphan';
+import { BaiJamjuree_600SemiBold, BaiJamjuree_700Bold } from '@expo-google-fonts/bai-jamjuree';
 import 'react-native-reanimated';
 
 import { Colors } from '@/constants/theme';
@@ -66,6 +68,12 @@ export default function RootLayout() {
     OpenSans_500Medium,
     OpenSans_600SemiBold,
     OpenSans_700Bold,
+    // Calm Authority: Thai-first pairing (display = Bai Jamjuree, body = Anuphan)
+    Anuphan_400Regular,
+    Anuphan_500Medium,
+    Anuphan_600SemiBold,
+    BaiJamjuree_600SemiBold,
+    BaiJamjuree_700Bold,
   });
 
   useEffect(() => {

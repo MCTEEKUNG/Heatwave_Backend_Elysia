@@ -1,27 +1,27 @@
 /**
- * Heatwave Forecast App Theme
- * Warm Minimal Theme - Modern & Minimal Design
- * Primary: #E67E22 (Carrot Orange)
- * Background Light: #FAFAFA
- * Background Dark: #1A1A1A
- * Accent: #F5F5F5
- * Glassmorphism design system
+ * Heatwave Forecast App Theme — "Calm Authority"
+ * (spec: docs/superpowers/specs/2026-06-10-calm-authority-redesign-design.md)
+ * Navy #16324F · Surface #F7F9FB · Hairline #E3E9EF
+ * IRON RULE: warm colours (amber/vermilion/red + accent #E8702A) appear ONLY
+ * where they encode heat RISK — never as decoration. Everything else is
+ * navy + off-white, so a warm pixel always carries meaning.
  */
 
 import { Platform, Dimensions, useWindowDimensions, Text, TextStyle } from 'react-native';
 
-// Design tokens from Stitch design - Heat themed
+// Calm Authority design tokens
 export const DesignTokens = {
-  // Warm Minimal primary colors
-  primaryColor: '#E67E22',      // Carrot Orange - warm minimal
-  secondaryColor: '#2C3E50',      // Dark slate - neutral secondary
-  accentColor: '#F5F5F5',        // Light gray - minimal accent
-  
-  // Severity colors (heat-themed)
+  // Core palette
+  primaryColor: '#16324F',      // Navy - trust/authority (NOT a risk colour)
+  secondaryColor: '#3D5A77',    // Soft navy - secondary text/icons
+  accentColor: '#E8702A',       // Warm accent - RISK-ONLY, never decorative
+
+  // Severity colors (calm risk ramp - muted, not neon)
   severityColors: {
-    extreme: '#EF4444',  // Red - danger/heat warning
-    medium: '#FFA500',   // Orange - heat caution
-    low: '#22C55E',      // Green - safe/cool
+    extreme: '#A93226',  // Deep red - อันตราย
+    warning: '#C75B39',  // Muted vermilion - เตือนภัย
+    medium: '#C98A2D',   // Muted amber - เฝ้าระวัง (legacy key, = watch)
+    low: '#3E7D5B',      // Muted green - ปกติ
   },
   
   // iOS colors
@@ -30,39 +30,39 @@ export const DesignTokens = {
   
   // Background gradient colors
   backgroundGradient: {
-    light: ['#FAFAFA', '#F0F0F0'],  // Clean light backgrounds
-    dark: ['#1A1A1A', '#0D0D0D'],    // Deep dark backgrounds
+    light: ['#F7F9FB', '#EFF3F7'],  // Off-white, barely-there cool tint
+    dark: ['#10243A', '#0B1A2B'],    // Desaturated deep navy (not black)
   },
-  
+
   // Surface colors
-  surfaceColor: 'rgba(255, 255, 255, 0.95)',
-  glassColor: 'rgba(255, 255, 255, 0.75)',
-  glassBorder: 'rgba(255, 255, 255, 0.4)',
-  glassDark: 'rgba(26, 26, 26, 0.85)',
-  glassBorderDark: 'rgba(255, 255, 255, 0.15)',
-  
-  // Text colors - improved contrast
-  textPrimary: '#1A1A1A',        // Near black for high contrast
-  textSecondary: '#4A4A4A',      // Dark gray
-  textPrimaryDark: '#F5F5F5',    // Near white
-  textSecondaryDark: '#A0A0A0', // Light gray
-  
+  surfaceColor: '#FFFFFF',
+  glassColor: 'rgba(255, 255, 255, 0.58)',
+  glassBorder: 'rgba(255, 255, 255, 0.72)',
+  glassDark: 'rgba(16, 36, 58, 0.78)',
+  glassBorderDark: 'rgba(255, 255, 255, 0.16)',
+
+  // Text colors
+  textPrimary: '#10243A',        // Deep navy text
+  textSecondary: '#41566B',      // Slate
+  textPrimaryDark: '#EDF2F7',
+  textSecondaryDark: '#9FB3C8',
+
   // Border colors
-  borderColor: 'rgba(0, 0, 0, 0.12)',
-  borderColorDark: 'rgba(255, 255, 255, 0.15)',
-  
-  // Error/Alert colors
-  errorColor: '#EF4444',
-  warningColor: '#FFA500',
-  successColor: '#22C55E',
-  
-  // Glassmorphism
+  borderColor: '#E3E9EF',        // Hairline
+  borderColorDark: 'rgba(255, 255, 255, 0.14)',
+
+  // Error/Alert colors (semantic, calm)
+  errorColor: '#A93226',
+  warningColor: '#C98A2D',
+  successColor: '#3E7D5B',
+
+  // Liquid glass recipe (web adds backdropFilter; native uses higher opacity)
   glass: {
-    backgroundColor: 'rgba(255, 255, 255, 0.75)',
-    borderColor: 'rgba(255, 255, 255, 0.4)',
-    shadowColor: '#000',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderColor: 'rgba(255, 255, 255, 0.8)',
+    shadowColor: '#10243A',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.14,
     shadowRadius: 24,
     elevation: 12,
   },
@@ -115,21 +115,45 @@ export function useResponsive() {
   };
 }
 
+// Risk ramp + soft backgrounds (chips/badges) — the ONLY warm colours allowed
+export const RiskColors = {
+  safe: '#3E7D5B',
+  watch: '#C98A2D',
+  warning: '#C75B39',
+  extreme: '#A93226',
+} as const;
+export const RiskBg = {
+  safe: '#EAF3EE',
+  watch: '#F8F0E1',
+  warning: '#F8E9E3',
+  extreme: '#F5E3E1',
+} as const;
+export type RiskLevel = keyof typeof RiskColors;
+
+// Loaded font family names (registered in app/_layout.tsx via expo-google-fonts)
+export const FontFamily = {
+  display: 'BaiJamjuree_700Bold',
+  displaySemi: 'BaiJamjuree_600SemiBold',
+  body: 'Anuphan_400Regular',
+  bodyMedium: 'Anuphan_500Medium',
+  bodySemi: 'Anuphan_600SemiBold',
+} as const;
+
 const tintColorLight = DesignTokens.primaryColor;
-const tintColorDark = '#FF6B35'; // Primary orange for dark mode
+const tintColorDark = '#7FA3C8'; // Desaturated steel blue for dark mode (calm)
 
 export const Colors = {
   light: {
     // Primary theme
     text: DesignTokens.textPrimary,
     textSecondary: DesignTokens.textSecondary,
-    textMuted: '#6B6B6B',
-    background: '#FAFAFA',
+    textMuted: '#6B7C8D',
+    background: '#F7F9FB',
     surface: DesignTokens.surfaceColor,
     glass: DesignTokens.glass.backgroundColor,
     tint: tintColorLight,
-    icon: '#5A5A5A',
-    tabIconDefault: '#8A8A8A',
+    icon: '#3D5A77',
+    tabIconDefault: '#7E93A6',
     tabIconSelected: tintColorLight,
     primary: DesignTokens.primaryColor,
     secondary: DesignTokens.secondaryColor,
@@ -158,66 +182,66 @@ export const Colors = {
     // Primary theme - high contrast
     text: DesignTokens.textPrimaryDark,
     textSecondary: DesignTokens.textSecondaryDark,
-    textMuted: '#808080',
-    background: '#1A1A1A',
-    surface: 'rgba(40, 40, 40, 0.95)',
+    textMuted: '#7C90A4',
+    background: '#0E1F33',
+    surface: 'rgba(22, 50, 79, 0.95)',
     glass: DesignTokens.glassDark,
     tint: tintColorDark,
-    icon: '#C0C0C0',
-    tabIconDefault: '#8A8A8A',
+    icon: '#B8C8D9',
+    tabIconDefault: '#7C90A4',
     tabIconSelected: tintColorDark,
     primary: tintColorDark,
     secondary: DesignTokens.secondaryColor,
     accent: DesignTokens.accentColor,
     border: DesignTokens.borderColorDark,
     
-    // Severity colors
-    extreme: '#FF6B6B',  // Lighter red for dark mode
-    medium: '#FFB84D',   // Lighter orange for dark mode
-    low: '#4ADE80',      // Lighter green for dark mode
-    
+    // Severity colors (desaturated tonal variants for dark surfaces)
+    extreme: '#D98577',
+    medium: '#E0B468',
+    low: '#7FB89A',
+
     // Status colors
-    error: '#FF6B6B',
-    warning: '#FFB84D',
-    success: '#4ADE80',
+    error: '#D98577',
+    warning: '#E0B468',
+    success: '#7FB89A',
     
     // iOS colors
     iosBlue: DesignTokens.iosBlue,
     iosGray: DesignTokens.iosGray,
     
     // Additional
-    backdrop: 'rgba(0, 0, 0, 0.6)',
-    overlay: 'rgba(30, 25, 22, 0.95)',
+    backdrop: 'rgba(0, 0, 0, 0.55)',
+    overlay: 'rgba(11, 26, 43, 0.95)',
   },
 };
 
 export const Fonts = Platform.select({
   ios: {
-    sans: 'System',
+    sans: FontFamily.body,
     serif: 'Georgia',
-    rounded: 'System',
+    rounded: FontFamily.bodyMedium,
     mono: 'Menlo',
-    display: 'Space Grotesk',
+    display: FontFamily.display,
   },
   android: {
-    sans: 'Roboto',
+    sans: FontFamily.body,
     serif: 'serif',
-    rounded: 'sans-serif-medium',
+    rounded: FontFamily.bodyMedium,
     mono: 'monospace',
-    display: 'sans-serif-medium',
+    display: FontFamily.display,
   },
   default: {
-    sans: 'system-ui',
+    sans: FontFamily.body,
     serif: 'serif',
-    rounded: 'sans-serif',
+    rounded: FontFamily.bodyMedium,
     mono: 'monospace',
-    display: 'system-ui',
+    display: FontFamily.display,
   },
   web: {
-    sans: "'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-    display: "'Space Grotesk', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+    sans: `'${FontFamily.body}', 'Anuphan', system-ui, -apple-system, 'Segoe UI', sans-serif`,
+    display: `'${FontFamily.display}', 'Bai Jamjuree', '${FontFamily.body}', system-ui, sans-serif`,
     serif: "Georgia, 'Times New Roman', serif",
-    rounded: "'Inter', sans-serif",
+    rounded: `'${FontFamily.bodyMedium}', 'Anuphan', sans-serif`,
     mono: "SFMono-Regular, Menlo, Monaco, Consolas, monospace",
   },
 });
@@ -349,37 +373,43 @@ export function createTypography(scale: number = 1) {
 // Glassmorphism style helper
 export const GlassStyle = {
   light: {
-    backgroundColor: 'rgba(255, 255, 255, 0.75)',
-    borderColor: 'rgba(255, 255, 255, 0.4)',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderColor: 'rgba(255, 255, 255, 0.8)',
     borderWidth: 1,
-    borderRadius: DesignTokens.borderRadius.xl,
-    shadowColor: '#000',
+    borderRadius: 16,
+    shadowColor: '#10243A',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.14,
     shadowRadius: 24,
     elevation: 12,
+    ...(Platform.OS === 'web'
+      ? ({ backdropFilter: 'blur(14px) saturate(160%)' } as any)
+      : null),
   },
   dark: {
-    backgroundColor: 'rgba(45, 36, 32, 0.85)',
-    borderColor: 'rgba(255, 255, 255, 0.15)',
+    backgroundColor: 'rgba(16, 36, 58, 0.82)',
+    borderColor: 'rgba(255, 255, 255, 0.16)',
     borderWidth: 1,
-    borderRadius: DesignTokens.borderRadius.xl,
+    borderRadius: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
     shadowRadius: 24,
     elevation: 12,
+    ...(Platform.OS === 'web'
+      ? ({ backdropFilter: 'blur(14px) saturate(160%)' } as any)
+      : null),
   },
 };
 
 // Soft shadow style
 export const SoftShadow = {
   light: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.15,
-    shadowRadius: 40,
-    elevation: 12,
+    shadowColor: '#10243A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
   },
   dark: {
     shadowColor: '#000',
@@ -394,24 +424,26 @@ export const SoftShadow = {
 export const BottomNavStyle = {
   container: {
     position: 'absolute' as const,
-    bottom: 24,
-    left: 24,
-    right: 24,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    backdropFilter: 'blur(20px)' as any,
+    bottom: 14,
+    left: 16,
+    right: 16,
+    height: 64,
+    borderRadius: 999,
+    backgroundColor:
+      Platform.OS === 'web' ? 'rgba(255, 255, 255, 0.58)' : 'rgba(255, 255, 255, 0.94)',
+    backdropFilter: 'blur(18px) saturate(170%)' as any,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.4)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
+    borderColor: 'rgba(255, 255, 255, 0.72)',
+    shadowColor: '#10243A',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.22,
     shadowRadius: 32,
     elevation: 12,
   },
   dark: {
-    backgroundColor: 'rgba(30, 25, 22, 0.85)',
-    borderColor: 'rgba(255, 255, 255, 0.15)',
+    backgroundColor:
+      Platform.OS === 'web' ? 'rgba(16, 36, 58, 0.6)' : 'rgba(16, 36, 58, 0.94)',
+    borderColor: 'rgba(255, 255, 255, 0.16)',
   },
 };
 
@@ -420,12 +452,12 @@ export const HeaderStyle = {
   container: {
     paddingHorizontal: 24,
     paddingVertical: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    backgroundColor: 'rgba(247, 249, 251, 0.88)',
     backdropFilter: 'blur(12px)' as any,
     borderBottomWidth: 0,
   },
   dark: {
-    backgroundColor: 'rgba(26, 21, 18, 0.85)',
+    backgroundColor: 'rgba(14, 31, 51, 0.88)',
   },
 };
 
@@ -433,18 +465,18 @@ export const HeaderStyle = {
 export const CardStyle = {
   light: {
     backgroundColor: '#FFFFFF',
-    borderRadius: DesignTokens.borderRadius.xl,
-    padding: DesignTokens.spacing.lg,
+    borderRadius: DesignTokens.borderRadius.md,
+    padding: DesignTokens.spacing.md,
     borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.06)',
+    borderColor: DesignTokens.borderColor,
     ...SoftShadow.light,
   },
   dark: {
-    backgroundColor: 'rgba(45, 36, 32, 0.95)',
-    borderRadius: DesignTokens.borderRadius.xl,
-    padding: DesignTokens.spacing.lg,
+    backgroundColor: 'rgba(22, 50, 79, 0.95)',
+    borderRadius: DesignTokens.borderRadius.md,
+    padding: DesignTokens.spacing.md,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
     ...SoftShadow.dark,
   },
 };
