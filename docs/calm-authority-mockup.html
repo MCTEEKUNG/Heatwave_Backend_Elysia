@@ -27,9 +27,9 @@ body{background:#EDF1F5;font-family:var(--body);color:var(--navy-deep);min-heigh
   box-shadow:0 30px 80px rgba(16,36,58,.35);overflow:hidden;position:relative;flex-shrink:0}
 .statusbar{height:34px;display:flex;justify-content:space-between;align-items:center;
   padding:0 22px;font-size:12.5px;font-weight:600;color:var(--navy-deep);font-family:var(--display)}
-.screen{position:absolute;inset:34px 0 64px;overflow-y:auto;scrollbar-width:none}
+.screen{position:absolute;inset:34px 0 0;overflow-y:auto;scrollbar-width:none}
 .screen::-webkit-scrollbar{display:none}
-.page{display:none;animation:pageIn .35s ease both}
+.page{display:none;animation:pageIn .35s ease both;padding-bottom:104px}
 .page.active{display:block}
 @keyframes pageIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 .page>*{animation:rise .45s ease both}
@@ -53,16 +53,28 @@ body{background:#EDF1F5;font-family:var(--body);color:var(--navy-deep);min-heigh
 .badge-warning{background:var(--warning-bg);color:var(--warning)}
 .dot{width:7px;height:7px;border-radius:50%;display:inline-block}
 
-/* ───────────────────────── tab bar ───────────────────────── */
-.tabbar{position:absolute;bottom:0;left:0;right:0;height:64px;background:var(--card);
-  border-top:1px solid var(--hairline);display:flex}
-.tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
-  cursor:pointer;color:var(--muted);transition:color .2s;border:none;background:none;font-family:var(--body)}
-.tab svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-.tab span{font-size:10.5px;font-weight:600}
-.tab.active{color:var(--navy)}
-.tab.active::before{content:'';position:absolute;top:0;width:28px;height:3px;border-radius:0 0 3px 3px;background:var(--navy)}
-.tab{position:relative}
+/* ───────────── floating liquid-glass tab bar ───────────── */
+.tabbar{position:absolute;bottom:14px;left:16px;right:16px;height:64px;z-index:10;
+  display:flex;padding:6px;border-radius:999px;
+  background:rgba(255,255,255,.58);
+  -webkit-backdrop-filter:blur(18px) saturate(170%);
+  backdrop-filter:blur(18px) saturate(170%);
+  border:1px solid rgba(255,255,255,.72);
+  box-shadow:0 12px 32px rgba(16,36,58,.22), inset 0 1px 0 rgba(255,255,255,.9)}
+/* sliding navy "liquid" pill behind the active tab */
+.glider{position:absolute;top:6px;bottom:6px;left:6px;width:calc((100% - 12px)/4);
+  background:linear-gradient(180deg,#1D3D5F,var(--navy));border-radius:999px;
+  box-shadow:0 4px 14px rgba(22,50,79,.38), inset 0 1px 0 rgba(255,255,255,.18);
+  transition:transform .45s cubic-bezier(.3,1.35,.35,1)}
+.tab{flex:1;position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:2px;cursor:pointer;color:var(--navy-soft);
+  transition:color .25s;border:none;background:none;font-family:var(--body)}
+.tab svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.tab span{font-size:10px;font-weight:600;letter-spacing:.2px}
+.tab.active{color:#fff}
+.tab:active svg{transform:scale(.94)}
+.tab svg{transition:transform .15s ease}
+@media(prefers-reduced-motion:reduce){.glider,.tab svg{transition:none}}
 
 /* ───────────────────────── MAP page ───────────────────────── */
 .mapwrap{position:relative;height:430px;margin:0 16px 12px;border-radius:var(--r);
@@ -312,8 +324,9 @@ body{background:#EDF1F5;font-family:var(--body);color:var(--navy-deep);min-heigh
 
   </div>
 
-  <!-- tab bar -->
+  <!-- floating liquid-glass tab bar -->
   <div class="tabbar">
+    <div class="glider" id="glider"></div>
     <button class="tab active" data-p="p-map">
       <svg viewBox="0 0 24 24"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14"/></svg>
       <span>แผนที่</span>
@@ -364,11 +377,14 @@ body{background:#EDF1F5;font-family:var(--body);color:var(--navy-deep);min-heigh
 </div>
 
 <script>
-document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
-  document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+const tabs = [...document.querySelectorAll('.tab')];
+const glider = document.getElementById('glider');
+tabs.forEach((t, i) => t.addEventListener('click', () => {
+  tabs.forEach(x => x.classList.remove('active'));
   document.querySelectorAll('.page').forEach(x => x.classList.remove('active'));
   t.classList.add('active');
   document.getElementById(t.dataset.p).classList.add('active');
+  glider.style.transform = `translateX(${i * 100}%)`;
 }));
 </script>
 </body>
