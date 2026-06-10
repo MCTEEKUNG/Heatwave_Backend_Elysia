@@ -1,14 +1,13 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
-import { Colors, DesignTokens, GlassStyle, useResponsive } from '@/constants/theme';
+import { Colors, DesignTokens, GlassStyle, RiskBg, RiskColors, FontFamily, useResponsive } from '@/constants/theme';
 import { GlassTabBar } from '@/components/ui/GlassTabBar';
 import { useSettings } from '@/hooks/useSettings';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { MapGrid, generateThailandGrid, normalizeProvinceName, type GridCell, type Severity, type ProvinceRisk } from '@/components/map';
 import { useLocation } from '@/hooks/useLocation';
 import { ScaledText } from '@/components/ui/ScaledText';
-import { useWeather } from '@/hooks/useWeather';
 import { getForecastMap, riskLevelToSeverity, formatGeneratedAt, type MapForecastPoint } from '@/services/forecastService';
 import { getProvinces, type Province } from '@/services/provincesService';
 import { ProvinceForecastPanel } from '@/components/forecast/ProvinceForecastPanel';
@@ -68,10 +67,7 @@ export default function MapScreen() {
   const [status, setStatus] = useState<'loading' | 'error' | 'empty' | 'ready'>('loading');
   // "As of" timestamp from the model run (generated_at on /api/forecast/map)
   const [mapGeneratedAt, setMapGeneratedAt] = useState<string | null>(null);
-  const { isDesktop, isTablet, width: viewportW, height: viewportH } = useResponsive();
-  // Very short viewports (landscape phones) can't fit every floating panel —
-  // drop the supplementary legend + hourly strip so nothing collides.
-  const isShort = viewportH < 520;
+  useResponsive(); // keeps layout reactive to viewport changes (web resize)
 
   // ── Province selector state ──────────────────────────────────────────────
   const [provinces, setProvinces] = useState<Province[]>([]);
@@ -100,22 +96,6 @@ export default function MapScreen() {
     requestPermission,
     isLoading: isLocationLoading,
   } = useLocation();
-
-  // Real-time weather data (current conditions + hourly) from Open-Meteo
-  const {
-    temperature: liveTemp,
-    hourly: liveHourly,
-  } = useWeather(
-    userLocation?.latitude  ?? null,
-    userLocation?.longitude ?? null,
-  );
-
-  // Build hourly timeline from real data (fallback to empty list while loading)
-  const HOURLY_FORECAST = liveHourly.length > 0
-    ? liveHourly.slice(0, 5)
-    : [
-        { label: t('now'), icon: 'sunny', temp: Math.round(liveTemp), time: '' },
-      ];
 
   // Load REAL per-province risk from /api/forecast/map (one calibrated value
   // per province centroid). Each grid cell is coloured by its NEAREST province
@@ -183,6 +163,20 @@ export default function MapScreen() {
     return rec;
   }, [mapPoints, provinces]);
 
+  // National tier counts for the floating status chip (mockup top-right)
+  const tierCounts = useMemo(() => {
+    let watch = 0;
+    let warn = 0;
+    if (provinceRisk) {
+      for (const key of Object.keys(provinceRisk)) {
+        const lv = provinceRisk[key].level;
+        if (lv === 'watch') watch += 1;
+        else if (lv === 'warning' || lv === 'extreme') warn += 1;
+      }
+    }
+    return { watch, warn };
+  }, [provinceRisk]);
+
   useEffect(() => {
     loadForecastMap();
   }, [loadForecastMap]);
@@ -203,14 +197,13 @@ export default function MapScreen() {
   // status === 'ready'; otherwise show a neutral loading/no-data state.
   const dataReady = status === 'ready';
   const heroSeverity = dataReady ? currentSeverity : null;
-  // Heat accent colour + label derived from the current risk level
+  // Risk accent colour — calm ramp; warm ONLY because it encodes risk
   const heatColor =
-    heroSeverity === 'extreme' ? theme.extreme
-    : heroSeverity === 'high' ? '#F97316'
-    : heroSeverity === 'moderate' ? theme.medium
-    : dataReady ? theme.low
+    heroSeverity === 'extreme' ? RiskColors.extreme
+    : heroSeverity === 'high' ? RiskColors.warning
+    : heroSeverity === 'moderate' ? RiskColors.watch
+    : dataReady ? RiskColors.safe
     : theme.textSecondary;   // loading / error / empty → neutral grey
-  const heatBorder = isDarkMode ? 'rgba(255,138,76,0.28)' : 'rgba(230,126,34,0.22)';
   // Public risk-tier wording — colour = RISK level, NOT "a heatwave is happening".
   // extreme→เตือนภัย(warning), high→เฝ้าระวัง(watch), moderate→เฝ้าระวังเบื้องต้น, low→ความเสี่ยงต่ำ.
   const riskLabel =
@@ -224,9 +217,6 @@ export default function MapScreen() {
   // clear that orange/red is a CHANCE, not a confirmed event.
   const riskPct = dataReady && userGridCell &&
     typeof userGridCell.probability === 'number' ? userGridCell.probability : null;
-  // The warning banner only renders for moderate/high/extreme AND only once real
-  // data is in — never shift the layout for the neutral placeholder grid.
-  const hasBanner = dataReady && (heroSeverity === 'extreme' || heroSeverity === 'high' || heroSeverity === 'moderate');
 
   // The user's own province — nearest of the 77 centroids to their GPS fix.
   // (provinces always populated: getProvinces falls back to a bundled list.)
@@ -242,12 +232,8 @@ export default function MapScreen() {
     }
     return best;
   }, [userLocation, provinces]);
-  const heroMaxWidth = Math.min(viewportW - 88, 300);
 
   // Calculate responsive values
-  const cardWidth = isDesktop ? 200 : isTablet ? 180 : 160;
-  const fabRight = isDesktop ? 32 : 24;
-  const timelineBottom = isDesktop ? 140 : 120;
 
   // Handle location button press
   const handleGetLocation = useCallback(async () => {
@@ -279,21 +265,6 @@ export default function MapScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      {/* Dynamic Warning Banner — only on real data (heroSeverity is null until ready) */}
-      {heroSeverity === 'extreme' && (
-        <View style={[styles.warningBanner, { backgroundColor: theme.extreme }]}>
-          <IconSymbol size={20} name="warning" color="#fff" />
-          <ScaledText variant="labelLarge" style={styles.warningText}>{t('dangerZoneDetected')}</ScaledText>
-        </View>
-      )}
-
-      {(heroSeverity === 'high' || heroSeverity === 'moderate') && (
-        <View style={[styles.warningBanner, { backgroundColor: theme.medium }]}>
-          <IconSymbol size={20} name="warning" color="#fff" />
-          <ScaledText variant="labelLarge" style={styles.warningText}>{t('mediumRiskArea')}</ScaledText>
-        </View>
-      )}
-
       {/* Selected-province 7-day forecast panel (from /api/forecast/province/:id) */}
       {selectedProvince && (
         <View style={styles.provincePanel} pointerEvents="box-none">
@@ -317,7 +288,7 @@ export default function MapScreen() {
         {status === 'loading' && (
           <View
             pointerEvents="none"
-            style={[styles.statusOverlay, { top: hasBanner ? 110 : 56 }]}
+            style={[styles.statusOverlay, { top: 64 }]}
           >
             <View
               style={[
@@ -336,7 +307,7 @@ export default function MapScreen() {
 
         {(status === 'error' || status === 'empty') && (
           <View
-            style={[styles.statusOverlay, { top: hasBanner ? 110 : 56 }]}
+            style={[styles.statusOverlay, { top: 64 }]}
           >
             <View
               style={[
@@ -360,118 +331,47 @@ export default function MapScreen() {
           </View>
         )}
 
-        {/* "As of" pill — only when real data is showing. Centered at the top so
-            it clears the left-anchored hero card and the right-anchored FAB. */}
-        {status === 'ready' && mapGeneratedAt && (
-          <View style={[styles.topControls, { top: hasBanner ? 110 : 56 }]} pointerEvents="none">
+        {/* ── Floating top chips (Calm Authority: map is the hero) ── */}
+        <View style={styles.mapTop} pointerEvents="box-none">
+          <View style={[styles.heroPill, GlassStyle[isDarkMode ? 'dark' : 'light']]}>
+            <ScaledText style={[styles.heroPillText, { color: theme.primary }]}>
+              แผนที่ความเสี่ยง · 77 จังหวัด
+            </ScaledText>
+          </View>
+          {status === 'ready' && (tierCounts.warn > 0 || tierCounts.watch > 0) && (
             <View
               style={[
-                styles.asOfPill,
-                GlassStyle[isDarkMode ? 'dark' : 'light'],
-                { backgroundColor: isDarkMode ? 'rgba(24,19,15,0.62)' : 'rgba(255,255,255,0.7)' },
+                styles.tierChip,
+                { backgroundColor: tierCounts.warn > 0 ? RiskBg.warning : RiskBg.watch },
               ]}
             >
-              <IconSymbol size={14} name="clock" color={theme.textSecondary} />
-              <ScaledText style={[styles.asOfText, { color: theme.textSecondary }]}>
-                {t('asOf')} {formatGeneratedAt(mapGeneratedAt)}
+              <View
+                style={[
+                  styles.tierDot,
+                  { backgroundColor: tierCounts.warn > 0 ? RiskColors.warning : RiskColors.watch },
+                ]}
+              />
+              <ScaledText
+                style={[
+                  styles.tierChipText,
+                  { color: tierCounts.warn > 0 ? RiskColors.warning : RiskColors.watch },
+                ]}
+              >
+                {tierCounts.warn > 0
+                  ? `เตือนภัย ${tierCounts.warn} จว.`
+                  : `เฝ้าระวัง ${tierCounts.watch} จว.`}
               </ScaledText>
             </View>
-          </View>
-        )}
-
-        {/* Atmosphere scrims — legibility + heat vignette (web gradient; no input block) */}
-        <View
-          pointerEvents="none"
-          style={[styles.scrimTop, { backgroundImage: 'linear-gradient(180deg, rgba(8,8,12,0.55), rgba(8,8,12,0))' } as any]}
-        />
-        <View
-          pointerEvents="none"
-          style={[styles.scrimBottom, { backgroundImage: 'linear-gradient(0deg, rgba(22,11,6,0.62), rgba(22,11,6,0))' } as any]}
-        />
-
-        {/* Floating instrument readout — current temperature + risk.
-            Live temp from Open-Meteo (useWeather); severity/colour from the
-            model's risk_level — the two are intentionally decoupled. */}
-        {/* YOUR AREA — answers "is MY location in a heatwave, and what do I do".
-            Province auto-detected from GPS; tap → safety checklist. */}
-        <TouchableOpacity
-          activeOpacity={0.92}
-          onPress={() => router.push('/checklist')}
-          style={[
-            styles.heroCard,
-            GlassStyle[isDarkMode ? 'dark' : 'light'],
-            {
-              maxWidth: heroMaxWidth,
-              borderColor: heatBorder,
-              top: hasBanner ? 110 : 56,
-              // translucent glass + blur so the map flows through underneath
-              backgroundColor: isDarkMode ? 'rgba(24,19,15,0.58)' : 'rgba(255,255,255,0.62)',
-              backdropFilter: 'blur(18px)',
-            } as any,
-          ]}
-          // @ts-expect-error web entrance + refined panel classes
-          className="thermal-rise d1 instr-panel"
-        >
-          <View
-            pointerEvents="none"
-            style={styles.heatHalo}
-            // @ts-expect-error web glow class, intensity by risk
-            className={`heat-halo ${heroSeverity || 'low'}`}
-          />
-
-          <ScaledText
-            variant="labelSmall"
-            // @ts-expect-error web utility class
-            className="thermal-eyebrow"
-            style={[styles.heroEyebrow, { color: theme.textSecondary }]}
-          >
-            พื้นที่ของคุณ{myProvince ? `  ·  ${myProvince.name_th}` : ''}
-          </ScaledText>
-
-          <View style={styles.heroRow}>
-            <View
-              style={[styles.heroDot, { backgroundColor: heatColor }]}
-              // @ts-expect-error web pulse only on extreme
-              className={heroSeverity === 'extreme' ? 'thermal-pulse' : undefined}
-            />
-            <ScaledText
-              numberOfLines={1}
-              // @ts-expect-error web display class
-              className="thermal-display"
-              style={[styles.heroRisk, { color: heatColor }]}
-            >
-              {riskLabel}
-            </ScaledText>
-            <ScaledText style={[styles.heroSep, { color: theme.textSecondary }]}>·</ScaledText>
-            <ScaledText
-              // @ts-expect-error web display class
-              className="thermal-display"
-              style={[styles.heroTemp, { color: theme.text }]}
-            >
-              {Math.round(liveTemp)}°C
-            </ScaledText>
-          </View>
-
-          {riskPct !== null && (
-            <ScaledText style={[styles.heroChance, { color: theme.textSecondary }]}>
-              {t('riskChance')} {riskPct}%
-            </ScaledText>
           )}
+        </View>
 
-          <View style={styles.ctaRow}>
-            <ScaledText style={[styles.ctaText, { color: heatColor }]}>ต้องทำยังไง</ScaledText>
-            <ScaledText style={[styles.ctaArrow, { color: heatColor }]}>→</ScaledText>
-          </View>
-        </TouchableOpacity>
-
-        {/* Floating Action Buttons */}
-        <View style={[styles.fabContainer, { right: fabRight, top: hasBanner ? 110 : 56 }]}>
-          {/* Location Button */}
-          <TouchableOpacity 
+        {/* Locate FAB — below the chips, hugging the right edge */}
+        <View style={[styles.fabContainer, { right: 12, top: 64 }]}>
+          <TouchableOpacity
             style={[
-              styles.fab, 
+              styles.fab,
               GlassStyle[isDarkMode ? 'dark' : 'light'],
-              locationStatus === 'granted' && styles.fabActive
+              locationStatus === 'granted' && styles.fabActive,
             ]}
             onPress={handleGetLocation}
             disabled={isLocationLoading}
@@ -479,87 +379,66 @@ export default function MapScreen() {
             {isLocationLoading ? (
               <ActivityIndicator size="small" color={theme.primary} />
             ) : (
-              <IconSymbol 
-                size={24} 
-                name="my_location" 
-                color={locationStatus === 'granted' ? theme.primary : theme.textSecondary} 
+              <IconSymbol
+                size={24}
+                name="my_location"
+                color={locationStatus === 'granted' ? theme.primary : theme.textSecondary}
               />
             )}
           </TouchableOpacity>
         </View>
 
-        {/* Risk legend — colour communicates RISK level, not a confirmed heatwave */}
-        {!isShort && (
-          <View
-            pointerEvents="none"
-            style={[
-              styles.legend,
-              GlassStyle[isDarkMode ? 'dark' : 'light'],
-              {
-                bottom: timelineBottom + 76,
-                backgroundColor: isDarkMode ? 'rgba(24,19,15,0.66)' : 'rgba(255,255,255,0.72)',
-              } as any,
-            ]}
+        {/* ── "พื้นที่ของคุณ" glass card — floats above the glass tab bar ── */}
+        <View style={[styles.userCard, GlassStyle[isDarkMode ? 'dark' : 'light']]}>
+          <View style={styles.ucLocRow}>
+            <ScaledText style={[styles.ucLoc, { color: theme.textMuted }]}>
+              พื้นที่ของคุณ{myProvince ? ` · ${myProvince.name_th}` : ''}
+            </ScaledText>
+            {status === 'ready' && mapGeneratedAt && (
+              <ScaledText style={[styles.ucTs, { color: theme.textMuted }]}>
+                ข้อมูลเมื่อ {formatGeneratedAt(mapGeneratedAt)}
+              </ScaledText>
+            )}
+          </View>
+
+          <View style={styles.ucRow}>
+            <ScaledText numberOfLines={1} style={[styles.ucRisk, { color: theme.text }]}>
+              {riskLabel}
+            </ScaledText>
+            {riskPct !== null && (
+              <ScaledText style={[styles.ucPct, { color: heatColor }]}>
+                โอกาสเกิด {riskPct}%
+              </ScaledText>
+            )}
+          </View>
+
+          <TouchableOpacity
+            style={[styles.ctaPrimary, { backgroundColor: theme.primary }]}
+            onPress={() => router.push('/checklist')}
+            accessibilityRole="button"
           >
-            <View style={styles.legendRow}>
-              {([
-                ['#22C55E', t('lowRisk')],
-                ['#EAB308', t('moderate')],
-                ['#F97316', t('riskHigh')],
-                ['#EF4444', t('riskVeryHigh')],
-              ] as const).map(([c, lbl]) => (
-                <View key={lbl} style={styles.legendItem}>
-                  <View style={[styles.legendDot, { backgroundColor: c }]} />
-                  <ScaledText style={[styles.legendTxt, { color: theme.text }]}>{lbl}</ScaledText>
-                </View>
-              ))}
-            </View>
-            <ScaledText style={[styles.legendNote, { color: theme.textSecondary }]}>
-              {t('riskLegendNote')}
+            <ScaledText style={styles.ctaPrimaryText}>ต้องทำยังไง</ScaledText>
+            <ScaledText style={styles.ctaPrimaryText}>→</ScaledText>
+          </TouchableOpacity>
+
+          <View style={[styles.miniLegend, { borderTopColor: theme.border }]}>
+            {([
+              [RiskColors.safe, 'ปกติ'],
+              [RiskColors.watch, 'เฝ้าระวัง'],
+              [RiskColors.warning, 'เตือนภัย'],
+              [RiskColors.extreme, 'อันตราย'],
+            ] as const).map(([c, lbl]) => (
+              <View key={lbl} style={styles.mlItem}>
+                <View style={[styles.mlDot, { backgroundColor: c }]} />
+                <ScaledText style={[styles.mlTxt, { color: theme.textMuted }]}>{lbl}</ScaledText>
+              </View>
+            ))}
+            <ScaledText style={[styles.mlNote, { color: theme.textMuted }]}>
+              {'สีแสดง "ความเสี่ยงที่พยากรณ์" ไม่ใช่คลื่นความร้อนที่ยืนยันแล้ว'}
             </ScaledText>
           </View>
-        )}
-      </View>
-
-      {/* Bottom Timeline (hidden on very short viewports) */}
-      {!isShort && (
-      <View style={[
-        styles.timelineContainer,
-        GlassStyle[isDarkMode ? 'dark' : 'light'],
-        { bottom: timelineBottom }
-      ]}>
-        <View style={styles.timelineContent}>
-          {HOURLY_FORECAST.map((item, index) => (
-            <View
-              key={index}
-              style={[
-                styles.timelineItem,
-                index === 0 && styles.timelineItemActive
-              ]}
-            >
-              <ScaledText variant="labelSmall" style={[
-                styles.timelineTime,
-                { color: index === 0 ? theme.primary : theme.textSecondary }
-              ]}>
-                {item.label}
-              </ScaledText>
-              <IconSymbol
-                size={22}
-                name={item.icon}
-                color={index === 0 ? theme.text : theme.textSecondary}
-              />
-              <ScaledText variant="labelMedium" style={[
-                styles.timelineTemp,
-                { color: theme.text },
-                index === 0 && styles.timelineTempActive
-              ]}>
-                {item.temp}°C
-              </ScaledText>
-            </View>
-          ))}
         </View>
       </View>
-      )}
 
       {/* Floating liquid-glass tab bar (shared) */}
       <GlassTabBar active="map" />
@@ -571,6 +450,87 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  // ── Calm Authority hero overlays ──
+  mapTop: {
+    position: 'absolute',
+    top: 14,
+    left: 12,
+    right: 12,
+    zIndex: 30,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 8,
+  },
+  heroPill: {
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+  },
+  heroPillText: {
+    fontSize: 13,
+    fontFamily: FontFamily.display,
+    fontWeight: '700',
+  },
+  tierChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 5,
+    paddingHorizontal: 11,
+    borderRadius: 999,
+  },
+  tierDot: { width: 7, height: 7, borderRadius: 4 },
+  tierChipText: { fontSize: 11.5, fontFamily: FontFamily.bodySemi, fontWeight: '600' },
+  userCard: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    bottom: 92, // clears the floating glass tab bar (14 + 64 + gap)
+    zIndex: 30,
+    borderRadius: 16,
+    padding: 16,
+  },
+  ucLocRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+    gap: 8,
+  },
+  ucLoc: { fontSize: 12, fontFamily: FontFamily.bodyMedium },
+  ucTs: { fontSize: 10.5, fontFamily: FontFamily.body },
+  ucRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 4,
+    gap: 8,
+  },
+  ucRisk: { fontSize: 19, fontFamily: FontFamily.display, fontWeight: '700', flexShrink: 1 },
+  ucPct: { fontSize: 13, fontFamily: FontFamily.displaySemi, fontWeight: '600' },
+  ctaPrimary: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 9,
+    minHeight: 44,
+  },
+  ctaPrimaryText: { color: '#FFFFFF', fontSize: 13.5, fontFamily: FontFamily.bodySemi, fontWeight: '600' },
+  miniLegend: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 10,
+    paddingTop: 9,
+    borderTopWidth: 1,
+  },
+  mlItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  mlDot: { width: 7, height: 7, borderRadius: 4 },
+  mlTxt: { fontSize: 10.5, fontFamily: FontFamily.body },
+  mlNote: { width: '100%', fontSize: 10, fontFamily: FontFamily.body, marginTop: 1 },
   topControls: {
     position: 'absolute',
     left: 24,
