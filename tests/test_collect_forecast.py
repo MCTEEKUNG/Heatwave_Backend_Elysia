@@ -1,3 +1,4 @@
+import pandas as pd
 import pytest
 
 from scripts.collect_forecast import build_forecast_rows, daily_mean_from_hourly
@@ -76,3 +77,38 @@ def test_build_forecast_rows_soil_none_when_unavailable():
     }
     rows = build_forecast_rows(daily, province_id=1, issue_date="2026-06-01")
     assert rows[0]["fc_soil_moisture"] is None
+
+
+# --- opt-in Supabase push (cloud collector; local runs stay parquet-only) ---
+
+_FAKE_DAILY = {
+    "time": ["2026-06-10", "2026-06-11"],
+    "temperature_2m_max": [36.0, 37.0],
+    "relative_humidity_2m_mean": [60.0, 65.0],
+}
+
+
+def _collect_with_fakes(tmp_path, monkeypatch):
+    import scripts.collect_forecast as cf
+
+    provinces = pd.DataFrame([{"id": 1, "lat": 13.7, "lon": 100.5}])
+    monkeypatch.setattr(cf, "_fetch", lambda lat, lon: (_FAKE_DAILY, {}))
+    pushed = {}
+    monkeypatch.setattr(cf, "_push_to_db", lambda df: pushed.setdefault("n", len(df)))
+    out = cf.collect(provinces, store_path=str(tmp_path / "store.parquet"),
+                     issue_date="2026-06-10")
+    return out, pushed
+
+
+def test_collect_pushes_to_db_when_database_url_set(tmp_path, monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "postgresql://fake")
+    out, pushed = _collect_with_fakes(tmp_path, monkeypatch)
+    assert pushed["n"] == 2  # the freshly collected rows went to the DB hook
+    assert len(out) == 2     # and parquet behavior is unchanged
+
+
+def test_collect_does_not_push_without_database_url(tmp_path, monkeypatch):
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    out, pushed = _collect_with_fakes(tmp_path, monkeypatch)
+    assert pushed == {}      # local runs never touch the DB
+    assert len(out) == 2

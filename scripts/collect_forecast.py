@@ -22,12 +22,12 @@ import sys
 from datetime import date
 
 import pandas as pd
-import requests
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.provinces import load_provinces
 from src.heat_index import heat_index_c
+from src.openmeteo_client import _get_with_retry
 
 API = "https://api.open-meteo.com/v1/forecast"
 STORE = "data/processed/forecast_store.parquet"
@@ -87,10 +87,19 @@ def _fetch(lat: float, lon: float):
          "daily": "temperature_2m_max,relative_humidity_2m_mean",
          "hourly": SOIL_VAR,
          "forecast_days": FORECAST_DAYS, "timezone": "Asia/Bangkok"}
-    r = requests.get(API, params=p, timeout=60)
-    r.raise_for_status()
-    j = r.json()
+    # _get_with_retry survives 429/5xx — required on shared CI runner IPs.
+    j = _get_with_retry(API, p).json()
     return j.get("daily", {}), daily_mean_from_hourly(j.get("hourly", {}), SOIL_VAR)
+
+
+def _push_to_db(new: pd.DataFrame) -> None:
+    """Mirror freshly collected rows to heatwave.forecast_store (cloud twin).
+    Rows are immutable; the writer is ON CONFLICT DO NOTHING, so this is safe
+    to run from CI and laptop on the same day."""
+    from src.forecast_store_db import rows_for_upsert, upsert_rows
+
+    inserted = upsert_rows(rows_for_upsert(new))
+    print(f"pushed to heatwave.forecast_store: {inserted} new rows", flush=True)
 
 
 def collect(provinces: pd.DataFrame, store_path: str = STORE, issue_date=None) -> pd.DataFrame:
@@ -109,6 +118,8 @@ def collect(provinces: pd.DataFrame, store_path: str = STORE, issue_date=None) -
     out = pd.concat([existing, new], ignore_index=True) if not existing.empty else new
     os.makedirs(os.path.dirname(store_path), exist_ok=True)
     out.to_parquet(store_path, index=False)
+    if os.environ.get("DATABASE_URL"):
+        _push_to_db(new)
     print(f"collected issue_date={issue_iso}: +{len(new)} rows "
           f"({new['province_id'].nunique()} provinces, leads {new['lead_k'].min()}-{new['lead_k'].max()}) "
           f"-> store now {len(out)} rows, {out['issue_date'].nunique()} issue dates", flush=True)
