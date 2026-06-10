@@ -17,10 +17,58 @@
 import { useEffect, useState, useRef } from 'react';
 import { View, Text, StyleSheet, Platform } from 'react-native';
 
-// Dark/Light tile layer URLs for OpenStreetMap
+import { RiskColors, type RiskLevel } from '@/constants/theme';
+
+// Calm Authority: desaturated CARTO basemaps (free; OSM data) so the only
+// saturated colour on screen is the risk layer itself.
 const TILE_LAYERS = {
-  light: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+  light: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
   dark: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+};
+const TILE_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a>';
+
+// ── Province choropleth (the model forecasts per PROVINCE per day — heatwaves
+// are regional, not point hotspots, so polygons are the honest rendering) ──
+export interface ProvinceRisk {
+  level: RiskLevel;       // safe | watch | warning | extreme
+  nameTh: string;
+  probability: number;    // 0-100
+}
+
+const THAILAND_GEOJSON_URL =
+  'https://raw.githubusercontent.com/apisit/thailand.json/master/thailand.json';
+let thailandGeoPromise: Promise<any> | null = null;
+function fetchThailandGeo(): Promise<any> {
+  if (!thailandGeoPromise) {
+    thailandGeoPromise = fetch(THAILAND_GEOJSON_URL).then((r) => r.json())
+      .catch((e) => { thailandGeoPromise = null; throw e; });
+  }
+  return thailandGeoPromise;
+}
+
+// Normalise English province names so the GeoJSON ("Bangkok Metropolis",
+// "Phangnga") joins with the DB's name_en ("Bangkok", "Phang Nga").
+export function normalizeProvinceName(name: string): string {
+  return name.toLowerCase().replace(/[^a-z]/g, '');
+}
+
+export function riskForFeatureName(
+  geoName: string,
+  byNormName: Record<string, ProvinceRisk>,
+): ProvinceRisk | null {
+  const n = normalizeProvinceName(geoName);
+  if (byNormName[n]) return byNormName[n];
+  for (const key of Object.keys(byNormName)) {
+    if (n.includes(key) || key.includes(n)) return byNormName[key];
+  }
+  return null;
+}
+
+const RISK_LABEL_TH: Record<RiskLevel, string> = {
+  safe: 'ปกติ',
+  watch: 'เฝ้าระวัง',
+  warning: 'เตือนภัย',
+  extreme: 'อันตราย',
 };
 
 // Thailand geographic boundaries
@@ -158,14 +206,17 @@ function WebLeafletMap({
   onGetLocation,
   isDarkMode,
   neutral,
+  provinceRisk,
 }: {
   gridData: GridCell[];
   userLocation: { latitude: number; longitude: number } | null;
   onGetLocation: () => void;
   isDarkMode: boolean;
   neutral: boolean;
+  provinceRisk?: Record<string, ProvinceRisk> | null;
 }) {
   const [MapView, setMapView] = useState<any>(null);
+  const [thailandGeo, setThailandGeo] = useState<any>(null);
 
   useEffect(() => {
     if (Platform.OS !== 'web') return;
@@ -173,12 +224,19 @@ function WebLeafletMap({
       // Web-only dynamic require: react-leaflet/leaflet must never be bundled for native.
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const ReactLeaflet = require('react-leaflet');
-      const { MapContainer, TileLayer, Polygon, Marker, useMap } = ReactLeaflet;
+      const { MapContainer, TileLayer, Polygon, Marker, GeoJSON, useMap } = ReactLeaflet;
       // eslint-disable-next-line @typescript-eslint/no-require-imports
-      setMapView({ MapContainer, TileLayer, Polygon, Marker, useMap, L: require('leaflet') });
+      setMapView({ MapContainer, TileLayer, Polygon, Marker, GeoJSON, useMap, L: require('leaflet') });
     } catch (e) {
       console.log('Leaflet not available:', e);
     }
+  }, []);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    fetchThailandGeo().then(setThailandGeo).catch((e) => {
+      console.warn('Thailand GeoJSON unavailable, falling back to grid:', e);
+    });
   }, []);
 
   // Component to handle map ref and user location
@@ -202,10 +260,14 @@ function WebLeafletMap({
     );
   }
 
-  const { MapContainer, TileLayer, Polygon, Marker } = MapView;
+  const { MapContainer, TileLayer, Polygon, Marker, GeoJSON } = MapView;
 
   // Get the appropriate tile layer URL based on theme
   const tileLayerUrl = isDarkMode ? TILE_LAYERS.dark : TILE_LAYERS.light;
+
+  // Choropleth mode: real province polygons shaded by forecast tier. Active
+  // whenever the boundaries + per-province risk are both available.
+  const choropleth = !neutral && provinceRisk && Object.keys(provinceRisk).length > 0 && thailandGeo;
 
   // Convert grid cell to Leaflet polygon positions
   const getPolygonPositions = (cell: GridCell): [number, number][] => {
@@ -224,17 +286,17 @@ function WebLeafletMap({
       <div style="
         width: 24px;
         height: 24px;
-        background: #3b82f6;
+        background: #16324F;
         border: 3px solid white;
         border-radius: 50%;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        box-shadow: 0 2px 8px rgba(16,36,58,0.35);
         position: relative;
       ">
         <div style="
           position: absolute;
           width: 48px;
           height: 48px;
-          background: rgba(59, 130, 246, 0.2);
+          background: rgba(22, 50, 79, 0.2);
           border-radius: 50%;
           top: 50%;
           left: 50%;
@@ -269,29 +331,50 @@ function WebLeafletMap({
       style={{ flex: 1, width: '100%', height: '100%' }}
       zoomControl={false}
     >
-      <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-        url={tileLayerUrl}
-      />
-      
+      <TileLayer attribution={TILE_ATTRIBUTION} url={tileLayerUrl} />
+
       <MapController userLoc={userLocation} />
-      
-      {/* Grid overlay polygons — grey ('neutral') while data isn't ready */}
-      {gridData.map((cell) => {
-        const sev: Severity = neutral ? 'neutral' : cell.severity;
-        return (
-          <Polygon
-            key={cell.id}
-            positions={getPolygonPositions(cell)}
-            pathOptions={{
-              fillColor: getSeverityColor(sev),
-              fillOpacity: 0.7,
-              color: getSeverityBorderColor(sev),
-              weight: 2,
-            }}
-          />
-        );
-      })}
+
+      {choropleth ? (
+        /* Province choropleth — warm fill ONLY where risk exists */
+        <GeoJSON
+          key={`choro-${Object.keys(provinceRisk!).length}`}
+          data={thailandGeo}
+          style={(feature: any) => {
+            const z = riskForFeatureName(feature?.properties?.name ?? '', provinceRisk!);
+            if (z && z.level !== 'safe') {
+              return {
+                color: '#FFFFFF', weight: 1,
+                fillColor: RiskColors[z.level], fillOpacity: 0.34,
+              };
+            }
+            return { color: '#B3C4D2', weight: 0.6, fillColor: '#7E93A6', fillOpacity: 0.05 };
+          }}
+          onEachFeature={(feature: any, layer: any) => {
+            const z = riskForFeatureName(feature?.properties?.name ?? '', provinceRisk!);
+            layer.bindPopup(z
+              ? `<b>${z.nameTh}</b><br>ระดับ${RISK_LABEL_TH[z.level]} · โอกาสเกิด ${Math.round(z.probability)}%`
+              : `<b>${feature?.properties?.name ?? ''}</b><br>ความเสี่ยงต่ำ`);
+          }}
+        />
+      ) : (
+        /* Grid fallback — grey ('neutral') while data isn't ready */
+        gridData.map((cell) => {
+          const sev: Severity = neutral ? 'neutral' : cell.severity;
+          return (
+            <Polygon
+              key={cell.id}
+              positions={getPolygonPositions(cell)}
+              pathOptions={{
+                fillColor: getSeverityColor(sev),
+                fillOpacity: 0.35,
+                color: getSeverityBorderColor(sev),
+                weight: 1,
+              }}
+            />
+          );
+        })
+      )}
       
       {/* User location marker - ANCHORED TO MAP, not screen */}
       {userLocation && (
@@ -407,6 +490,7 @@ export function MapGrid({
   style,
   isDarkMode = false,
   neutral = false,
+  provinceRisk = null,
 }: {
   gridData?: GridCell[];
   userLocation?: { latitude: number; longitude: number } | null;
@@ -416,6 +500,9 @@ export function MapGrid({
   // When true, every cell renders GREY instead of its real severity colour —
   // used while the forecast is loading / failed so "no data" ≠ "low risk".
   neutral?: boolean;
+  // Per-province risk keyed by NORMALISED English name (normalizeProvinceName).
+  // When provided (web), renders the honest province choropleth instead of the grid.
+  provinceRisk?: Record<string, ProvinceRisk> | null;
 }) {
   const [isWeb, setIsWeb] = useState(false);
   
@@ -434,6 +521,7 @@ export function MapGrid({
           onGetLocation={handleGetLocation}
           isDarkMode={isDarkMode}
           neutral={neutral}
+          provinceRisk={provinceRisk}
         />
       ) : (
         <NativeMapView

@@ -133,4 +133,21 @@ end via PR to master (sync-frontend.yml auto-pushes to Vercel) — user-gated.
 
 ## Execution log
 
-(filled during execution)
+- Task 1 ✅ tokens rewritten in place (`a195b0a`) — lint 0 errors.
+- Task 2 ✅ fonts installed + loaded in root layout (same commit).
+- Task 3 ✅ `components/ui/GlassTabBar.tsx` + replaced 4 per-screen navs (`bdc6a9b`).
+  Verified on expo web: renders, navigates, pill follows active tab. NOTE:
+  expo-router keeps hidden tab screens mounted → duplicate zero-size tab bars in
+  DOM (pre-existing pattern, harmless; Playwright must filter `width>0`).
+- Task 4 ✅ (core) — MapGrid: CARTO Positron tiles + 77-province GeoJSON
+  choropleth (module-cached fetch, name-normalised join `normalizeProvinceName`/
+  `riskForFeatureName`, popups TH, grid kept as loading/native fallback at
+  calmer opacity); map.tsx: `mapPoints` state + `provinceRisk` useMemo
+  (riskLevelToSeverity→safe/watch/warning/extreme) passed to MapGrid; navy user
+  marker. Verified live: tile=cartocdn light_all, overlay paths=77, real
+  boundaries shaded by live forecast. GOTCHA: Metro on Windows did NOT hot-pick
+  these edits — needed `expo start --clear` restart before the new bundle served.
+- Task 4 (remaining polish, optional): hero top banner/legend already re-toned
+  via tokens; full mockup-style usercard/minilegend restructure not yet done.
+- Tasks 5–8 ⏳ not started (alerts tier cards, safety regroup, profile about-card,
+  trip advisor). Task 9 (PR to master) pending after those.

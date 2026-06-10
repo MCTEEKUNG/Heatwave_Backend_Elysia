@@ -5,7 +5,7 @@ import { Colors, DesignTokens, GlassStyle, useResponsive } from '@/constants/the
 import { GlassTabBar } from '@/components/ui/GlassTabBar';
 import { useSettings } from '@/hooks/useSettings';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { MapGrid, generateThailandGrid, type GridCell, type Severity } from '@/components/map';
+import { MapGrid, generateThailandGrid, normalizeProvinceName, type GridCell, type Severity, type ProvinceRisk } from '@/components/map';
 import { useLocation } from '@/hooks/useLocation';
 import { ScaledText } from '@/components/ui/ScaledText';
 import { useWeather } from '@/hooks/useWeather';
@@ -59,6 +59,7 @@ export default function MapScreen() {
   const theme = Colors[isDarkMode ? 'dark' : 'light'];
   // Start with a neutral (uncoloured) grid — overwritten once forecast loads
   const [gridData, setGridData] = useState<GridCell[]>(generateThailandGrid());
+  const [mapPoints, setMapPoints] = useState<MapForecastPoint[]>([]);
   // Explicit load state so "no real data" is visually distinct from "low risk":
   //   loading → fetch in flight (grey grid + spinner)
   //   error   → fetch threw / timed out (grey grid + Retry)
@@ -127,11 +128,13 @@ export default function MapScreen() {
       if (!Array.isArray(points) || points.length === 0) {
         // Fetch succeeded but no forecast yet — grey grid + retry, not green
         setGridData(generateThailandGrid());
+        setMapPoints([]);
         setMapGeneratedAt(null);
         setStatus('empty');
         return;
       }
 
+      setMapPoints(points);
       setMapGeneratedAt(points[0]?.generated_at ?? null);
 
       const baseGrid = generateThailandGrid();
@@ -150,10 +153,35 @@ export default function MapScreen() {
     } catch {
       // Network error / timeout — grey grid + retry rather than fake data
       setGridData(generateThailandGrid());
+      setMapPoints([]);
       setMapGeneratedAt(null);
       setStatus('error');
     }
   }, []);
+
+  // Province choropleth data (web): join forecast points with province names.
+  // The model forecasts per PROVINCE — polygons are the honest rendering.
+  const provinceRisk = useMemo(() => {
+    if (mapPoints.length === 0 || provinces.length === 0) return null;
+    const byId = new Map(provinces.map((p) => [p.id, p]));
+    const rec: Record<string, ProvinceRisk> = {};
+    for (const pt of mapPoints) {
+      const prov = byId.get(pt.province_id);
+      if (!prov) continue;
+      const sev = riskLevelToSeverity(pt.risk_level);
+      const level =
+        sev === 'extreme' ? 'extreme'
+        : sev === 'high' ? 'warning'
+        : sev === 'moderate' ? 'watch'
+        : 'safe';
+      rec[normalizeProvinceName(prov.name_en)] = {
+        level,
+        nameTh: prov.name_th,
+        probability: Math.round((pt.probability ?? 0) * 100),
+      };
+    }
+    return rec;
+  }, [mapPoints, provinces]);
 
   useEffect(() => {
     loadForecastMap();
@@ -281,6 +309,7 @@ export default function MapScreen() {
           onUserLocationRequest={handleGetLocation}
           isDarkMode={isDarkMode}
           neutral={status !== 'ready'}
+          provinceRisk={provinceRisk}
           style={styles.mapGrid}
         />
 
