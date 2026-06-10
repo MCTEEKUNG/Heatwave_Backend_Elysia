@@ -15,6 +15,19 @@ Heatwave forecasting for Thai provinces. **Four codebases share one root directo
 
 **Gotcha: `src/` is mixed** — Python ML modules (`features.py`, `model.py`, …) and the TypeScript Elysia backend (`index.ts`, `routes/`, `line/`) live in the *same* folder. The root `package.json`/`bun.lock`/`tsconfig.json` belong to the **backend**, not the ML code.
 
+## Branch architecture (do NOT naive-merge)
+
+`master` and `feat/clean-era5-ndvi-dataset` share **no common ancestor** (unrelated
+histories). `master` = legacy lineage + deploy host: Render (`Dockerfile.render`,
+serves the old `Heatwave-AI-Backend-Elysia/`), the Vercel frontend sync
+(`sync-frontend.yml`), and the ACTIVE `.github/workflows/daily-forecast.yml`
+(GitHub schedules only fire from the default branch) — which checks out
+`feat/clean-era5-ndvi-dataset` for the real ML code. `feat/clean-era5-ndvi-dataset`
+= the active development line (flat `src/`, `pipeline/`, frontend, all tests).
+Unifying them requires a deliberate default-branch migration (move workflows,
+retarget Render/Vercel, drop the legacy `Era5-data-2000-2026/*.nc` blobs) — never
+a plain `git merge`.
+
 ## Commands
 
 Platform is **Windows + PowerShell**; the Python interpreter is `.venv\Scripts\python.exe` (always use it, not bare `python`). `conftest.py` puts the repo root on `sys.path`, so `import src.*` / `import pipeline.*` work and pytest must be run **from the repo root**.
