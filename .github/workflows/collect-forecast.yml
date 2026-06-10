@@ -1,0 +1,54 @@
+# P0 forward-collector in the cloud (closes the laptop-off data-loss gap).
+#
+# Same hosting pattern as daily-forecast.yml: the `schedule:` trigger only fires
+# from the repository's DEFAULT branch (master), but the collector code lives on
+# the active dev branch, so we check that out. Rows are mirrored to the
+# `heatwave.forecast_store` table (migration 0002) keyed by
+# (province_id, issue_date, target_date) with ON CONFLICT DO NOTHING — the
+# laptop Task-Scheduler collector can keep running in parallel; duplicates are
+# impossible by construction. Training pulls the union via
+# scripts/sync_forecast_store.py.
+#
+# Requires repo secret DATABASE_URL (already set for daily-forecast.yml).
+name: collect-forecast
+
+on:
+  schedule:
+    - cron: "45 0 * * *" # 00:45 UTC = 07:45 Asia/Bangkok, daily
+  workflow_dispatch: {}
+
+concurrency:
+  group: collect-forecast
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    # 77 provinces x 1 Open-Meteo call each, with _get_with_retry backing off on
+    # 429/5xx (shared CI runner IPs). Normal runtime is a few minutes; 30 gives
+    # generous backoff headroom.
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The collector (scripts/, src/) lives on the active dev branch.
+          ref: feat/clean-era5-ndvi-dataset
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install collector dependencies (minimal)
+        run: |
+          pip install --upgrade pip
+          pip install \
+            "numpy>=1.24" "pandas>=2.0" "pyarrow>=14" "requests>=2.31" \
+            "psycopg[binary]>=3.1"
+
+      - name: Collect today's 7-day forecast (77 provinces -> forecast_store)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          PYTHONUNBUFFERED: "1"
+        run: |
+          python scripts/collect_forecast.py
