@@ -28,13 +28,20 @@ modern-government-grade. Scope: all 4 tabs (MAP / ALERTS / SAFETY / PROFILE).
   (desaturated, matches theme; free tier). Warm circles only on at-risk
   provinces (tap → popup with level + probability, fed by `/api/forecast/map`);
   navy user-location marker; floating "พื้นที่ของคุณ" card (risk %, CTA
-  "ต้องทำยังไง", toggle "🛣️ เส้นทางเลี่ยง"); timestamp chip; anti-panic legend.
-  **Risk-avoiding routes:** normal route (grey dashed) vs avoiding route (navy)
-  around warning zones. Mockup uses hardcoded polylines; production options
-  (free, OSM-based): OSRM demo server (no avoid support — needs detour
-  heuristic via waypoints) or **Valhalla on FOSSGIS (`valhalla1.openstreetmap.de`,
-  supports `exclude_polygons`) — preferred**, or OpenRouteService free key
-  (`avoid_polygons`). Pass warning-province circles as the avoid polygons.
+  "ต้องทำยังไง", toggle "🧭 วางแผนเดินทาง"); timestamp chip; anti-panic legend.
+  **REVISED 2026-06-10 (user + science review):** risk display is a
+  **province choropleth** (free boundaries GeoJSON: `apisit/thailand.json`,
+  `properties.name` = English province name), NOT point hotspots — the model
+  outputs one probability per (province, day) and heatwaves are regional
+  (synoptic), so polygons are the honest representation.
+  **Trip Advisor replaces "route avoidance":** heat is drivable-through; the
+  danger is exposure, zones are too wide to detour, and mass rerouting could
+  itself cause panic congestion (user's insight). The feature shows instead:
+  (1) which warning provinces the route crosses and at what clock time
+  (route segment through a warning zone highlighted in the warning colour),
+  (2) **departure-time shifting** out of the 11:00–16:00 heat peak,
+  (3) rest stops along the way (OSM POIs). Production: OSRM/Valhalla free
+  routing + route∩province-polygon intersection + per-province forecast.
 - **ALERTS:** two tier cards (เตือนภัย / เฝ้าระวัง) with counts + top-province
   chips; calm 7-day calendar; weather strip.
 - **SAFETY:** advice cards grouped by time-of-day (ก่อนออกแดด / กลางวัน / ฉุกเฉิน),

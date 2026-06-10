@@ -103,6 +103,13 @@ body{background:#EDF1F5;font-family:var(--body);color:var(--navy-deep);min-heigh
 .minilegend{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;padding-top:9px;
   border-top:1px solid var(--hairline);font-size:10.5px;color:var(--muted)}
 .minilegend .note{width:100%;font-size:10px;margin-top:1px}
+.triprow{font-size:12px;color:var(--navy-deep);margin-top:7px;line-height:1.55}
+.triprow b{font-weight:600}
+.triprow.warn b{color:var(--warning)}
+.reststop-tip{background:rgba(255,255,255,.92);border:1px solid var(--hairline);border-radius:8px;
+  font-family:'Anuphan',sans-serif;font-size:10px;font-weight:600;color:#10243A;
+  padding:2px 7px;box-shadow:0 2px 6px rgba(16,36,58,.15)}
+.reststop-tip::before{display:none}
 .usercard .btnrow{display:flex;gap:8px;margin-top:10px}
 .usercard .cta2{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;
   border:1.5px solid var(--navy);color:var(--navy);background:#fff;border-radius:9px;
@@ -192,16 +199,25 @@ body{background:#EDF1F5;font-family:var(--body);color:var(--navy-deep);min-heigh
           <span class="chip hero-pill">แผนที่ความเสี่ยง · 77 จังหวัด</span>
           <span class="chip badge-watch"><span class="dot" style="background:var(--watch)"></span>เฝ้าระวัง 12 จว.</span>
         </div>
-        <div class="route-banner" id="routeBanner">🛣️ เลี่ยงโซนเตือนภัยโคราช · +45 นาที</div>
+        <div class="route-banner" id="routeBanner">🧭 ผ่านโซนเตือนภัย 1 จังหวัด · แนะนำออกก่อน 09:00 น.</div>
         <div class="usercard">
-          <div class="loc"><span>พื้นที่ของคุณ · ชลบุรี</span><span class="ts">ข้อมูลเมื่อ 13:03 น.</span></div>
-          <div class="row">
-            <span class="risk">ระดับเฝ้าระวัง</span>
-            <span class="pct">โอกาสเกิด 19%</span>
+          <div id="homeCard">
+            <div class="loc"><span>พื้นที่ของคุณ · ชลบุรี</span><span class="ts">ข้อมูลเมื่อ 13:03 น.</span></div>
+            <div class="row">
+              <span class="risk">ระดับเฝ้าระวัง</span>
+              <span class="pct">โอกาสเกิด 19%</span>
+            </div>
+            <div class="btnrow">
+              <div class="cta" style="flex:1;margin:0"><span>ต้องทำยังไง</span><span>→</span></div>
+              <button class="cta2" id="tripBtn">🧭 วางแผนเดินทาง</button>
+            </div>
           </div>
-          <div class="btnrow">
-            <div class="cta" style="flex:1;margin:0"><span>ต้องทำยังไง</span><span>→</span></div>
-            <button class="cta2" id="routeBtn">🛣️ เส้นทางเลี่ยง</button>
+          <div id="tripCard" style="display:none">
+            <div class="loc"><span>การเดินทาง · ชลบุรี → ขอนแก่น</span><span class="ts">~5 ชม. 40 น.</span></div>
+            <div class="triprow warn">⚠️ ผ่าน <b>นครราชสีมา (เตือนภัย 41%)</b> ราว 12:40 น. — ช่วงพีคความร้อน</div>
+            <div class="triprow">🕘 <b>แนะนำออกก่อน 09:00 น.</b> จะพ้นโซนเตือนภัยก่อนพีค 11:00–16:00</div>
+            <div class="triprow">⛽ จุดพักแนะนำ: ปากช่อง · บ้านไผ่ (แวะดื่มน้ำ พักเครื่อง)</div>
+            <button class="cta2 on" id="tripClose" style="width:100%;margin-top:10px">ปิดแผนเดินทาง</button>
           </div>
           <div class="minilegend">
             <span><span class="dot" style="background:var(--safe)"></span> ปกติ</span>
@@ -378,11 +394,18 @@ body{background:#EDF1F5;font-family:var(--body);color:var(--navy-deep);min-heigh
     คือสิ่งที่กรรมการสายวิทยาศาสตร์มองหา
   </div>
   <div class="rule">
-    <b>แผนที่จริง เลื่อน/ซูมได้ — ฟรีทั้งเส้น:</b> ข้อมูลแผนที่ OpenStreetMap +
-    tile โทนจางของ CARTO (ฟรี) · วงสีอุ่น = โซนเสี่ยงรายจังหวัด แตะดูรายละเอียดได้ ·
-    ปุ่ม <span class="kbd">🛣️ เส้นทางเลี่ยง</span> เดโมเส้นทาง ชลบุรี→ขอนแก่น:
-    เส้นประเทา = ทางปกติ (ผ่านโซนเตือนภัยโคราช), เส้นกรมท่า = ทางเลี่ยง
-    (ของจริงจะคำนวณด้วย OSRM/Valhalla — เอนจิน routing โอเพนซอร์สของ OSM, ฟรี)
+    <b>แผนที่จริง เลื่อน/ซูมได้ — ฟรีทั้งเส้น:</b> ข้อมูล OpenStreetMap + tile โทนจาง CARTO ·
+    <b>ระบายสีรายจังหวัด (choropleth)</b> ตรงกับผลโมเดลจริงซึ่งพยากรณ์เป็น
+    "ความน่าจะเป็นต่อจังหวัดต่อวัน" — คลื่นความร้อนเป็นภัยระดับภูมิภาค ไม่ใช่จุด hotspot ·
+    แตะจังหวัดเพื่อดูระดับ + ความน่าจะเป็น
+  </div>
+  <div class="rule">
+    <b>🧭 วางแผนเดินทาง (ไม่ใช่ "สั่งอ้อม"):</b> heatwave ขับผ่านได้ อันตรายคือ
+    <i>การสัมผัสความร้อน</i> และโซนมักกว้างจนไม่มีทางเลี่ยง ระบบจึงบอก 3 อย่างแทน:
+    เส้นทางผ่านโซนเตือนภัยตรงไหน/กี่โมง (ช่วงสีแดงบนเส้น) ·
+    <b>เลื่อนเวลาออกเดินทาง</b>ให้พ้นพีค 11:00–16:00 · จุดพักระหว่างทาง —
+    แนวคิดนี้ลดความแตกตื่นและไม่ชักนำให้คนแห่เปลี่ยนเส้นทางพร้อมกัน
+    (ของจริง: OSRM/Valhalla ฟรี + จุดตัดขอบเขตจังหวัด + POI จุดพักจาก OSM)
   </div>
 </div>
 
@@ -407,55 +430,85 @@ L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
   attribution: '© OpenStreetMap, © CARTO', maxZoom: 18,
 }).addTo(map);
 
-// risk zones — warm colour ONLY where risk exists (sample data, prod = /api/forecast/map)
-const zones = [
-  { n: 'นครราชสีมา', c: [14.97, 102.10], lv: 'warning', p: 41 },
-  { n: 'อุดรธานี',    c: [17.41, 102.79], lv: 'warning', p: 47 },
-  { n: 'ร้อยเอ็ด',    c: [16.05, 103.65], lv: 'warning', p: 38 },
-  { n: 'ขอนแก่น',    c: [16.43, 102.84], lv: 'watch',   p: 26 },
-  { n: 'ลพบุรี',      c: [14.80, 100.65], lv: 'watch',   p: 24 },
-  { n: 'กาญจนบุรี',  c: [14.02,  99.53], lv: 'watch',   p: 22 },
-];
+/* ── province choropleth — honest to the model: one probability per PROVINCE
+   (heatwaves are regional, not point hotspots). Boundaries: free GeoJSON
+   (apisit/thailand.json, 77 จังหวัด); prod feeds tiers from /api/forecast/map. ── */
+const risk = { // sample data keyed by English province name in the GeoJSON
+  'Nakhon Ratchasima': { th: 'นครราชสีมา', lv: 'warning', p: 41 },
+  'Udon Thani':        { th: 'อุดรธานี',    lv: 'warning', p: 47 },
+  'Roi Et':            { th: 'ร้อยเอ็ด',    lv: 'warning', p: 38 },
+  'Khon Kaen':         { th: 'ขอนแก่น',    lv: 'watch',   p: 26 },
+  'Lop Buri':          { th: 'ลพบุรี',      lv: 'watch',   p: 24 },
+  'Kanchanaburi':      { th: 'กาญจนบุรี',  lv: 'watch',   p: 22 },
+  'Chon Buri':         { th: 'ชลบุรี',      lv: 'watch',   p: 19 },
+};
 const lvColor = { warning: '#C75B39', watch: '#C98A2D' };
-zones.forEach(z => L.circle(z.c, {
-  radius: 38000, color: lvColor[z.lv], weight: 1.5,
-  fillColor: lvColor[z.lv], fillOpacity: .22,
-}).addTo(map).bindPopup(
-  `<b style="font-family:Anuphan">${z.n}</b><br>` +
-  `ระดับ${z.lv === 'warning' ? 'เตือนภัย' : 'เฝ้าระวัง'} · โอกาสเกิด ${z.p}%`
-));
+const lvLabel = { warning: 'เตือนภัย', watch: 'เฝ้าระวัง' };
 
-// user location — calm navy, never a warm colour
-L.circleMarker([13.36, 100.98], {
-  radius: 7, color: '#fff', weight: 2.5, fillColor: '#16324F', fillOpacity: 1,
-}).addTo(map).bindPopup('<b style="font-family:Anuphan">คุณอยู่ที่นี่ · ชลบุรี</b>');
+function addUserMarker() {
+  L.circleMarker([13.36, 100.98], {
+    radius: 7, color: '#fff', weight: 2.5, fillColor: '#16324F', fillOpacity: 1,
+  }).addTo(map).bindPopup('<b style="font-family:Anuphan">คุณอยู่ที่นี่ · ชลบุรี</b>');
+}
 
-/* ── demo: route avoidance (prod = OSRM/Valhalla free OSM routing + avoid polygons) ── */
-const routeNormal = L.polyline([ // ชลบุรี → โคราช → ขอนแก่น (ผ่านโซนเตือนภัย)
+fetch('https://raw.githubusercontent.com/apisit/thailand.json/master/thailand.json')
+  .then(r => r.json())
+  .then(geo => {
+    L.geoJSON(geo, {
+      style: f => {
+        const z = risk[f.properties.name];
+        return z
+          ? { color: '#fff', weight: 1, fillColor: lvColor[z.lv], fillOpacity: .32 }
+          : { color: '#B3C4D2', weight: .6, fillColor: '#7E93A6', fillOpacity: .04 };
+      },
+      onEachFeature: (f, layer) => {
+        const z = risk[f.properties.name];
+        layer.bindPopup(z
+          ? `<b style="font-family:Anuphan">${z.th}</b><br>ระดับ${lvLabel[z.lv]} · โอกาสเกิด ${z.p}%`
+          : `<b style="font-family:Anuphan">${f.properties.name}</b><br>ความเสี่ยงต่ำ`);
+      },
+    }).addTo(map);
+    addUserMarker(); // วาดทับ polygon ให้จุดผู้ใช้อยู่บนสุด
+  })
+  .catch(() => addUserMarker());
+
+/* ── Trip Advisor (ไม่ใช่ "เส้นทางเลี่ยง" — heatwave เป็นภัยระดับภูมิภาค จึงแนะนำ
+   "เลื่อนเวลา + จุดพัก" แทนการสั่งอ้อม; prod = OSRM/Valhalla ฟรี + จุดตัดขอบเขตจังหวัด) ── */
+const tripRoute = L.polyline([ // ชลบุรี → โคราช → ขอนแก่น (ทางหลวง 2)
   [13.36, 100.98], [13.69, 101.07], [13.95, 101.71], [14.40, 101.90],
   [14.97, 102.10], [15.55, 102.40], [16.06, 102.73], [16.43, 102.84],
-], { color: '#8A99A8', weight: 4, dashArray: '7 9', opacity: .9 });
-const routeAvoid = L.polyline([ // ชลบุรี → สระบุรี → ชัยภูมิ → ขอนแก่น (อ้อมตะวันตก)
-  [13.36, 100.98], [13.83, 100.95], [14.53, 100.91], [15.20, 101.20],
-  [15.81, 102.03], [16.20, 102.50], [16.43, 102.84],
 ], { color: '#16324F', weight: 5, opacity: .95 });
+const tripWarnSeg = L.polyline([ // ช่วงที่อยู่ในเขตเตือนภัยโคราช — เน้นสีเตือน
+  [14.40, 101.90], [14.97, 102.10], [15.55, 102.40],
+], { color: '#C75B39', weight: 6, opacity: .95, dashArray: '2 10', lineCap: 'round' });
+const restStops = [
+  { c: [14.71, 101.42], n: '⛽ จุดพัก ปากช่อง' },
+  { c: [16.06, 102.73], n: '⛽ จุดพัก บ้านไผ่' },
+].map(s => L.circleMarker(s.c, {
+  radius: 6, color: '#16324F', weight: 2, fillColor: '#fff', fillOpacity: 1,
+}).bindTooltip(s.n, { permanent: true, direction: 'right', offset: [8, 0], className: 'reststop-tip' }));
 
-let routeOn = false;
-const routeBtn = document.getElementById('routeBtn');
+let tripOn = false;
+const tripBtn = document.getElementById('tripBtn');
 const routeBanner = document.getElementById('routeBanner');
-routeBtn.addEventListener('click', () => {
-  routeOn = !routeOn;
-  routeBtn.classList.toggle('on', routeOn);
-  routeBanner.classList.toggle('show', routeOn);
-  if (routeOn) {
-    routeNormal.addTo(map); routeAvoid.addTo(map);
-    map.fitBounds(routeAvoid.getBounds().extend(routeNormal.getBounds()),
-      { paddingTopLeft: [30, 80], paddingBottomRight: [30, 290] }); // เผื่อ usercard + tabbar ลอยด้านล่าง
+const homeCard = document.getElementById('homeCard');
+const tripCard = document.getElementById('tripCard');
+function setTrip(on) {
+  tripOn = on;
+  routeBanner.classList.toggle('show', on);
+  homeCard.style.display = on ? 'none' : '';
+  tripCard.style.display = on ? '' : 'none';
+  if (on) {
+    tripRoute.addTo(map); tripWarnSeg.addTo(map); restStops.forEach(m => m.addTo(map));
+    map.fitBounds(tripRoute.getBounds(),
+      { paddingTopLeft: [30, 80], paddingBottomRight: [30, 290] }); // เผื่อ usercard + tabbar ลอย
   } else {
-    map.removeLayer(routeNormal); map.removeLayer(routeAvoid);
+    map.removeLayer(tripRoute); map.removeLayer(tripWarnSeg); restStops.forEach(m => map.removeLayer(m));
     map.setView([13.6, 101.2], 6);
   }
-});
+}
+tripBtn.addEventListener('click', () => setTrip(true));
+document.getElementById('tripClose').addEventListener('click', () => setTrip(false));
 </script>
 </body>
 </html>
