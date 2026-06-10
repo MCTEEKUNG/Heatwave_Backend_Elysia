@@ -1,3 +1,10 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# WARNING — LEGACY / ASPIRATIONAL CONFIG. NOT WIRED INTO THE LIVE PIPELINE.
+# The actually-wired data pipeline is documented in docs/DATA.md; the canonical
+# training set is data/processed/dataset.parquet built by pipeline scripts.
+# This file describes an older ERA5/MODIS-NDVI design kept for reference only.
+# (See CLAUDE.md "Data & datasets".)
+# ─────────────────────────────────────────────────────────────────────────────
 project:
   name: HEATWAVE-AI-Prediction
   version: 1.0.0
