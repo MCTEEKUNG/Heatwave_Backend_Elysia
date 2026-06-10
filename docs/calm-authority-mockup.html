@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Calm Authority — HeatMAP Redesign Mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&family=Bai+Jamjuree:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* ── Calm Authority tokens (mirror of constants/theme.ts rewrite) ── */
+  --navy:#16324F; --navy-deep:#10243A; --navy-soft:#3D5A77;
+  --bg:#F7F9FB; --card:#FFFFFF; --hairline:#E3E9EF; --muted:#6B7C8D;
+  /* risk ramp — the ONLY warm colours in the system */
+  --safe:#3E7D5B; --watch:#C98A2D; --warning:#C75B39; --extreme:#A93226;
+  --accent:#E8702A;
+  --safe-bg:#EAF3EE; --watch-bg:#F8F0E1; --warning-bg:#F8E9E3; --extreme-bg:#F5E3E1;
+  --r:12px; --shadow:0 2px 8px rgba(16,36,58,.08);
+  --display:'Bai Jamjuree',sans-serif; --body:'Anuphan',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#EDF1F5;font-family:var(--body);color:var(--navy-deep);min-height:100vh;
+  display:flex;align-items:flex-start;justify-content:center;gap:48px;padding:48px 24px;flex-wrap:wrap}
+
+/* ───────────────────────── phone frame ───────────────────────── */
+.phone{width:390px;height:800px;background:var(--bg);border-radius:38px;border:10px solid #1B2530;
+  box-shadow:0 30px 80px rgba(16,36,58,.35);overflow:hidden;position:relative;flex-shrink:0}
+.statusbar{height:34px;display:flex;justify-content:space-between;align-items:center;
+  padding:0 22px;font-size:12.5px;font-weight:600;color:var(--navy-deep);font-family:var(--display)}
+.screen{position:absolute;inset:34px 0 64px;overflow-y:auto;scrollbar-width:none}
+.screen::-webkit-scrollbar{display:none}
+.page{display:none;animation:pageIn .35s ease both}
+.page.active{display:block}
+@keyframes pageIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.page>*{animation:rise .45s ease both}
+.page>*:nth-child(2){animation-delay:.05s}.page>*:nth-child(3){animation-delay:.1s}
+.page>*:nth-child(4){animation-delay:.15s}.page>*:nth-child(5){animation-delay:.2s}
+@keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+
+/* ───────────────────────── shared components ───────────────────────── */
+.appbar{padding:14px 20px 10px;display:flex;align-items:baseline;justify-content:space-between}
+.appbar h1{font-family:var(--display);font-size:20px;font-weight:700;color:var(--navy);letter-spacing:.2px}
+.appbar .sub{font-size:12px;color:var(--muted)}
+.card{background:var(--card);border:1px solid var(--hairline);border-radius:var(--r);
+  box-shadow:var(--shadow);margin:0 16px 12px;padding:16px}
+.section-h{font-family:var(--display);font-size:12.5px;font-weight:600;letter-spacing:1.2px;
+  text-transform:uppercase;color:var(--muted);margin:18px 20px 8px}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;
+  padding:3px 10px;border-radius:999px}
+.ts-chip{background:var(--card);border:1px solid var(--hairline);color:var(--muted);font-weight:500}
+.badge-safe{background:var(--safe-bg);color:var(--safe)}
+.badge-watch{background:var(--watch-bg);color:var(--watch)}
+.badge-warning{background:var(--warning-bg);color:var(--warning)}
+.dot{width:7px;height:7px;border-radius:50%;display:inline-block}
+
+/* ───────────────────────── tab bar ───────────────────────── */
+.tabbar{position:absolute;bottom:0;left:0;right:0;height:64px;background:var(--card);
+  border-top:1px solid var(--hairline);display:flex}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  cursor:pointer;color:var(--muted);transition:color .2s;border:none;background:none;font-family:var(--body)}
+.tab svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.tab span{font-size:10.5px;font-weight:600}
+.tab.active{color:var(--navy)}
+.tab.active::before{content:'';position:absolute;top:0;width:28px;height:3px;border-radius:0 0 3px 3px;background:var(--navy)}
+.tab{position:relative}
+
+/* ───────────────────────── MAP page ───────────────────────── */
+.mapwrap{position:relative;height:430px;margin:0 16px 12px;border-radius:var(--r);
+  overflow:hidden;border:1px solid var(--hairline);background:linear-gradient(180deg,#E9EEF3,#DFE7EE)}
+.mapwrap svg.thmap{position:absolute;inset:0;width:100%;height:100%}
+.risk-dot{animation:pulse 2.4s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:.85}50%{opacity:.55}}
+.map-top{position:absolute;top:10px;left:10px;right:10px;display:flex;justify-content:space-between;align-items:center}
+.usercard{position:absolute;left:10px;right:10px;bottom:10px;background:rgba(255,255,255,.96);
+  backdrop-filter:blur(4px);border:1px solid var(--hairline);border-radius:var(--r);
+  box-shadow:var(--shadow);padding:14px 16px}
+.usercard .loc{font-size:12px;color:var(--muted);font-weight:500}
+.usercard .row{display:flex;align-items:center;justify-content:space-between;margin-top:4px}
+.usercard .risk{font-family:var(--display);font-size:19px;font-weight:700;color:var(--navy)}
+.usercard .pct{font-family:var(--display);font-size:13px;color:var(--watch);font-weight:600}
+.usercard .cta{margin-top:10px;display:flex;align-items:center;justify-content:space-between;
+  background:var(--navy);color:#fff;border-radius:9px;padding:9px 14px;font-size:13.5px;font-weight:600;cursor:pointer}
+.usercard .cta:hover{background:var(--navy-deep)}
+.legend{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:11px;color:var(--muted)}
+.legend b{font-weight:600;color:var(--navy-deep)}
+.legend-note{font-size:10.5px;color:var(--muted);margin-top:6px}
+
+/* ───────────────────────── ALERTS page ───────────────────────── */
+.tiercard{display:flex;gap:14px;align-items:flex-start}
+.tiercount{font-family:var(--display);font-size:38px;font-weight:700;line-height:1;min-width:64px}
+.tiercard h3{font-family:var(--display);font-size:15px;font-weight:600;color:var(--navy-deep)}
+.tiercard p{font-size:12px;color:var(--muted);margin-top:2px}
+.provchips{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center}
+.cal .dow{font-size:10px;font-weight:600;color:var(--muted);padding:4px 0}
+.cal .d{font-size:12px;font-weight:500;padding:7px 0;border-radius:8px;color:var(--navy-deep)}
+.cal .d.watch{background:var(--watch-bg);color:var(--watch);font-weight:700}
+.cal .d.warning{background:var(--warning-bg);color:var(--warning);font-weight:700}
+.cal .d.today{outline:2px solid var(--navy);outline-offset:-2px;font-weight:700}
+.cal .d.dim{color:#B9C5CF}
+.wxrow{display:flex;justify-content:space-between}
+.wx{text-align:center;flex:1}
+.wx .d{font-size:11px;font-weight:600;color:var(--muted)}
+.wx .i{font-size:18px;margin:4px 0}
+.wx .t{font-family:var(--display);font-size:12.5px;font-weight:600;color:var(--navy-deep)}
+.wx .l{font-size:11px;color:var(--muted)}
+
+/* ───────────────────────── SAFETY page ───────────────────────── */
+.advice{display:flex;gap:14px;align-items:flex-start}
+.advice .ic{width:42px;height:42px;border-radius:11px;background:var(--bg);border:1px solid var(--hairline);
+  display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.advice h3{font-family:var(--display);font-size:14.5px;font-weight:600;color:var(--navy-deep)}
+.advice p{font-size:12.5px;color:var(--muted);margin-top:2px;line-height:1.6}
+.emerg{border-left:3px solid var(--warning)}
+.emerg .ic{background:var(--warning-bg);border-color:transparent}
+
+/* ───────────────────────── PROFILE page ───────────────────────── */
+.setrow{display:flex;justify-content:space-between;align-items:center;padding:13px 0;border-bottom:1px solid var(--hairline)}
+.setrow:last-child{border-bottom:none;padding-bottom:0}
+.setrow:first-child{padding-top:0}
+.setrow .k{font-size:14px;font-weight:500}
+.setrow .v{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.setrow .v::after{content:'›';color:#B9C5CF;font-size:16px}
+.about{font-size:12.5px;line-height:1.7;color:var(--muted)}
+.about b{color:var(--navy-deep);font-weight:600}
+.about .vrow{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px dashed var(--hairline)}
+.about .vrow:last-child{border-bottom:none}
+
+/* ───────────────────────── review panel (desktop only) ───────────────────────── */
+.panel{max-width:430px;padding-top:8px}
+.panel h2{font-family:var(--display);font-size:24px;font-weight:700;color:var(--navy)}
+.panel .tag{display:inline-block;font-size:11px;letter-spacing:2px;font-weight:600;color:var(--accent);
+  text-transform:uppercase;margin-bottom:6px}
+.panel p{font-size:14px;line-height:1.8;color:#41566B;margin:10px 0 18px}
+.swatches{display:flex;gap:8px;margin-bottom:18px}
+.sw{width:52px;height:52px;border-radius:10px;box-shadow:var(--shadow);position:relative}
+.sw span{position:absolute;bottom:-20px;left:0;font-size:9.5px;color:var(--muted);white-space:nowrap}
+.rule{background:var(--card);border:1px solid var(--hairline);border-radius:var(--r);padding:14px 16px;
+  margin-top:28px;font-size:13px;line-height:1.7;color:#41566B}
+.rule b{color:var(--navy-deep)}
+.kbd{font-family:var(--display);font-size:11px;background:var(--bg);border:1px solid var(--hairline);
+  border-radius:5px;padding:1px 7px;color:var(--navy)}
+@media(max-width:900px){.panel{order:2}}
+</style>
+</head>
+<body>
+
+<!-- ════════════════ PHONE ════════════════ -->
+<div class="phone">
+  <div class="statusbar"><span>13:03</span><span>HeatWatch ●</span></div>
+  <div class="screen">
+
+    <!-- ── MAP ── -->
+    <div class="page active" id="p-map">
+      <div class="appbar">
+        <h1>แผนที่ความเสี่ยง</h1>
+        <span class="sub">77 จังหวัด · 7 วันล่วงหน้า</span>
+      </div>
+      <div class="mapwrap">
+        <svg class="thmap" viewBox="0 0 200 420" preserveAspectRatio="xMidYMid meet">
+          <!-- simplified Thailand silhouette, calm desaturated fill -->
+          <path d="M86 18 L118 12 L138 26 L146 52 L168 66 L172 96 L156 118 L160 148 L142 170
+                   L150 196 L132 216 L118 210 L106 232 L112 262 L100 286 L108 312 L96 340
+                   L104 368 L94 396 L82 402 L74 376 L82 350 L72 322 L80 296 L70 270 L78 244
+                   L64 224 L46 230 L34 210 L42 186 L30 162 L44 140 L36 112 L54 92 L50 64
+                   L68 44 L72 24 Z"
+                fill="#CBD8E2" stroke="#B3C4D2" stroke-width="1.5"/>
+          <!-- risk dots: warm colour ONLY where risk exists -->
+          <circle class="risk-dot" cx="120" cy="120" r="9"  fill="#C75B39"/>
+          <circle class="risk-dot" cx="138" cy="148" r="7"  fill="#C75B39"/>
+          <circle class="risk-dot" cx="104" cy="96"  r="6"  fill="#C98A2D"/>
+          <circle class="risk-dot" cx="84"  cy="140" r="5"  fill="#C98A2D"/>
+          <circle class="risk-dot" cx="116" cy="226" r="5"  fill="#C98A2D"/>
+          <circle cx="98" cy="252" r="4.5" fill="#16324F" opacity=".85"/>
+          <text x="108" y="256" font-size="9" fill="#16324F" font-weight="600" font-family="Anuphan">คุณอยู่ที่นี่</text>
+        </svg>
+        <div class="map-top">
+          <span class="chip ts-chip">ข้อมูลเมื่อ 13:03 น.</span>
+          <span class="chip badge-watch"><span class="dot" style="background:var(--watch)"></span>เฝ้าระวัง 12 จว.</span>
+        </div>
+        <div class="usercard">
+          <div class="loc">พื้นที่ของคุณ · ชลบุรี</div>
+          <div class="row">
+            <span class="risk">ระดับเฝ้าระวัง</span>
+            <span class="pct">โอกาสเกิด 19%</span>
+          </div>
+          <div class="cta"><span>ต้องทำยังไง</span><span>→</span></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="legend">
+          <b>ระดับสีบนแผนที่</b>
+          <span><span class="dot" style="background:var(--safe)"></span> ปกติ</span>
+          <span><span class="dot" style="background:var(--watch)"></span> เฝ้าระวัง</span>
+          <span><span class="dot" style="background:var(--warning)"></span> เตือนภัย</span>
+          <span><span class="dot" style="background:var(--extreme)"></span> อันตราย</span>
+        </div>
+        <div class="legend-note">สีแสดง "ความเสี่ยงที่พยากรณ์" ไม่ใช่คลื่นความร้อนที่ยืนยันแล้ว</div>
+      </div>
+    </div>
+
+    <!-- ── ALERTS ── -->
+    <div class="page" id="p-alerts">
+      <div class="appbar">
+        <h1>การแจ้งเตือน</h1>
+        <span class="sub">พยากรณ์ 11 มิ.ย. 2026</span>
+      </div>
+      <div class="card tiercard" style="border-left:3px solid var(--warning)">
+        <div class="tiercount" style="color:var(--warning)">40</div>
+        <div>
+          <h3>เตือนภัย — เตรียมพร้อม</h3>
+          <p>จังหวัดที่ความเสี่ยงสูง ควรงดกิจกรรมกลางแจ้งช่วงบ่าย</p>
+          <div class="provchips">
+            <span class="chip badge-warning">อุดรธานี</span>
+            <span class="chip badge-warning">ขอนแก่น</span>
+            <span class="chip badge-warning">นครราชสีมา</span>
+            <span class="chip ts-chip">+37 จังหวัด</span>
+          </div>
+        </div>
+      </div>
+      <div class="card tiercard" style="border-left:3px solid var(--watch)">
+        <div class="tiercount" style="color:var(--watch)">12</div>
+        <div>
+          <h3>เฝ้าระวัง — ติดตามสถานการณ์</h3>
+          <p>ความเสี่ยงปานกลาง ดื่มน้ำบ่อย สังเกตอาการ</p>
+          <div class="provchips">
+            <span class="chip badge-watch">ชลบุรี</span>
+            <span class="chip badge-watch">ระยอง</span>
+            <span class="chip ts-chip">+10 จังหวัด</span>
+          </div>
+        </div>
+      </div>
+      <div class="section-h">ปฏิทินความเสี่ยง · มิถุนายน</div>
+      <div class="card">
+        <div class="cal">
+          <span class="dow">อา</span><span class="dow">จ</span><span class="dow">อ</span><span class="dow">พ</span><span class="dow">พฤ</span><span class="dow">ศ</span><span class="dow">ส</span>
+          <span class="d dim">31</span><span class="d">1</span><span class="d">2</span><span class="d">3</span><span class="d">4</span><span class="d">5</span><span class="d">6</span>
+          <span class="d">7</span><span class="d">8</span><span class="d">9</span><span class="d today">10</span><span class="d watch">11</span><span class="d warning">12</span><span class="d warning">13</span>
+          <span class="d watch">14</span><span class="d">15</span><span class="d">16</span><span class="d dim">17</span><span class="d dim">18</span><span class="d dim">19</span><span class="d dim">20</span>
+        </div>
+      </div>
+      <div class="section-h">สภาพอากาศ 7 วัน · ชลบุรี</div>
+      <div class="card wxrow">
+        <div class="wx"><div class="d">วันนี้</div><div class="i">⛈️</div><div class="t">32°</div><div class="l">27°</div></div>
+        <div class="wx"><div class="d">พฤ</div><div class="i">🌧️</div><div class="t">30°</div><div class="l">27°</div></div>
+        <div class="wx"><div class="d">ศ</div><div class="i">🌧️</div><div class="t">31°</div><div class="l">26°</div></div>
+        <div class="wx"><div class="d">ส</div><div class="i">⛈️</div><div class="t">31°</div><div class="l">26°</div></div>
+        <div class="wx"><div class="d">อา</div><div class="i">⛈️</div><div class="t">30°</div><div class="l">26°</div></div>
+        <div class="wx"><div class="d">จ</div><div class="i">🌧️</div><div class="t">30°</div><div class="l">27°</div></div>
+      </div>
+    </div>
+
+    <!-- ── SAFETY ── -->
+    <div class="page" id="p-safety">
+      <div class="appbar">
+        <h1>ดูแลตัวเอง</h1>
+        <span class="sub">คำแนะนำวันอากาศร้อน</span>
+      </div>
+      <div class="section-h">ก่อนออกจากบ้าน</div>
+      <div class="card advice">
+        <div class="ic">🧴</div>
+        <div><h3>เตรียมน้ำดื่มติดตัว</h3><p>อย่างน้อย 1 ลิตรต่อการออกนอกบ้าน 3 ชั่วโมง เลี่ยงเครื่องดื่มแอลกอฮอล์และกาแฟ</p></div>
+      </div>
+      <div class="card advice">
+        <div class="ic">👕</div>
+        <div><h3>เสื้อผ้าสีอ่อน ระบายอากาศ</h3><p>ผ้าฝ้ายหลวม ๆ สีอ่อน หมวกปีกกว้าง ช่วยลดอุณหภูมิร่างกายได้จริง</p></div>
+      </div>
+      <div class="section-h">ช่วงกลางวัน 11:00–15:00</div>
+      <div class="card advice">
+        <div class="ic">🏠</div>
+        <div><h3>เลี่ยงกลางแจ้งช่วงแดดแรง</h3><p>ถ้าจำเป็นต้องทำงานกลางแจ้ง พัก 10–15 นาทีในที่ร่มทุกชั่วโมง</p></div>
+      </div>
+      <div class="card advice">
+        <div class="ic">👀</div>
+        <div><h3>ดูแลกลุ่มเสี่ยงใกล้ตัว</h3><p>ผู้สูงอายุ เด็กเล็ก ผู้ป่วยโรคหัวใจ — โทรเช็คอาการช่วงบ่ายวันร้อนจัด</p></div>
+      </div>
+      <div class="section-h">สัญญาณอันตราย</div>
+      <div class="card advice emerg">
+        <div class="ic">🚨</div>
+        <div><h3>โรคลมแดด (Heat Stroke)</h3><p>ตัวร้อนจัดแต่ไม่มีเหงื่อ สับสน หมดสติ — <b style="color:var(--warning)">โทร 1669 ทันที</b> ระหว่างรอ: ย้ายเข้าร่ม เช็ดตัวด้วยน้ำเย็น</p></div>
+      </div>
+    </div>
+
+    <!-- ── PROFILE ── -->
+    <div class="page" id="p-profile">
+      <div class="appbar">
+        <h1>ตั้งค่า</h1>
+        <span class="sub"></span>
+      </div>
+      <div class="section-h">การแจ้งเตือนของฉัน</div>
+      <div class="card">
+        <div class="setrow"><span class="k">จังหวัดของฉัน</span><span class="v">ชลบุรี</span></div>
+        <div class="setrow"><span class="k">รับแจ้งเตือนผ่าน LINE</span><span class="v">เปิดอยู่</span></div>
+      </div>
+      <div class="section-h">การแสดงผล</div>
+      <div class="card">
+        <div class="setrow"><span class="k">ภาษา</span><span class="v">ไทย</span></div>
+        <div class="setrow"><span class="k">ขนาดตัวอักษร</span><span class="v">มาตรฐาน</span></div>
+        <div class="setrow"><span class="k">ธีม</span><span class="v">ตามระบบ</span></div>
+      </div>
+      <div class="section-h">เกี่ยวกับระบบพยากรณ์</div>
+      <div class="card about">
+        <div class="vrow"><span>โมเดล</span><b>LightGBM · lgbm-v1</b></div>
+        <div class="vrow"><span>ครอบคลุม</span><b>77 จังหวัด · พยากรณ์ 7 วัน</b></div>
+        <div class="vrow"><span>แหล่งข้อมูล</span><b>Open-Meteo / ERA5 (1991–2025)</b></div>
+        <div class="vrow"><span>อัปเดตล่าสุด</span><b>10 มิ.ย. 2026 · 13:03 น.</b></div>
+        <p style="margin-top:10px">"คลื่นความร้อน" ในระบบนี้ = วันที่ดัชนีความร้อน (รวมความชื้น)
+        สูงกว่า 95% ของวันเดียวกันในรอบ 30 ปี และร้อนติดต่อกันอย่างน้อย 2 วัน
+        — เกณฑ์เฉพาะพื้นที่ของแต่ละจังหวัด</p>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- tab bar -->
+  <div class="tabbar">
+    <button class="tab active" data-p="p-map">
+      <svg viewBox="0 0 24 24"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14"/></svg>
+      <span>แผนที่</span>
+    </button>
+    <button class="tab" data-p="p-alerts">
+      <svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+      <span>แจ้งเตือน</span>
+    </button>
+    <button class="tab" data-p="p-safety">
+      <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      <span>ปลอดภัย</span>
+    </button>
+    <button class="tab" data-p="p-profile">
+      <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/></svg>
+      <span>โปรไฟล์</span>
+    </button>
+  </div>
+</div>
+
+<!-- ════════════════ REVIEW PANEL ════════════════ -->
+<div class="panel">
+  <div class="tag">Design Mockup · รอรีวิว</div>
+  <h2>Calm Authority</h2>
+  <p>ดีไซน์ใหม่ทั้งแอป — สุขุม น่าเชื่อถือ อ่านง่าย กดแท็บด้านล่างของเครื่องเพื่อดูครบทั้ง 4 หน้า</p>
+
+  <div class="swatches">
+    <div class="sw" style="background:var(--navy)"><span>Navy #16324F</span></div>
+    <div class="sw" style="background:var(--bg);border:1px solid var(--hairline)"><span>Surface</span></div>
+    <div class="sw" style="background:var(--watch)"><span>เฝ้าระวัง</span></div>
+    <div class="sw" style="background:var(--warning)"><span>เตือนภัย</span></div>
+    <div class="sw" style="background:var(--safe)"><span>ปกติ</span></div>
+  </div>
+
+  <div class="rule">
+    <b>กติกาเหล็กของระบบสีนี้:</b> สีอุ่น (เหลือง/ส้ม/แดง) ปรากฏ<b>เฉพาะ</b>จุดที่สื่อความเสี่ยงจริง —
+    ไม่มีการใช้ตกแต่ง ดังนั้นเมื่อผู้ใช้เห็นสีอุ่นที่ไหน แปลว่า "ตรงนั้นมีความหมาย" เสมอ
+    ส่วนที่เหลือทั้งแอปคือกรมท่า + ขาวนวล ให้ความรู้สึกหน่วยงานที่ไว้ใจได้
+  </div>
+  <div class="rule">
+    <b>ฟอนต์:</b> หัวข้อ/ตัวเลข = <span class="kbd">Bai Jamjuree</span> (เหลี่ยมนิด ๆ ดูทางการสมัยใหม่) ·
+    เนื้อหา = <span class="kbd">Anuphan</span> (ไทยอ่านสบาย ช่องไฟกว้าง)
+  </div>
+  <div class="rule">
+    <b>จุดที่ออกแบบเผื่อกรรมการ YSC:</b> หน้าโปรไฟล์มีส่วน "เกี่ยวกับระบบพยากรณ์"
+    โชว์โมเดล แหล่งข้อมูล และนิยามคลื่นความร้อนแบบ percentile — ความโปร่งใสของระบบ
+    คือสิ่งที่กรรมการสายวิทยาศาสตร์มองหา
+  </div>
+</div>
+
+<script>
+document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
+  document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(x => x.classList.remove('active'));
+  t.classList.add('active');
+  document.getElementById(t.dataset.p).classList.add('active');
+}));
+</script>
+</body>
+</html>
