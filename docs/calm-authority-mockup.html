@@ -80,9 +80,12 @@ body{background:#EDF1F5;font-family:var(--body);color:var(--navy-deep);min-heigh
 .tab svg{transition:transform .15s ease}
 @media(prefers-reduced-motion:reduce){.glider,.tab svg{transition:none}}
 
-/* ───────────────────────── MAP page ───────────────────────── */
-.mapwrap{position:relative;height:430px;margin:0 16px 12px;border-radius:var(--r);
-  overflow:hidden;border:1px solid var(--hairline);background:linear-gradient(180deg,#E9EEF3,#DFE7EE)}
+/* ───────────────────────── MAP page (full-bleed hero) ───────────────────────── */
+#p-map{padding-bottom:0;height:100%;position:relative}
+.mapwrap{position:absolute;inset:0;overflow:hidden;background:linear-gradient(180deg,#E9EEF3,#DFE7EE)}
+.hero-pill{background:rgba(255,255,255,.68);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
+  border:1px solid rgba(255,255,255,.75);color:var(--navy);font-family:var(--display);
+  font-weight:700;font-size:13px;padding:6px 14px;box-shadow:var(--shadow)}
 #leafmap{position:absolute;inset:0;z-index:1}
 #leafmap .leaflet-control-attribution{font-size:8px;opacity:.75}
 .map-top{position:absolute;top:10px;left:10px;right:10px;display:flex;justify-content:space-between;align-items:center;z-index:1001;pointer-events:none}
@@ -91,9 +94,15 @@ body{background:#EDF1F5;font-family:var(--body);color:var(--navy-deep);min-heigh
   background:var(--navy);color:#fff;border-radius:999px;padding:5px 12px;font-size:11px;font-weight:600;
   box-shadow:var(--shadow)}
 .route-banner.show{display:inline-flex;gap:6px;align-items:center;animation:rise .3s ease both}
-.usercard{position:absolute;left:10px;right:10px;bottom:10px;background:rgba(255,255,255,.96);
-  backdrop-filter:blur(4px);border:1px solid var(--hairline);border-radius:var(--r);
-  box-shadow:var(--shadow);padding:14px 16px;z-index:1001}
+.usercard{position:absolute;left:12px;right:12px;bottom:92px;background:rgba(255,255,255,.9);
+  -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+  border:1px solid rgba(255,255,255,.8);border-radius:16px;
+  box-shadow:0 12px 32px rgba(16,36,58,.18);padding:14px 16px;z-index:1001}
+.usercard .loc{display:flex;justify-content:space-between;align-items:baseline}
+.usercard .loc .ts{font-size:10.5px;color:var(--muted)}
+.minilegend{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;padding-top:9px;
+  border-top:1px solid var(--hairline);font-size:10.5px;color:var(--muted)}
+.minilegend .note{width:100%;font-size:10px;margin-top:1px}
 .usercard .btnrow{display:flex;gap:8px;margin-top:10px}
 .usercard .cta2{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;
   border:1.5px solid var(--navy);color:var(--navy);background:#fff;border-radius:9px;
@@ -175,21 +184,17 @@ body{background:#EDF1F5;font-family:var(--body);color:var(--navy-deep);min-heigh
   <div class="statusbar"><span>13:03</span><span>HeatWatch ●</span></div>
   <div class="screen">
 
-    <!-- ── MAP ── -->
+    <!-- ── MAP (full-bleed hero — every control floats on the map) ── -->
     <div class="page active" id="p-map">
-      <div class="appbar">
-        <h1>แผนที่ความเสี่ยง</h1>
-        <span class="sub">77 จังหวัด · 7 วันล่วงหน้า</span>
-      </div>
       <div class="mapwrap">
         <div id="leafmap"></div>
         <div class="map-top">
-          <span class="chip ts-chip">ข้อมูลเมื่อ 13:03 น.</span>
+          <span class="chip hero-pill">แผนที่ความเสี่ยง · 77 จังหวัด</span>
           <span class="chip badge-watch"><span class="dot" style="background:var(--watch)"></span>เฝ้าระวัง 12 จว.</span>
         </div>
         <div class="route-banner" id="routeBanner">🛣️ เลี่ยงโซนเตือนภัยโคราช · +45 นาที</div>
         <div class="usercard">
-          <div class="loc">พื้นที่ของคุณ · ชลบุรี</div>
+          <div class="loc"><span>พื้นที่ของคุณ · ชลบุรี</span><span class="ts">ข้อมูลเมื่อ 13:03 น.</span></div>
           <div class="row">
             <span class="risk">ระดับเฝ้าระวัง</span>
             <span class="pct">โอกาสเกิด 19%</span>
@@ -198,17 +203,14 @@ body{background:#EDF1F5;font-family:var(--body);color:var(--navy-deep);min-heigh
             <div class="cta" style="flex:1;margin:0"><span>ต้องทำยังไง</span><span>→</span></div>
             <button class="cta2" id="routeBtn">🛣️ เส้นทางเลี่ยง</button>
           </div>
+          <div class="minilegend">
+            <span><span class="dot" style="background:var(--safe)"></span> ปกติ</span>
+            <span><span class="dot" style="background:var(--watch)"></span> เฝ้าระวัง</span>
+            <span><span class="dot" style="background:var(--warning)"></span> เตือนภัย</span>
+            <span><span class="dot" style="background:var(--extreme)"></span> อันตราย</span>
+            <span class="note">สีแสดง "ความเสี่ยงที่พยากรณ์" ไม่ใช่คลื่นความร้อนที่ยืนยันแล้ว</span>
+          </div>
         </div>
-      </div>
-      <div class="card">
-        <div class="legend">
-          <b>ระดับสีบนแผนที่</b>
-          <span><span class="dot" style="background:var(--safe)"></span> ปกติ</span>
-          <span><span class="dot" style="background:var(--watch)"></span> เฝ้าระวัง</span>
-          <span><span class="dot" style="background:var(--warning)"></span> เตือนภัย</span>
-          <span><span class="dot" style="background:var(--extreme)"></span> อันตราย</span>
-        </div>
-        <div class="legend-note">สีแสดง "ความเสี่ยงที่พยากรณ์" ไม่ใช่คลื่นความร้อนที่ยืนยันแล้ว</div>
       </div>
     </div>
 
@@ -398,8 +400,9 @@ tabs.forEach((t, i) => t.addEventListener('click', () => {
 
 /* ── real pan/zoom map: OpenStreetMap data, CARTO Positron tiles (free) ── */
 const map = L.map('leafmap', { zoomControl: false, attributionControl: true })
-  .setView([14.6, 101.6], 6);
+  .setView([13.6, 101.2], 6);
 window._map = map;
+setTimeout(() => map.invalidateSize(), 120); // full-bleed hero needs a post-layout refresh
 L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
   attribution: '© OpenStreetMap, © CARTO', maxZoom: 18,
 }).addTo(map);
@@ -447,10 +450,10 @@ routeBtn.addEventListener('click', () => {
   if (routeOn) {
     routeNormal.addTo(map); routeAvoid.addTo(map);
     map.fitBounds(routeAvoid.getBounds().extend(routeNormal.getBounds()),
-      { paddingTopLeft: [30, 70], paddingBottomRight: [30, 150] }); // เผื่อ usercard ด้านล่าง
+      { paddingTopLeft: [30, 80], paddingBottomRight: [30, 290] }); // เผื่อ usercard + tabbar ลอยด้านล่าง
   } else {
     map.removeLayer(routeNormal); map.removeLayer(routeAvoid);
-    map.setView([14.6, 101.6], 6);
+    map.setView([13.6, 101.2], 6);
   }
 });
 </script>
