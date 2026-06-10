@@ -208,6 +208,18 @@ Expected: `161 passed` and `40 pass, 0 fail`.
 git push origin feat/clean-era5-ndvi-dataset
 ```
 
-- [ ] **Step 3: Update memory**
+- [x] **Step 3: Update memory**
 
 Update `track-m-ml-progress.md` / `prod-render-correctness.md` memory files to reflect: collector now StartWhenAvailable; PRs #1/#2 closed; route claim resolved per Task 2 outcome; dual-lineage documented.
+
+---
+
+## Execution log — COMPLETED 2026-06-10 (inline, same session)
+
+- Task 1 ✅ collector idempotency verified (no-op per issue_date); task re-registered, `StartWhenAvailable = True`; caveat documented + committed (`76bb598`).
+- Task 2 ✅ went path **2a** — legacy routes confirmed REAL on prod (master serves `Heatwave-AI-Backend-Elysia/`, Dockerfile.render pulls balanced_rf). Built `fix/retire-legacy-forecast-route` in worktree `..\Heatwave_AI_master-fix`: frontend synced from feat branch (10 files, retires `getLatestForecast()` callers) + `GET /api/forecast/latest` → 410 Gone + `POST /api/forecast` removed + dead identifiers cleaned; `bun build` syntax-checked. **Opened PR #10 — NOT merged (merge = prod deploy, user-gated).**
+- Task 3 ✅ PRs #1 and #2 closed with superseded-by notes.
+- Task 4 ✅ junk deleted; review docs + this plan committed (`1d538e1`).
+- Task 5 ✅ config.yaml NOT-WIRED banner; pytest 161 passed (`45e59fa`).
+- Task 6 ✅ branch pushed (`8333e65..f3fc34e`); dual-lineage recorded in CLAUDE.md (`f3fc34e`).
+- Task 7 ✅ final: pytest 161 pass, bun test 40 pass; memory files updated.
