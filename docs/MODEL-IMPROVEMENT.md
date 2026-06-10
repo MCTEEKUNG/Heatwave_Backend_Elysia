@@ -245,6 +245,17 @@ still lost forever. The durable fix is cloud collection — needs a persistence 
 for `forecast_store.parquet` (HF repo or a Supabase table) before the GH-Actions cron
 can host it; tracked as follow-up, not done yet.
 
+**Cloud collection BUILT + STAGED (2026-06-10, activation = merge PR #11):** the
+persistence target is the `heatwave.forecast_store` Supabase table (migration
+`0002_forecast_store.sql`, PK `(province_id, issue_date, target_date)`, immutable
+rows → `ON CONFLICT DO NOTHING`). `collect_forecast.py` now mirrors each day's rows
+to it whenever `DATABASE_URL` is in the env (CI; local runs unchanged) and fetches
+via `_get_with_retry` (429-safe on CI IPs). `scripts/sync_forecast_store.py` is the
+two-way union: it seeded the table with the existing 4,851 rows / 9 issue dates
+(re-run verified idempotent) and is the pre-training pull. The GH-Actions cron
+(`collect-forecast.yml`, 07:45 Asia/Bangkok, same pattern as daily-forecast.yml)
+is staged on PR #11 — once merged, no issue date depends on the laptop again.
+
 ### P0 unblocked NOW with REAL multi-year forecasts: NOAA GEFS reforecast
 
 The forward-collector waits months; we don't have to. **NOAA GEFSv12 reforecast**

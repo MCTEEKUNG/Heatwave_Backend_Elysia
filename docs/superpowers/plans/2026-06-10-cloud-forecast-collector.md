@@ -61,6 +61,12 @@
 
 ---
 
-## Execution log
+## Execution log — COMPLETED 2026-06-10 (inline, same session)
 
-(filled during execution)
+- Task A ✅ migration `0002_forecast_store.sql` applied to Supabase.
+- Task B ✅ TDD: 4 tests → `src/forecast_store_db.py` (`6fb4d8a`).
+- Task C ✅ TDD: 2 tests → DB-push hook + `_get_with_retry` fetch; full suite 167 passed (`21a70f4`).
+- Task D ✅ TDD: 4 tests → `scripts/sync_forecast_store.py` (`00c7965`).
+- Task F ✅ (run before E): seeded 4,851 rows / 9 issue dates; second run 0 uploaded (idempotent); DB count == parquet count by construction (down-fetch matched).
+- Task E ✅ `collect-forecast.yml` on branch `ci/collect-forecast-cron` → **PR #11, NOT merged (merge = activation, user-gated)**.
+- Task G ✅ docs + memory updated; final pytest 171 passed, bun test 40 pass.
