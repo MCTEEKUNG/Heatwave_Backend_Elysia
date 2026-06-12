@@ -120,41 +120,55 @@ async function searchGooglePlaces(
  * Fetch places using OpenStreetMap (Overpass API)
  * Specifically tuned for Thailand's available amenity/shop types
  */
+// Public Overpass instances, tried in order — overpass-api.de alone 504s
+// regularly under load, so a single endpoint made the feature flaky.
+const OVERPASS_ENDPOINTS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass.private.coffee/api/interpreter',
+];
+
 async function searchOSMPlaces(
   latitude: number,
   longitude: number,
   radiusKm: number
 ): Promise<Place[]> {
   const radiusMeters = radiusKm * 1000;
-  
+
   // Overpass QL Query
   const query = `
     [out:json][timeout:15];
     (
       node["shop"="mall"](around:${radiusMeters},${latitude},${longitude});
       way["shop"="mall"](around:${radiusMeters},${latitude},${longitude});
-      
+
       node["amenity"="hospital"](around:${radiusMeters},${latitude},${longitude});
       way["amenity"="hospital"](around:${radiusMeters},${latitude},${longitude});
-      
+
       node["shop"="supermarket"](around:${radiusMeters},${latitude},${longitude});
       way["shop"="supermarket"](around:${radiusMeters},${latitude},${longitude});
-      
+
       node["shop"="convenience"](around:${radiusMeters},${latitude},${longitude});
-      
+
       node["public_transport"="station"](around:${radiusMeters},${latitude},${longitude});
     );
     out center;
   `;
 
-  const url = `https://overpass-api.de/api/interpreter`;
-  const response = await fetch(url, {
-    method: 'POST',
-    body: query,
-  });
-
-  if (!response.ok) throw new Error('Overpass API Error');
-  const data = await response.json();
+  let data: any = null;
+  let lastError: unknown = new Error('Overpass API unavailable');
+  for (const url of OVERPASS_ENDPOINTS) {
+    try {
+      const response = await fetch(url, { method: 'POST', body: query });
+      if (!response.ok) throw new Error(`Overpass ${response.status} (${url})`);
+      data = await response.json();
+      break;
+    } catch (e) {
+      lastError = e;
+      console.warn('Overpass endpoint failed, trying next mirror:', url);
+    }
+  }
+  if (!data) throw lastError;
 
   const places: Place[] = [];
   
@@ -203,24 +217,16 @@ export async function getNearestCoolingPlaces(
   longitude: number
 ): Promise<Place[]> {
   let places: Place[] = [];
-  
-  // Try Google First
+
+  // Try Google First (only wired when an API key is configured)
   try {
-    places = await searchGooglePlaces(latitude, longitude, 1);
-    if (places.length === 0) {
-      places = await searchGooglePlaces(latitude, longitude, 3);
-    }
-  } catch (error) {
-    console.log("Google Places API failed or unavailable, falling back to OSM", error);
-    // Fallback to OSM
-    try {
-      places = await searchOSMPlaces(latitude, longitude, 1);
-      if (places.length === 0) {
-        places = await searchOSMPlaces(latitude, longitude, 3);
-      }
-    } catch (osmError) {
-      console.error("OSM API also failed", osmError);
-    }
+    places = await searchGooglePlaces(latitude, longitude, 3);
+  } catch {
+    // OSM fallback: one 3km query (sorting picks the closest anyway — the old
+    // 1km-then-3km retry just doubled the load on already-strained servers).
+    // Errors PROPAGATE so the UI can show its retry card instead of silently
+    // rendering an empty "no places" state.
+    places = await searchOSMPlaces(latitude, longitude, 3);
   }
   
   // Priority order for ranking (index determines priority, lower is better)
@@ -262,13 +268,12 @@ export function estimateTravelTime(distanceKm: number): string {
   const hours = distanceKm / 30;
   const minutes = Math.round(hours * 60);
   
-  if (minutes < 1) return 'Less than 1 min';
-  if (minutes === 1) return '1 min';
-  if (minutes < 60) return `${minutes} min`;
-  
+  if (minutes < 1) return 'ไม่ถึง 1 นาที';
+  if (minutes < 60) return `~${minutes} นาที`;
+
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
-  return m > 0 ? `${h}h ${m}m` : `${h} hour${h > 1 ? 's' : ''}`;
+  return m > 0 ? `~${h} ชม. ${m} นาที` : `~${h} ชม.`;
 }
 
 export default {
